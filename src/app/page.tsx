@@ -41,6 +41,12 @@ export default function Home() {
     targetCompany: "Google", experience: "", skills: "",
   });
   const [profileSaved, setProfileSaved] = useState(false);
+  const [resumeText, setResumeText] = useState("");
+  const [userContext, setUserContext] = useState("");
+  const [parsing, setParsing] = useState(false);
+  const [showContextPrompt, setShowContextPrompt] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [resumeHighlights, setResumeHighlights] = useState<any>(null);
 
   // Session state
   const [sessionId, setSessionId] = useState("");
@@ -79,6 +85,35 @@ export default function Home() {
     setProfileSaved(true);
     setTab("practice");
   }, [profile]);
+
+  const autoFillFromResumeOrContext = useCallback(async () => {
+    if (!resumeText && !userContext) return;
+    setParsing(true);
+    try {
+      const res = await fetch("/api/parse-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resume: resumeText, context: userContext }),
+      });
+      const data = await res.json();
+      if (data.profile) {
+        const p = data.profile;
+        setProfile(prev => ({
+          name: p.name || prev.name,
+          background: p.background || prev.background,
+          targetRole: p.targetRole || prev.targetRole,
+          targetCompany: p.targetCompany || prev.targetCompany,
+          experience: p.experience || prev.experience,
+          skills: p.skills || prev.skills,
+        }));
+        if (p.resumeHighlights) setResumeHighlights(p.resumeHighlights);
+      }
+    } catch (e) {
+      console.error("Auto-fill error:", e);
+    } finally {
+      setParsing(false);
+    }
+  }, [resumeText, userContext]);
 
   // Start a new session — either with default Qs or adaptive AI-generated Qs
   const startSession = useCallback(async (useAdaptive: boolean) => {
@@ -305,12 +340,119 @@ export default function Home() {
       <main className="max-w-4xl mx-auto px-4 py-6">
         {/* ═══════ SETUP TAB ═══════ */}
         {tab === "setup" && (
-          <div className="max-w-xl mx-auto space-y-4">
+          <div className="max-w-2xl mx-auto space-y-5">
             <h2 className="text-xl font-bold text-slate-200">Your Profile</h2>
-            <p className="text-sm text-muted">This helps Claude tailor feedback to your experience and goals.</p>
-            <div className="space-y-3">
+            <p className="text-sm text-muted">Paste your resume or LLM-generated context to auto-fill, or fill manually.</p>
+
+            {/* ── Quick Fill Section ── */}
+            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+              <h3 className="text-sm font-bold text-accent2">Quick Fill (Optional)</h3>
+              <p className="text-xs text-muted">Paste your resume text and/or an LLM-generated context summary. We&apos;ll auto-fill everything.</p>
+
+              {/* Resume */}
+              <div>
+                <label className="text-xs text-muted font-semibold block mb-1">Resume (paste text)</label>
+                <textarea
+                  value={resumeText}
+                  onChange={e => setResumeText(e.target.value)}
+                  placeholder="Paste your resume text here... (copy from your PDF/DOCX)"
+                  rows={4}
+                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
+                />
+              </div>
+
+              {/* Context */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs text-muted font-semibold">LLM-Generated Context (paste output)</label>
+                  <button
+                    onClick={() => setShowContextPrompt(!showContextPrompt)}
+                    className="text-[10px] text-accent hover:underline"
+                  >
+                    {showContextPrompt ? "Hide prompt" : "Get the prompt to generate this"}
+                  </button>
+                </div>
+
+                {showContextPrompt && (
+                  <div className="bg-bg border border-accent/30 rounded-lg p-3 mb-2">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-[10px] text-accent font-bold uppercase tracking-wider">Copy this prompt → paste into ChatGPT / Claude / Gemini</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(CONTEXT_GENERATION_PROMPT);
+                        }}
+                        className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded hover:bg-accent/30 transition-colors"
+                      >
+                        Copy Prompt
+                      </button>
+                    </div>
+                    <pre className="text-xs text-slate-400 whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">{CONTEXT_GENERATION_PROMPT}</pre>
+                  </div>
+                )}
+
+                <textarea
+                  value={userContext}
+                  onChange={e => setUserContext(e.target.value)}
+                  placeholder="Paste the LLM-generated context here..."
+                  rows={4}
+                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
+                />
+              </div>
+
+              <button
+                onClick={autoFillFromResumeOrContext}
+                disabled={parsing || (!resumeText && !userContext)}
+                className="w-full py-2.5 bg-accent2 text-bg rounded-lg text-sm font-semibold hover:bg-accent2/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {parsing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="inline-block w-4 h-4 border-2 border-bg/30 border-t-bg rounded-full animate-spin" />
+                    Analyzing & auto-filling...
+                  </span>
+                ) : "Auto-Fill Profile from Resume / Context"}
+              </button>
+            </div>
+
+            {/* ── Resume Highlights (shown after auto-fill) ── */}
+            {resumeHighlights && (
+              <div className="bg-accent/10 border border-accent/30 rounded-xl p-4">
+                <h4 className="text-xs font-bold text-accent uppercase tracking-wider mb-2">Resume Analysis</h4>
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  {resumeHighlights.years_of_experience > 0 && (
+                    <div><span className="text-muted">Experience:</span> <span className="text-slate-200">{resumeHighlights.years_of_experience} years</span></div>
+                  )}
+                  {resumeHighlights.education && (
+                    <div><span className="text-muted">Education:</span> <span className="text-slate-200">{resumeHighlights.education}</span></div>
+                  )}
+                </div>
+                {resumeHighlights.key_metrics?.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-[10px] text-green-400 font-bold">KEY METRICS</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {resumeHighlights.key_metrics.map((m: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded">{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {resumeHighlights.gaps_to_address?.length > 0 && (
+                  <div className="mt-2">
+                    <span className="text-[10px] text-yellow-400 font-bold">AREAS TO PREP</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {resumeHighlights.gaps_to_address.map((g: string, i: number) => (
+                        <span key={i} className="text-[10px] bg-yellow-900/30 text-yellow-400 px-2 py-0.5 rounded">{g}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Manual Fields ── */}
+            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
+              <h3 className="text-sm font-bold text-slate-200">Profile Details {resumeHighlights ? "(auto-filled — edit as needed)" : ""}</h3>
               <Field label="Name" value={profile.name} onChange={v => setProfile(p => ({ ...p, name: v }))} placeholder="Your name" />
-              <Field label="Background" value={profile.background} onChange={v => setProfile(p => ({ ...p, background: v }))} placeholder="e.g., CS student, 3 years as backend engineer, career switcher from finance" />
+              <Field label="Background" value={profile.background} onChange={v => setProfile(p => ({ ...p, background: v }))} placeholder="e.g., CS student, 3 years as backend engineer" />
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-muted font-semibold block mb-1">Target Company</label>
@@ -326,7 +468,7 @@ export default function Home() {
                 </div>
                 <Field label="Target Role" value={profile.targetRole} onChange={v => setProfile(p => ({ ...p, targetRole: v }))} placeholder="SWE Intern, Senior SDE, etc." />
               </div>
-              <Field label="Experience Summary" value={profile.experience} onChange={v => setProfile(p => ({ ...p, experience: v }))} placeholder="Key projects, companies, achievements. Include metrics if you have them." multiline />
+              <Field label="Experience Summary" value={profile.experience} onChange={v => setProfile(p => ({ ...p, experience: v }))} placeholder="Key projects, companies, achievements with metrics." multiline />
               <Field label="Key Skills" value={profile.skills} onChange={v => setProfile(p => ({ ...p, skills: v }))} placeholder="Python, React, AWS, System Design, ML, etc." />
               <button
                 onClick={saveProfile}
@@ -579,6 +721,35 @@ export default function Home() {
     </div>
   );
 }
+
+// ═══════ CONSTANTS ═══════
+
+const CONTEXT_GENERATION_PROMPT = `I'm preparing for technical interviews. Please analyze my background and generate a structured context summary I can paste into an interview prep tool.
+
+Please ask me about (or I'll provide):
+1. My current role/education and career stage
+2. My work experience (companies, roles, key projects, metrics/achievements)
+3. My technical skills and technologies I've used
+4. Notable projects (personal, academic, or open source)
+5. My target companies and roles
+6. Any specific areas I want to improve in interviews
+
+Then generate a structured summary in this EXACT format:
+
+---
+NAME: [Full name]
+BACKGROUND: [1-2 sentence career summary]
+TARGET: [Target role] at [Target company type]
+EXPERIENCE: [Concise work history with metrics — e.g., "Built X that handled Y TPS, reduced Z by N%"]
+SKILLS: [Comma-separated technical skills]
+KEY ACHIEVEMENTS: [Bullet list of quantified accomplishments]
+PROJECTS: [Notable projects with 1-line descriptions and tech stacks]
+INTERVIEW STRENGTHS: [Areas you'd be strong in]
+INTERVIEW GAPS: [Areas to prepare more for]
+STAR STORIES: [2-3 brief situation summaries you could use for behavioral questions]
+---
+
+Be specific and include real metrics wherever possible. This will be used to generate personalized interview questions and evaluate my answers.`;
 
 // ═══════ SUB-COMPONENTS ═══════
 
