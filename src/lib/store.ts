@@ -86,6 +86,9 @@ export interface WeakAreaProfile {
   lastSeen: string;
 }
 
+export type AccessibilityMode = "default" | "adhd" | "dyslexia" | "focus";
+export type LearningStyle = "visual" | "auditory" | "reading" | "mixed";
+
 export interface UserProfile {
   name: string;
   background: string;
@@ -93,6 +96,10 @@ export interface UserProfile {
   targetCompany: string;
   experience: string;
   skills: string;
+  accessibilityMode: AccessibilityMode;
+  learningStyle: LearningStyle;
+  ttsEnabled: boolean;
+  onboardingComplete: boolean;
 }
 
 export interface LearningProfile {
@@ -131,7 +138,7 @@ export function saveProfile(profile: LearningProfile) {
 
 export function emptyProfile(): LearningProfile {
   return {
-    userProfile: { name: "", background: "", targetRole: "", targetCompany: "", experience: "", skills: "" },
+    userProfile: { name: "", background: "", targetRole: "", targetCompany: "", experience: "", skills: "", accessibilityMode: "default", learningStyle: "mixed", ttsEnabled: false, onboardingComplete: false },
     sessions: [],
     answers: [],
     weakAreaProfiles: {},

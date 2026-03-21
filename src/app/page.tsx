@@ -3,10 +3,14 @@ import { useState, useEffect, useCallback } from "react";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import FeedbackCard from "@/components/FeedbackCard";
 import ProgressDashboard from "@/components/ProgressDashboard";
+import Onboarding from "@/components/Onboarding";
+import PomodoroTimer from "@/components/PomodoroTimer";
+import { useAccessibility } from "@/components/AccessibilityProvider";
 import { QUESTION_BANK, WEAK_AREA_LABELS, Question } from "@/lib/questions";
+import { getCompanyPattern } from "@/lib/company-patterns";
 import {
   getProfile, saveUserProfile, recordAnswer, recordSession, getWeakAreas, getSessionCount,
-  FeedbackResult, AnswerRecord, SessionRecord, UserProfile,
+  FeedbackResult, AnswerRecord, SessionRecord, UserProfile, AccessibilityMode,
 } from "@/lib/store";
 
 type Tab = "setup" | "practice" | "progress" | "history";
@@ -35,10 +39,13 @@ interface SessionPlan {
 }
 
 export default function Home() {
+  const { mode, setMode, ttsEnabled, setTtsEnabled, speak } = useAccessibility();
   const [tab, setTab] = useState<Tab>("setup");
+  const [showOnboarding, setShowOnboarding] = useState(true);
   const [profile, setProfile] = useState<UserProfile>({
     name: "", background: "", targetRole: "Software Engineer",
     targetCompany: "Google", experience: "", skills: "",
+    accessibilityMode: "default", learningStyle: "mixed", ttsEnabled: false, onboardingComplete: false,
   });
   const [profileSaved, setProfileSaved] = useState(false);
   const [resumeText, setResumeText] = useState("");
@@ -47,6 +54,7 @@ export default function Home() {
   const [showContextPrompt, setShowContextPrompt] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [resumeHighlights, setResumeHighlights] = useState<any>(null);
+  const [showAccessPanel, setShowAccessPanel] = useState(false);
 
   // Session state
   const [sessionId, setSessionId] = useState("");
@@ -76,7 +84,10 @@ export default function Home() {
     if (saved.userProfile?.name) {
       setProfile(saved.userProfile);
       setProfileSaved(true);
+      setShowOnboarding(false);
       if (saved.answers.length > 0) setTab("practice");
+    } else if (saved.userProfile?.onboardingComplete) {
+      setShowOnboarding(false);
     }
   }, []);
 
@@ -99,6 +110,7 @@ export default function Home() {
       if (data.profile) {
         const p = data.profile;
         setProfile(prev => ({
+          ...prev,
           name: p.name || prev.name,
           background: p.background || prev.background,
           targetRole: p.targetRole || prev.targetRole,
@@ -314,26 +326,89 @@ export default function Home() {
     }
   }, [sessionAnswers, profile]);
 
+  // Handle onboarding completion
+  const handleOnboardingComplete = useCallback((partial: Partial<UserProfile>) => {
+    const updated = { ...profile, ...partial };
+    setProfile(updated);
+    setShowOnboarding(false);
+    setTab("setup");
+    if (partial.accessibilityMode) setMode(partial.accessibilityMode);
+    if (partial.ttsEnabled !== undefined) setTtsEnabled(partial.ttsEnabled);
+  }, [profile, setMode, setTtsEnabled]);
+
+  // Show onboarding if not completed
+  if (showOnboarding && !profileSaved) {
+    return <Onboarding onComplete={handleOnboardingComplete} />;
+  }
+
+  const companyPattern = getCompanyPattern(profile.targetCompany);
+
   return (
     <div className="min-h-screen bg-bg">
       {/* Top Nav */}
       <nav className="bg-surface border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-50">
         <div className="flex items-center gap-3">
           <span className="text-lg font-bold text-accent">InterviewCoach</span>
-          <span className="text-xs text-muted bg-card px-2 py-0.5 rounded">Powered by Claude</span>
+          <span className="text-xs text-muted bg-card px-2 py-0.5 rounded">AI-Powered</span>
         </div>
-        <div className="flex gap-1">
-          {(["setup", "practice", "progress", "history"] as Tab[]).map(t => (
+        <div className="flex items-center gap-2">
+          <div className="flex gap-1">
+            {(["setup", "practice", "progress", "history"] as Tab[]).map(t => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                  tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
+                }`}
+              >
+                {t === "setup" ? "Profile" : t === "practice" ? "Practice" : t === "progress" ? "Progress" : "History"}
+              </button>
+            ))}
+          </div>
+          {/* Accessibility toggle */}
+          <div className="relative">
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
-              }`}
+              onClick={() => setShowAccessPanel(!showAccessPanel)}
+              className="px-2 py-1.5 rounded-lg text-xs text-muted hover:bg-card hover:text-slate-200 transition-colors"
+              title="Accessibility"
             >
-              {t === "setup" ? "Profile" : t === "practice" ? "Practice" : t === "progress" ? "Progress" : "History"}
+              {mode === "adhd" ? "⚡" : mode === "dyslexia" ? "📖" : mode === "focus" ? "🎯" : "♿"}
             </button>
-          ))}
+            {showAccessPanel && (
+              <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-xl p-3 w-56 z-50 shadow-xl scale-in">
+                <div className="text-[10px] text-muted font-bold uppercase tracking-wider mb-2">Accessibility</div>
+                <div className="space-y-1">
+                  {([
+                    { id: "default" as AccessibilityMode, label: "Default", icon: "🖥️" },
+                    { id: "adhd" as AccessibilityMode, label: "ADHD-Friendly", icon: "⚡" },
+                    { id: "dyslexia" as AccessibilityMode, label: "Dyslexia-Friendly", icon: "📖" },
+                    { id: "focus" as AccessibilityMode, label: "Focus Mode", icon: "🎯" },
+                  ]).map(opt => (
+                    <button
+                      key={opt.id}
+                      onClick={() => { setMode(opt.id); setProfile(p => ({ ...p, accessibilityMode: opt.id })); }}
+                      className={`w-full text-left px-2 py-1.5 rounded text-xs transition-colors ${
+                        mode === opt.id ? "bg-accent/20 text-accent" : "text-muted hover:bg-surface"
+                      }`}
+                    >
+                      {opt.icon} {opt.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-border mt-2 pt-2">
+                  <label className="flex items-center gap-2 text-xs text-muted cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={ttsEnabled}
+                      onChange={e => { setTtsEnabled(e.target.checked); setProfile(p => ({ ...p, ttsEnabled: e.target.checked })); }}
+                      className="rounded"
+                    />
+                    Read feedback aloud (TTS)
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </nav>
 
@@ -484,9 +559,37 @@ export default function Home() {
         {/* ═══════ PRACTICE TAB ═══════ */}
         {tab === "practice" && (
           <div className="space-y-4">
+            {/* ADHD Pomodoro Timer */}
+            {mode === "adhd" && sessionQuestions.length > 0 && (
+              <PomodoroTimer durationMin={5} />
+            )}
+
+            {/* Company Pattern Info */}
+            {sessionQuestions.length === 0 && !generatingSession && companyPattern.name !== "General" && (
+              <div className="bg-surface border border-border rounded-xl p-4 fade-in">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-bold text-accent2">{companyPattern.name} Interview Intel</span>
+                </div>
+                <p className="text-xs text-muted mb-2">{companyPattern.interviewStyle.substring(0, 200)}</p>
+                <div className="flex flex-wrap gap-1">
+                  {companyPattern.whatTheyLookFor.slice(0, 4).map((w, i) => (
+                    <span key={i} className="text-[10px] bg-accent2/10 text-accent2 px-2 py-0.5 rounded">{w}</span>
+                  ))}
+                </div>
+                <details className="mt-2">
+                  <summary className="text-[10px] text-accent cursor-pointer">Key principles & tips</summary>
+                  <div className="mt-2 space-y-1">
+                    {companyPattern.tips.map((t, i) => (
+                      <p key={i} className="text-[10px] text-muted">→ {t}</p>
+                    ))}
+                  </div>
+                </details>
+              </div>
+            )}
+
             {/* No active session */}
             {sessionQuestions.length === 0 && !generatingSession && (
-              <div className="text-center py-12 space-y-4">
+              <div className="text-center py-12 space-y-4 fade-in">
                 <h2 className="text-xl font-bold text-slate-200">Start a Practice Session</h2>
                 <p className="text-sm text-muted max-w-md mx-auto">
                   Each session is 5 questions. Get feedback per question or save it all for the end.
@@ -686,7 +789,21 @@ export default function Home() {
 
                 {/* Feedback card */}
                 {feedback && showFeedbackPerQ && (
-                  <FeedbackCard feedback={feedback} questionText={currentQuestion?.text || ""} />
+                  <div className="space-y-2 slide-up">
+                    {/* TTS button */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          const text = `Score: ${feedback.overall_score} out of 100. ${feedback.recommendation}. ${feedback.coaching_tip}. Strengths: ${feedback.strengths?.join(". ")}. Areas to improve: ${feedback.improvements?.join(". ")}`;
+                          speak(text);
+                        }}
+                        className="px-3 py-1.5 bg-card border border-border rounded-lg text-xs text-muted hover:text-accent2 hover:border-accent2 transition-colors"
+                      >
+                        🔊 Read Feedback Aloud
+                      </button>
+                    </div>
+                    <FeedbackCard feedback={feedback} questionText={currentQuestion?.text || ""} />
+                  </div>
                 )}
               </>
             )}
