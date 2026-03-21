@@ -302,13 +302,13 @@ textarea { resize: vertical; }
         <div class="card-header">
           <div class="card-title">Data Sources</div>
           <div class="flex gap-2">
-            <button class="btn btn-primary btn-sm" onclick="fetchJobs()">Refresh LinkedIn</button>
+            <button class="btn btn-primary btn-sm" onclick="fetchJobs()">Refresh Jobs</button>
             <button class="btn btn-green btn-sm" onclick="runBatchAnalysis()">Run AI Analysis</button>
           </div>
         </div>
         <div class="flex gap-3 items-center text-sm">
-          <span class="badge badge-green">LinkedIn (Apify)</span>
-          <span class="badge badge-blue">Batch Results</span>
+          <span class="badge badge-green">GitHub Intern Repos</span>
+          <span class="badge badge-blue">AI Scored</span>
           <span id="analysisStatus" class="text-muted"></span>
         </div>
         <div id="analysisProgress" style="display:none;margin-top:10px">
@@ -323,20 +323,14 @@ textarea { resize: vertical; }
           <div class="card-title">Workflows</div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
-          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('fetch-jobs','Fetches new jobs from LinkedIn + JSearch')" title="Fetch new job listings">
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('fetch-jobs','Fetches new jobs from GitHub intern repos')" title="Fetch new job listings">
             <span style="margin-right:4px">&#128269;</span> Fetch New Jobs
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('analyze','Scores all jobs with Gemini AI')" title="Run AI scoring on all jobs">
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('analyze','Scores all jobs with Claude AI')" title="Run AI scoring on all jobs">
             <span style="margin-right:4px">&#129302;</span> Score All Jobs
           </button>
           <button class="btn btn-ghost btn-sm" onclick="runWorkflow('generate-docs','Generates resumes, cover letters, outreach for top jobs')" title="Generate tailored docs">
             <span style="margin-right:4px">&#128196;</span> Generate Docs Pipeline
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('upload-docs','Uploads generated docs to server')" title="Upload pipeline docs">
-            <span style="margin-right:4px">&#9729;</span> Upload Docs to Server
-          </button>
-          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('crawl-jds','Fetches JDs using Gemini web search')" title="Crawl job descriptions">
-            <span style="margin-right:4px">&#127760;</span> Crawl JDs (Gemini Search)
           </button>
           <button class="btn btn-ghost btn-sm" onclick="loadPregenDocs().then(()=>toast('Docs reloaded'))" title="Reload generated docs from server">
             <span style="margin-right:4px">&#128260;</span> Reload Pipeline Docs
@@ -355,7 +349,7 @@ textarea { resize: vertical; }
         </table>
         <div id="priorityEmpty" class="empty-state" style="display:none">
           <div class="icon">&#128202;</div>
-          <div>No analyzed jobs yet. Click "Run AI Analysis" or "Refresh LinkedIn" to get started.</div>
+          <div>No analyzed jobs yet. Click "Run AI Analysis" or "Refresh Jobs" to get started.</div>
         </div>
       </div>
 
@@ -1682,7 +1676,7 @@ async function parseJobDetails() {
   const statusEl = document.getElementById('parseJobStatus');
   statusEl.textContent = 'Parsing with AI...';
 
-  const prompt = `Extract and structure the job description from this raw page content. The content was copied from a job listing page (likely LinkedIn or a company careers page).
+  const prompt = `Extract and structure the job description from this raw page content. The content was copied from a job listing page (e.g. a company careers page or job board).
 
 RAW PAGE CONTENT:
 ${rawInput.slice(0, 12000)}

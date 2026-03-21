@@ -5,14 +5,14 @@
 ```
 ┌──────────────────────────────────────────────────────┐
 │                    Job Sources                        │
-│  ┌──────────┐  ┌───────────┐  ┌──────────────────┐  │
-│  │ LinkedIn  │  │  GitHub   │  │ JSearch (multi-  │  │
-│  │  (Apify)  │  │  Repos    │  │  board: Indeed,  │  │
-│  │           │  │  (7 repos)│  │  Glassdoor, etc.)│  │
-│  └─────┬────┘  └─────┬─────┘  └────────┬─────────┘  │
-└────────┼──────────────┼─────────────────┼────────────┘
-         │              │                 │
-         ▼              ▼                 ▼
+│  ┌──────────────────────────────────────────────┐    │
+│  │  GitHub Internship Repos (7 repositories)     │    │
+│  │  SimplifyJobs, PittCSC, etc.                  │    │
+│  │  + Manual JD Input (paste any job posting)    │    │
+│  └───────────────────────┬──────────────────────┘    │
+└──────────────────────────┼───────────────────────────┘
+                           │
+                           ▼
 ┌──────────────────────────────────────────────────────┐
 │              n8n Server (DigitalOcean)                │
 │                                                      │
@@ -82,8 +82,8 @@ Each job passes through a DAG of 9 document types, with 7 parallel tracks after 
 
 ## Data Flow
 
-1. **Job Discovery**: n8n cron triggers Apify scraper → dedup → score top matches
-2. **JD Fetching**: ATS APIs (Greenhouse, Lever, Ashby) → crawl4ai fallback → AI extraction
+1. **Job Discovery**: GitHub internship repos aggregated via n8n → dedup → score top matches (+ manual JD paste)
+2. **JD Fetching**: ATS APIs (Greenhouse, Lever, Ashby) → AI extraction fallback
 3. **Scoring**: Claude scores each job 0-100 against user profile
 4. **Doc Generation**: Pipeline generates 9 tailored documents per qualifying job
 5. **UI Merge**: Frontend fetches jobs + batch results + pre-generated docs → unified view

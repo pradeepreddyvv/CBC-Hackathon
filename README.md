@@ -14,7 +14,7 @@ The result: talented students miss opportunities not because they lack skills, b
 
 CareerHub AI is an open-source, AI-powered career intelligence platform that automates the most time-consuming parts of the job search:
 
-- **Job Discovery** — Aggregates listings from LinkedIn, GitHub repos, and multiple job boards
+- **Job Discovery** — Aggregates listings from 7 open-source GitHub internship repos + manual JD input
 - **AI Scoring** — Claude analyzes each job against your profile and scores match quality (0-100)
 - **Tailored Resumes** — Generates ATS-optimized resumes using ONLY your real experience
 - **Cover Letters** — Creates personalized cover letters with company-specific hooks
@@ -27,9 +27,10 @@ CareerHub AI is an open-source, AI-powered career intelligence platform that aut
 ```
 ┌─────────────────────┐     ┌──────────────────────┐
 │   Job Sources        │     │   CareerHub UI        │
-│  LinkedIn (Apify)    │────▶│  Single-Page App      │
-│  GitHub Repos        │     │  Dark Theme           │
-│  JSearch API         │     │  6 Tabs + AI Chat     │
+│  GitHub Intern Repos │────▶│  Single-Page App      │
+│  (7 open-source      │     │  Dark Theme           │
+│   repositories)      │     │  6 Tabs + AI Chat     │
+│  + Manual JD Input   │     │                       │
 └─────────────────────┘     └──────────┬───────────┘
                                        │
                             ┌──────────▼───────────┐
@@ -58,6 +59,7 @@ CareerHub AI is an open-source, AI-powered career intelligence platform that aut
 | **Outreach** | LinkedIn DM, cold email, referral ask + tracker |
 | **Pipeline** | Kanban board (New → Applied → Interview → Offer) |
 | **AI Chat** | Per-job context-aware career advisor |
+| **Generate Docs** | Paste any JD, instantly get tailored resume + cover letter + ATS audit |
 | **Paste JD** | Paste raw job page content, AI extracts structured JD |
 | **Filters** | Score ranges, role types, No Analysis, No JD, Has Docs |
 
