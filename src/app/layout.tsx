@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import AccessibilityProvider from "@/components/AccessibilityProvider";
 
 export const metadata: Metadata = {
   title: "Interview Coach — AI-Powered Mock Interviews",
@@ -10,9 +9,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
-        <AccessibilityProvider>{children}</AccessibilityProvider>
-      </body>
+      <body className="font-sans antialiased">{children}</body>
     </html>
   );
 }

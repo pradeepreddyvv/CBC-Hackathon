@@ -2,18 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ═══ OpenDyslexic font ═══ */
-@font-face {
-  font-family: 'OpenDyslexic';
-  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Regular.woff') format('woff');
-  font-weight: normal;
-}
-@font-face {
-  font-family: 'OpenDyslexic';
-  src: url('https://cdn.jsdelivr.net/npm/open-dyslexic@1.0.3/woff/OpenDyslexic-Bold.woff') format('woff');
-  font-weight: bold;
-}
-
 :root {
   --bg: #0f1117;
   --surface: #1a1d27;
@@ -28,147 +16,19 @@ body {
   color: #e2e8f0;
 }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: var(--surface); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
-/* Recording pulse */
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 .recording-pulse { animation: pulse 1s infinite; }
 
-/* Score ring */
 @keyframes score-fill { from { stroke-dashoffset: 283; } }
 .score-ring { animation: score-fill 1s ease-out; }
 
-/* Skill bar animation */
 @keyframes bar-grow { from { width: 0; } }
 .bar-animate { animation: bar-grow 0.8s ease-out; }
 
-/* ═══════════════════════════════════════
-   ADHD MODE
-   Micro-chunks, progress rewards,
-   reduced cognitive friction
-   ═══════════════════════════════════════ */
-body.adhd-mode {
-  --accent: #ff6b6b;
-  --accent2: #ffd93d;
-}
-
-body.adhd-mode .card,
-body.adhd-mode .bg-card {
-  border-width: 2px;
-  border-color: var(--accent);
-}
-
-/* Larger, clearer text */
-body.adhd-mode .text-base,
-body.adhd-mode .text-sm {
-  font-size: 1rem;
-  line-height: 1.8;
-}
-
-/* More spacing between elements */
-body.adhd-mode .space-y-4 > * + * { margin-top: 1.5rem; }
-body.adhd-mode .space-y-3 > * + * { margin-top: 1.25rem; }
-body.adhd-mode .space-y-2 > * + * { margin-top: 1rem; }
-
-/* Hide non-essential UI to reduce distraction */
-body.adhd-mode details { display: none; }
-
-/* Reward animation for completing questions */
-@keyframes reward-pop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-}
-body.adhd-mode .score-ring { animation: reward-pop 0.6s ease-out, score-fill 1s ease-out; }
-
-/* ═══════════════════════════════════════
-   DYSLEXIA MODE
-   OpenDyslexic font, increased spacing,
-   pastel background, high contrast
-   ═══════════════════════════════════════ */
-body.dyslexia-mode {
-  font-family: 'OpenDyslexic', sans-serif !important;
-  --bg: #1a1a2e;
-  --surface: #222244;
-  --card: #2a2a4a;
-  --border: #3a3a6a;
-  background: var(--bg);
-  letter-spacing: 0.05em;
-  word-spacing: 0.15em;
-}
-
-body.dyslexia-mode * {
-  font-family: 'OpenDyslexic', sans-serif !important;
-  line-height: 2 !important;
-}
-
-/* Larger base font */
-body.dyslexia-mode {
-  font-size: 16px;
-}
-
-body.dyslexia-mode .text-xs { font-size: 0.85rem; }
-body.dyslexia-mode .text-sm { font-size: 1rem; }
-body.dyslexia-mode .text-base { font-size: 1.1rem; }
-body.dyslexia-mode .text-\[10px\] { font-size: 0.75rem; }
-body.dyslexia-mode .text-\[11px\] { font-size: 0.8rem; }
-
-/* Pastel-tinted cards for reduced eye strain */
-body.dyslexia-mode .bg-card { background: #2a2a4a; }
-body.dyslexia-mode .bg-surface { background: #222244; }
-
-/* Underline links for clarity */
-body.dyslexia-mode a { text-decoration: underline; }
-
-/* ═══════════════════════════════════════
-   FOCUS MODE
-   Strips all chrome — just question + mic
-   Zen-like, minimal distractions
-   ═══════════════════════════════════════ */
-body.focus-mode {
-  --bg: #0a0a0f;
-  --surface: #111118;
-  --card: #161620;
-  --border: #222230;
-}
-
-/* Hide nav items except Practice */
-body.focus-mode nav .text-muted { display: none; }
-body.focus-mode nav span.text-xs { display: none; }
-
-/* Hide details, hints, filter bars */
-body.focus-mode details,
-body.focus-mode .aip-filter-bar { display: none; }
-
-/* Larger question text */
-body.focus-mode .q-text,
-body.focus-mode .text-base.font-semibold {
-  font-size: 1.25rem;
-  line-height: 1.6;
-}
-
-/* Center everything */
-body.focus-mode main {
-  max-width: 600px;
-}
-
-/* Minimal borders */
-body.focus-mode .border { border-color: transparent; }
-body.focus-mode .border-2 { border-color: var(--accent); }
-
-/* ═══════════════════════════════════════
-   POMODORO TIMER (ADHD mode)
-   ═══════════════════════════════════════ */
-.pomodoro-ring {
-  transition: stroke-dashoffset 1s linear;
-}
-
-/* ═══════════════════════════════════════
-   TRANSITIONS
-   ═══════════════════════════════════════ */
 .fade-in {
   animation: fadeIn 0.3s ease-out;
 }
