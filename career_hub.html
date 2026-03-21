@@ -1,0 +1,2556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CareerHub AI</title>
+<style>
+/* ===== RESET & BASE ===== */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0f1e; --surface: #111827; --card: #1a2233; --card-hover: #1f2b3f;
+  --border: rgba(255,255,255,0.06); --border-light: rgba(255,255,255,0.1);
+  --text: #e2e8f0; --text-dim: #94a3b8; --text-muted: #64748b;
+  --blue: #3b82f6; --blue-dim: rgba(59,130,246,0.15);
+  --green: #10b981; --green-dim: rgba(16,185,129,0.12);
+  --yellow: #f59e0b; --yellow-dim: rgba(245,158,11,0.12);
+  --red: #ef4444; --red-dim: rgba(239,68,68,0.12);
+  --purple: #8b5cf6; --purple-dim: rgba(139,92,246,0.12);
+  --radius: 8px; --radius-sm: 6px; --radius-lg: 12px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --header-h: 56px; --sidebar-w: 300px; --chat-w: 360px;
+}
+html, body { height: 100%; font-family: var(--font); font-size: 14px; color: var(--text); background: var(--bg); overflow: hidden; }
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font-family: var(--font); cursor: pointer; border: none; outline: none; font-size: 13px; }
+input, textarea, select { font-family: var(--font); font-size: 13px; color: var(--text); background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-sm); padding: 8px 10px; outline: none; }
+input:focus, textarea:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 2px var(--blue-dim); }
+textarea { resize: vertical; }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ===== LAYOUT ===== */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.header { height: var(--header-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 16px; flex-shrink: 0; z-index: 100; }
+.header-logo { font-size: 18px; font-weight: 700; white-space: nowrap; display: flex; align-items: center; gap: 8px; }
+.header-logo span { color: var(--blue); }
+.header-name { font-size: 13px; color: var(--text-dim); white-space: nowrap; }
+.header-spacer { flex: 1; }
+.header-status { display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted); }
+.header-status .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 4px; }
+.header-actions { display: flex; gap: 6px; }
+
+.body-wrap { display: flex; flex: 1; overflow: hidden; }
+.sidebar { width: var(--sidebar-w); min-width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
+.main-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+.chat-panel { width: var(--chat-w); min-width: var(--chat-w); background: var(--surface); border-left: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; transition: width 0.25s ease, min-width 0.25s ease, opacity 0.25s ease; }
+.chat-panel.collapsed { width: 0; min-width: 0; opacity: 0; overflow: hidden; }
+
+/* ===== BUTTONS ===== */
+.btn { padding: 7px 14px; border-radius: var(--radius-sm); font-weight: 500; transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px; }
+.btn-primary { background: var(--blue); color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.btn-ghost { background: transparent; color: var(--text-dim); border: 1px solid var(--border-light); }
+.btn-ghost:hover { background: var(--card); color: var(--text); }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.btn-xs { padding: 3px 8px; font-size: 11px; }
+.btn-green { background: var(--green); color: #fff; }
+.btn-green:hover { background: #059669; }
+.btn-red { background: var(--red); color: #fff; }
+.btn-red:hover { background: #dc2626; }
+.btn-yellow { background: var(--yellow); color: #000; }
+.btn-yellow:hover { background: #d97706; }
+.btn-icon { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); background: transparent; color: var(--text-dim); border: 1px solid var(--border-light); }
+.btn-icon:hover { background: var(--card); color: var(--text); }
+
+/* ===== SIDEBAR ===== */
+.sidebar-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-search input { width: 100%; }
+.sidebar-controls { padding: 8px 12px; display: flex; gap: 6px; align-items: center; border-bottom: 1px solid var(--border); }
+.sidebar-controls select { flex: 1; padding: 6px; font-size: 12px; }
+.sidebar-filters { padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.chip { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; background: var(--card); color: var(--text-dim); border: 1px solid var(--border); transition: all 0.2s ease; }
+.chip.active { background: var(--blue-dim); color: var(--blue); border-color: var(--blue); }
+.chip:hover { border-color: var(--blue); }
+.sidebar-list { flex: 1; overflow-y: auto; }
+.job-card { padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; display: flex; gap: 10px; transition: background 0.15s ease; }
+.job-card:hover { background: var(--card); }
+.job-card.selected { background: var(--blue-dim); border-left: 3px solid var(--blue); }
+.job-score { width: 36px; height: 36px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; flex-shrink: 0; }
+.score-high { background: var(--green-dim); color: var(--green); }
+.score-mid { background: var(--yellow-dim); color: var(--yellow); }
+.score-low { background: var(--red-dim); color: var(--red); }
+.score-none { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+.job-card-info { flex: 1; min-width: 0; }
+.job-card-title { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.job-card-company { font-size: 12px; color: var(--text-dim); display: flex; align-items: center; gap: 4px; }
+.job-card-meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; display: flex; gap: 8px; align-items: center; }
+.conn-badge { font-size: 10px; background: var(--purple-dim); color: var(--purple); padding: 1px 5px; border-radius: 8px; font-weight: 600; }
+.status-badge { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 600; text-transform: uppercase; }
+.status-new { background: var(--blue-dim); color: var(--blue); }
+.status-seen { background: rgba(255,255,255,0.05); color: var(--text-muted); }
+.status-applied { background: var(--green-dim); color: var(--green); }
+.sidebar-footer { padding: 8px 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted); text-align: center; }
+
+/* ===== TABS ===== */
+.tab-bar { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; flex-shrink: 0; }
+.tab-btn { padding: 12px 20px; font-size: 13px; font-weight: 600; color: var(--text-muted); border-bottom: 2px solid transparent; transition: all 0.2s ease; background: none; }
+.tab-btn:hover { color: var(--text-dim); }
+.tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); }
+.tab-content { flex: 1; overflow-y: auto; padding: 20px 24px; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ===== CARDS & SECTIONS ===== */
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+.card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.card-title { font-weight: 700; font-size: 15px; }
+.metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.metric-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+.metric-value { font-size: 28px; font-weight: 800; line-height: 1.2; }
+.metric-label { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.section-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+
+/* ===== PRIORITY TABLE ===== */
+.priority-table { width: 100%; border-collapse: collapse; }
+.priority-table th { text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; color: var(--text-muted); border-bottom: 1px solid var(--border); font-weight: 600; letter-spacing: 0.5px; }
+.priority-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
+.priority-table tr { cursor: pointer; transition: background 0.15s ease; }
+.priority-table tbody tr:hover { background: var(--card-hover); }
+.row-high { border-left: 3px solid var(--green); }
+.row-mid { border-left: 3px solid var(--yellow); }
+.row-low { border-left: 3px solid var(--red); }
+
+/* ===== COLLAPSIBLE ===== */
+.collapsible-header { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 4px; transition: background 0.15s; }
+.collapsible-header:hover { background: var(--card-hover); }
+.collapsible-header .arrow { transition: transform 0.2s ease; font-size: 12px; color: var(--text-muted); }
+.collapsible-header.open .arrow { transform: rotate(90deg); }
+.collapsible-body { display: none; padding: 12px 16px; background: var(--card); border: 1px solid var(--border); border-top: none; border-radius: 0 0 var(--radius) var(--radius); margin-bottom: 16px; }
+.collapsible-body.open { display: block; }
+
+/* ===== APPLY TAB ===== */
+.job-detail-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 16px; }
+.job-detail-header .job-score { width: 56px; height: 56px; font-size: 20px; border-radius: var(--radius); }
+.job-detail-title { font-size: 20px; font-weight: 800; }
+.job-detail-company { font-size: 15px; color: var(--text-dim); }
+.conn-alert { background: var(--purple-dim); border: 1px solid rgba(139,92,246,0.3); border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px; }
+.analysis-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.analysis-item { padding: 10px; background: var(--surface); border-radius: var(--radius-sm); }
+.analysis-item-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-bottom: 4px; font-weight: 600; }
+.skill-tag { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; margin: 2px; font-weight: 500; }
+.skill-match { background: var(--green-dim); color: var(--green); }
+.skill-miss { background: var(--red-dim); color: var(--red); }
+.jd-content { white-space: pre-wrap; font-size: 13px; line-height: 1.6; color: var(--text-dim); max-height: 400px; overflow-y: auto; padding: 12px; background: var(--surface); border-radius: var(--radius-sm); }
+.score-gauge { width: 80px; height: 80px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 800; flex-shrink: 0; }
+
+/* ===== OUTREACH TAB ===== */
+.outreach-form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.outreach-form .full { grid-column: 1 / -1; }
+.msg-type-tabs { display: flex; gap: 6px; margin-bottom: 12px; }
+.msg-output { min-height: 120px; padding: 12px; background: var(--surface); border-radius: var(--radius-sm); border: 1px solid var(--border); white-space: pre-wrap; font-size: 13px; line-height: 1.6; }
+
+/* ===== PIPELINE ===== */
+.kanban { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; min-height: 300px; }
+.kanban-col { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px; display: flex; flex-direction: column; }
+.kanban-col-title { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+.kanban-col-title .count { background: var(--surface); padding: 1px 6px; border-radius: 8px; font-size: 10px; }
+.kanban-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; margin-bottom: 6px; cursor: pointer; transition: border-color 0.15s; }
+.kanban-card:hover { border-color: var(--blue); }
+.kanban-card .kc-company { font-weight: 600; font-size: 12px; }
+.kanban-card .kc-role { font-size: 11px; color: var(--text-dim); }
+.kanban-card .kc-date { font-size: 10px; color: var(--text-muted); margin-top: 4px; }
+.kanban-items { flex: 1; overflow-y: auto; }
+
+/* ===== CHAT PANEL ===== */
+.chat-header { padding: 12px 14px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+.chat-header-title { font-weight: 700; font-size: 14px; }
+.chat-messages { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; }
+.chat-msg { max-width: 92%; padding: 10px 12px; border-radius: var(--radius); font-size: 13px; line-height: 1.5; }
+.chat-msg.user { align-self: flex-end; background: var(--blue); color: #fff; border-bottom-right-radius: 4px; }
+.chat-msg.ai { align-self: flex-start; background: var(--card); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+.chat-msg.ai pre { background: var(--surface); padding: 8px; border-radius: 4px; overflow-x: auto; font-size: 12px; margin: 6px 0; }
+.chat-quick { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.chat-quick button { padding: 4px 10px; border-radius: 14px; font-size: 11px; background: var(--card); color: var(--text-dim); border: 1px solid var(--border); transition: all 0.15s; }
+.chat-quick button:hover { border-color: var(--blue); color: var(--blue); }
+.chat-input-row { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--border); flex-shrink: 0; }
+.chat-input-row input { flex: 1; }
+
+/* ===== MODAL ===== */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modal-overlay.hidden { display: none; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; min-width: 400px; max-width: 560px; max-height: 80vh; overflow-y: auto; }
+.modal h3 { font-size: 16px; margin-bottom: 16px; }
+.modal label { display: block; font-size: 12px; color: var(--text-dim); margin-bottom: 4px; margin-top: 10px; }
+.modal input, .modal textarea, .modal select { width: 100%; }
+
+/* ===== LOADING ===== */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--border-light); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-bar { height: 3px; background: var(--surface); overflow: hidden; border-radius: 2px; }
+.loading-bar .fill { height: 100%; background: linear-gradient(90deg, var(--blue), var(--purple), var(--blue)); width: 30%; animation: loading 1.2s ease-in-out infinite; border-radius: 2px; }
+@keyframes loading { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); padding: 12px 20px; border-radius: var(--radius); font-size: 13px; z-index: 2000; animation: slideUp 0.3s ease; box-shadow: 0 4px 20px rgba(0,0,0,0.4); }
+@keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+.empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+/* ===== MISC ===== */
+.flex { display: flex; } .flex-col { flex-direction: column; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+.items-center { align-items: center; } .justify-between { justify-content: space-between; }
+.mt-2 { margin-top: 8px; } .mt-3 { margin-top: 12px; } .mt-4 { margin-top: 16px; } .mb-2 { margin-bottom: 8px; } .mb-3 { margin-bottom: 12px; }
+.text-sm { font-size: 12px; } .text-xs { font-size: 11px; } .text-dim { color: var(--text-dim); } .text-muted { color: var(--text-muted); }
+.fw-700 { font-weight: 700; } .w-full { width: 100%; }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 10px; font-weight: 600; }
+.badge-blue { background: var(--blue-dim); color: var(--blue); }
+.badge-green { background: var(--green-dim); color: var(--green); }
+.badge-yellow { background: var(--yellow-dim); color: var(--yellow); }
+.badge-red { background: var(--red-dim); color: var(--red); }
+.badge-purple { background: var(--purple-dim); color: var(--purple); }
+</style>
+</head>
+<body>
+<!-- ===== HEADER ===== -->
+<div class="app">
+<header class="header">
+  <div class="header-logo"><span>&#127891;</span> <span>CareerHub AI</span></div>
+  <div class="header-name" id="headerUserName">Loading...</div>
+  <div style="font-size:11px;color:var(--purple);background:var(--purple-dim);padding:2px 8px;border-radius:4px;margin-left:6px;">Powered by Claude</div>
+  <div class="header-spacer"></div>
+  <div class="header-status">
+    <span><span class="dot"></span><span id="jobCountStatus">0 jobs</span></span>
+    <span id="lastRefresh">Not loaded</span>
+  </div>
+  <div class="header-actions">
+    <a href="/webhook/interview-prep" target="_blank" class="btn btn-ghost btn-sm" title="Interview Prep">Interview Prep</a>
+    <button class="btn-icon" onclick="showSetupModal()" title="Profile Settings">&#9881;</button>
+    <button class="btn-icon" onclick="toggleChat()" title="Toggle AI Chat">&#128172;</button>
+    <button class="btn-icon" onclick="refreshAll()" title="Refresh Data">&#8635;</button>
+  </div>
+</header>
+
+<!-- ===== BODY ===== -->
+<div class="body-wrap">
+
+<!-- ===== LEFT SIDEBAR ===== -->
+<aside class="sidebar">
+  <div class="sidebar-search">
+    <input type="text" id="jobSearch" placeholder="Search jobs..." oninput="renderJobList()">
+  </div>
+  <div class="sidebar-controls">
+    <select id="daysPicker" title="Days back">
+      <option value="1">1 day</option>
+      <option value="3" selected>3 days</option>
+      <option value="7">7 days</option>
+      <option value="14">14 days</option>
+      <option value="30">30 days</option>
+    </select>
+    <select id="sortPicker" title="Sort by" onchange="renderJobList()">
+      <option value="score">Score</option>
+      <option value="date">Date</option>
+      <option value="company">Company</option>
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="fetchJobs()" id="fetchBtn">Fetch</button>
+  </div>
+  <div class="sidebar-filters">
+    <span class="chip active" data-filter="all" onclick="setFilter(this)">All</span>
+    <span class="chip" data-filter="high" onclick="setFilter(this)">70+</span>
+    <span class="chip" data-filter="mid" onclick="setFilter(this)">50-69</span>
+    <span class="chip" data-filter="new" onclick="setFilter(this)">Unscored</span>
+    <span class="chip" data-filter="applied" onclick="setFilter(this)">Applied</span>
+    <span class="chip" data-filter="has-docs" onclick="setFilter(this)">Has Docs</span>
+    <span class="chip" data-filter="no-analysis" onclick="setFilter(this)">No Analysis</span>
+    <span class="chip" data-filter="no-desc" onclick="setFilter(this)">No JD</span>
+  </div>
+  <div class="sidebar-filters" style="padding-top:0">
+    <span class="chip active" data-role="all" onclick="setRoleFilter(this)">All Roles</span>
+    <span class="chip" data-role="SDE" onclick="setRoleFilter(this)">SDE</span>
+    <span class="chip" data-role="ML/AI" onclick="setRoleFilter(this)">ML/AI</span>
+    <span class="chip" data-role="Fullstack" onclick="setRoleFilter(this)">Fullstack</span>
+    <span class="chip" data-role="Data" onclick="setRoleFilter(this)">Data</span>
+    <span class="chip" data-role="DevOps" onclick="setRoleFilter(this)">DevOps</span>
+  </div>
+  <div class="sidebar-list" id="jobList"></div>
+  <div class="sidebar-footer" id="sidebarFooter">Loading...</div>
+</aside>
+
+<!-- ===== MAIN PANEL ===== -->
+<div class="main-panel">
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="command" onclick="switchTab(this)">Command Center</button>
+    <button class="tab-btn" data-tab="apply" onclick="switchTab(this)">Apply</button>
+    <button class="tab-btn" data-tab="outreach" onclick="switchTab(this)">Outreach</button>
+    <button class="tab-btn" data-tab="pipeline" onclick="switchTab(this)">Pipeline</button>
+    <button class="tab-btn" data-tab="generate" onclick="switchTab(this)" style="color:var(--green)">Generate Docs</button>
+  </div>
+  <div class="tab-content">
+
+    <!-- TAB 1: COMMAND CENTER -->
+    <div class="tab-pane active" id="tab-command">
+      <div class="metrics-row" id="metricsRow">
+        <div class="metric-card"><div class="metric-value" id="metricTotal" style="color:var(--blue)">0</div><div class="metric-label">Total Jobs</div></div>
+        <div class="metric-card"><div class="metric-value" id="metricAnalyzed" style="color:var(--purple)">0</div><div class="metric-label">Analyzed</div></div>
+        <div class="metric-card"><div class="metric-value" id="metricHigh" style="color:var(--green)">0</div><div class="metric-label">High Match (70+)</div></div>
+        <div class="metric-card"><div class="metric-value" id="metricApplied" style="color:var(--yellow)">0</div><div class="metric-label">Applied</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Data Sources</div>
+          <div class="flex gap-2">
+            <button class="btn btn-primary btn-sm" onclick="fetchJobs()">Refresh LinkedIn</button>
+            <button class="btn btn-green btn-sm" onclick="runBatchAnalysis()">Run AI Analysis</button>
+          </div>
+        </div>
+        <div class="flex gap-3 items-center text-sm">
+          <span class="badge badge-green">LinkedIn (Apify)</span>
+          <span class="badge badge-blue">Batch Results</span>
+          <span id="analysisStatus" class="text-muted"></span>
+        </div>
+        <div id="analysisProgress" style="display:none;margin-top:10px">
+          <div class="loading-bar"><div class="fill"></div></div>
+          <div class="text-xs text-muted mt-2">AI analysis in progress... This takes 1-3 minutes.</div>
+        </div>
+      </div>
+
+      <!-- Workflows Section -->
+      <div class="card" style="margin-top:12px">
+        <div class="card-header">
+          <div class="card-title">Workflows</div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('fetch-jobs','Fetches new jobs from LinkedIn + JSearch')" title="Fetch new job listings">
+            <span style="margin-right:4px">&#128269;</span> Fetch New Jobs
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('analyze','Scores all jobs with Gemini AI')" title="Run AI scoring on all jobs">
+            <span style="margin-right:4px">&#129302;</span> Score All Jobs
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('generate-docs','Generates resumes, cover letters, outreach for top jobs')" title="Generate tailored docs">
+            <span style="margin-right:4px">&#128196;</span> Generate Docs Pipeline
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('upload-docs','Uploads generated docs to server')" title="Upload pipeline docs">
+            <span style="margin-right:4px">&#9729;</span> Upload Docs to Server
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="runWorkflow('crawl-jds','Fetches JDs using Gemini web search')" title="Crawl job descriptions">
+            <span style="margin-right:4px">&#127760;</span> Crawl JDs (Gemini Search)
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="loadPregenDocs().then(()=>toast('Docs reloaded'))" title="Reload generated docs from server">
+            <span style="margin-right:4px">&#128260;</span> Reload Pipeline Docs
+          </button>
+        </div>
+        <div id="workflowStatus" class="text-sm text-muted mt-2" style="display:none"></div>
+      </div>
+
+      <div class="section-title">Priority Queue</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="priority-table">
+          <thead><tr>
+            <th>#</th><th>Score</th><th>Company</th><th>Title</th><th>Location</th><th>Connections</th><th>Recommendation</th><th>Action</th>
+          </tr></thead>
+          <tbody id="priorityBody"></tbody>
+        </table>
+        <div id="priorityEmpty" class="empty-state" style="display:none">
+          <div class="icon">&#128202;</div>
+          <div>No analyzed jobs yet. Click "Run AI Analysis" or "Refresh LinkedIn" to get started.</div>
+        </div>
+      </div>
+
+      <div style="margin-top:8px">
+        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+          <span class="fw-700">Unscored Jobs <span id="unscoredCount" class="badge badge-yellow">0</span></span>
+          <span class="arrow">&#9654;</span>
+        </div>
+        <div class="collapsible-body" id="unscoredSection"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: APPLY -->
+    <div class="tab-pane" id="tab-apply">
+      <div id="applyNoJob" class="empty-state">
+        <div class="icon">&#128196;</div>
+        <div>Select a job from the sidebar or Command Center to see details</div>
+      </div>
+      <div id="applyContent" style="display:none">
+        <div class="job-detail-header">
+          <div class="job-score score-gauge" id="applyScore">—</div>
+          <div>
+            <div class="job-detail-title" id="applyTitle"></div>
+            <div class="job-detail-company" id="applyCompany"></div>
+            <div class="text-sm text-muted mt-2" id="applyMeta"></div>
+          </div>
+        </div>
+        <div class="flex gap-2 mt-3 mb-3" id="applyActions">
+          <button class="btn btn-primary btn-sm" id="openJobBtn" onclick="openJobUrl()" style="display:none">Open Job Posting</button>
+          <button class="btn btn-green btn-sm" onclick="markApplied()" id="markAppliedBtn2">Mark as Applied</button>
+          <button class="btn btn-ghost btn-sm" onclick="addCurrentToPipeline()">Add to Pipeline</button>
+        </div>
+        <div id="applyConnAlert" class="conn-alert" style="display:none"></div>
+
+        <!-- AI Analysis -->
+        <div class="card" id="applyAnalysisCard" style="display:none">
+          <div class="card-header">
+            <div class="card-title">AI Analysis</div>
+            <button class="btn btn-ghost btn-sm" onclick="analyzeCurrentJob()">Re-analyze</button>
+          </div>
+          <div id="applyAnalysis"></div>
+        </div>
+        <div id="applyNoAnalysis" class="card" style="display:none">
+          <div class="flex items-center justify-between">
+            <span class="text-dim">No AI analysis yet for this job.</span>
+            <button class="btn btn-primary btn-sm" onclick="analyzeCurrentJob()">Analyze with AI</button>
+          </div>
+        </div>
+
+        <!-- Job Description -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Job Description <span id="jdBadge" class="badge badge-blue" style="display:none"></span></div>
+            <div class="flex gap-2">
+              <button class="btn btn-ghost btn-sm" id="generateJdBtn" onclick="generateJD()" style="display:none">Generate AI Description</button>
+              <button class="btn btn-ghost btn-sm" id="pasteJdToggleBtn" onclick="togglePasteJD()" title="Paste raw page content to extract JD">Paste JD</button>
+            </div>
+          </div>
+          <div class="jd-content" id="applyJD">No description available.</div>
+        </div>
+
+        <!-- Paste Job Details (manual input) -->
+        <div id="pasteJobDetailsSection" class="card" style="display:none;border:1px dashed var(--border-light)">
+          <div class="card-header" style="cursor:pointer" onclick="document.getElementById('pasteJobDetailsBody').style.display=document.getElementById('pasteJobDetailsBody').style.display==='none'?'block':'none'">
+            <div class="card-title">Paste Job Details (Optional)</div>
+            <span class="text-xs text-muted">Paste the full page content from the job listing</span>
+          </div>
+          <div id="pasteJobDetailsBody">
+            <p class="text-xs text-dim mb-2">Copy everything from the job page (Ctrl+A, Ctrl+C) and paste below. AI will extract the structured job description, requirements, and qualifications.</p>
+            <textarea id="pasteJobInput" rows="8" class="w-full" placeholder="Paste the entire job page content here... (title, company info, responsibilities, requirements, qualifications, etc.)" style="font-size:12px"></textarea>
+            <div class="flex gap-2 mt-2 items-center">
+              <button class="btn btn-primary btn-sm" onclick="parseJobDetails()">Parse & Save as JD</button>
+              <button class="btn btn-green btn-sm" onclick="parseAndGenerateDocs()">Parse & Generate All Docs</button>
+              <span id="parseJobStatus" class="text-xs text-muted"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Resume Builder -->
+        <div class="collapsible-header" onclick="toggleCollapsible(this)">
+          <span class="fw-700">Resume Builder</span>
+          <span class="arrow">&#9654;</span>
+        </div>
+        <div class="collapsible-body">
+          <label class="text-sm text-dim mb-2" style="display:block">Paste your resume text (or use stored)</label>
+          <textarea id="resumeInput" rows="6" class="w-full" placeholder="Paste resume text here..."></textarea>
+          <div class="flex gap-2 mt-3">
+            <button class="btn btn-primary btn-sm" onclick="generateResume()">Generate Tailored Resume</button>
+            <button class="btn btn-ghost btn-sm" onclick="generateResumeLatex()">Generate LaTeX</button>
+          </div>
+          <div id="resumeOutput" style="display:none" class="mt-3">
+            <div class="card-title mb-2">Tailored Resume <span class="text-xs text-muted">(edit below, then save)</span></div>
+            <textarea id="resumeText" rows="20" class="w-full" style="font-size:12px;line-height:1.6;font-family:monospace"></textarea>
+            <div class="flex gap-2 mt-2">
+              <button class="btn btn-green btn-sm" onclick="saveResumeForJob()">Save for this Job</button>
+              <button class="btn btn-ghost btn-sm" onclick="copyText('resumeText')">Copy</button>
+            </div>
+          </div>
+          <div id="resumeLatexOutput" style="display:none" class="mt-3">
+            <div class="card-title mb-2">LaTeX Output <span class="text-xs text-muted">(edit below, then save)</span></div>
+            <textarea id="resumeLatexText" rows="20" class="w-full" style="font-size:11px;line-height:1.4;font-family:monospace"></textarea>
+            <div class="flex gap-2 mt-2">
+              <button class="btn btn-green btn-sm" onclick="saveLatexForJob()">Save LaTeX</button>
+              <button class="btn btn-ghost btn-sm" onclick="copyText('resumeLatexText')">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cover Letter -->
+        <div class="collapsible-header mt-3" onclick="toggleCollapsible(this)">
+          <span class="fw-700">Cover Letter</span>
+          <span class="arrow">&#9654;</span>
+        </div>
+        <div class="collapsible-body">
+          <button class="btn btn-primary btn-sm" onclick="generateCoverLetter()">Generate Cover Letter</button>
+          <div id="coverLetterOutput" style="display:none" class="mt-3">
+            <textarea id="coverLetterText" rows="12" class="w-full" style="line-height:1.6"></textarea>
+            <div class="flex gap-2 mt-2">
+              <button class="btn btn-green btn-sm" onclick="saveCoverLetterForJob()">Save for this Job</button>
+              <button class="btn btn-ghost btn-sm" onclick="copyText('coverLetterText')">Copy</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Track Application -->
+        <div class="card mt-4">
+          <div class="card-title mb-3">Track Application</div>
+          <div class="flex gap-2 items-center">
+            <input type="text" id="applyNotes" placeholder="Add notes..." style="flex:1">
+            <button class="btn btn-green btn-sm" onclick="markApplied()" id="markAppliedBtn">Mark as Applied</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: OUTREACH -->
+    <div class="tab-pane" id="tab-outreach">
+      <div class="section-title">Outreach Message Generator</div>
+      <div class="card">
+        <div class="outreach-form">
+          <div><label class="text-sm text-dim">Contact Name</label><input id="outreachName" placeholder="Full name"></div>
+          <div><label class="text-sm text-dim">Title / Role</label><input id="outreachRole" placeholder="e.g. SDE II"></div>
+          <div><label class="text-sm text-dim">Company</label><input id="outreachCompany" placeholder="Company name"></div>
+          <div><label class="text-sm text-dim">LinkedIn URL</label><input id="outreachLinkedin" placeholder="https://linkedin.com/in/..."></div>
+          <div class="full"><label class="text-sm text-dim">Context (job applying for, mutual connection, etc.)</label><input id="outreachContext" placeholder="Optional extra context"></div>
+        </div>
+        <div class="flex gap-2 mb-3">
+          <button class="btn btn-primary btn-sm" onclick="generateOutreach('all')">Generate All</button>
+          <button class="btn btn-ghost btn-sm" onclick="generateOutreach('connection')">Connection Request</button>
+          <button class="btn btn-ghost btn-sm" onclick="generateOutreach('email')">Cold Email</button>
+          <button class="btn btn-ghost btn-sm" onclick="generateOutreach('referral')">Referral Ask</button>
+        </div>
+
+        <div id="outreachResults" style="display:none">
+          <div class="msg-type-tabs" id="outreachTabs"></div>
+          <div class="msg-output" id="outreachOutput"></div>
+          <div class="flex gap-2 mt-2">
+            <button class="btn btn-ghost btn-sm" onclick="copyOutreach()">Copy</button>
+            <button class="btn btn-green btn-sm" onclick="saveOutreach()">Save to Tracker</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title mt-4">Outreach Tracker</div>
+      <div class="card" style="padding:0;overflow:hidden">
+        <table class="priority-table" id="outreachTracker">
+          <thead><tr><th>Date</th><th>Name</th><th>Company</th><th>Type</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody id="outreachTrackerBody"></tbody>
+        </table>
+        <div id="outreachEmpty" class="empty-state">
+          <div class="icon">&#9993;</div>
+          <div>No outreach messages saved yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: PIPELINE -->
+    <div class="tab-pane" id="tab-pipeline">
+      <div class="flex items-center justify-between mb-3">
+        <div class="section-title" style="margin-bottom:0">Application Pipeline</div>
+        <button class="btn btn-primary btn-sm" onclick="showPipelineModal()">+ Add Manually</button>
+      </div>
+      <div class="metrics-row" style="grid-template-columns:repeat(3,1fr)">
+        <div class="metric-card"><div class="metric-value" id="pipeTotal" style="color:var(--blue)">0</div><div class="metric-label">Total Applied</div></div>
+        <div class="metric-card"><div class="metric-value" id="pipeActive" style="color:var(--green)">0</div><div class="metric-label">In Progress</div></div>
+        <div class="metric-card"><div class="metric-value" id="pipeRejected" style="color:var(--red)">0</div><div class="metric-label">Rejected</div></div>
+      </div>
+      <div class="kanban" id="kanban">
+        <div class="kanban-col" data-stage="applied"><div class="kanban-col-title">Applied <span class="count" id="kc-applied">0</span></div><div class="kanban-items" id="ki-applied"></div></div>
+        <div class="kanban-col" data-stage="screen"><div class="kanban-col-title">Phone Screen <span class="count" id="kc-screen">0</span></div><div class="kanban-items" id="ki-screen"></div></div>
+        <div class="kanban-col" data-stage="interview"><div class="kanban-col-title">Interview <span class="count" id="kc-interview">0</span></div><div class="kanban-items" id="ki-interview"></div></div>
+        <div class="kanban-col" data-stage="offer"><div class="kanban-col-title">Offer <span class="count" id="kc-offer">0</span></div><div class="kanban-items" id="ki-offer"></div></div>
+        <div class="kanban-col" data-stage="rejected"><div class="kanban-col-title">Rejected <span class="count" id="kc-rejected">0</span></div><div class="kanban-items" id="ki-rejected"></div></div>
+      </div>
+    </div>
+
+    <!-- TAB 5: GENERATE DOCS (Manual JD Input) -->
+    <div class="tab-pane" id="tab-generate">
+      <div class="section-title" style="margin-bottom:16px">Generate Tailored Docs from Any JD</div>
+      <p class="text-dim text-sm mb-3">Paste a job description and get a tailored resume + cover letter instantly. No need to wait for the daily scanner.</p>
+
+      <div class="card">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div>
+            <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block">Company *</label>
+            <input type="text" id="genCompany" placeholder="e.g. Stripe" style="width:100%">
+          </div>
+          <div>
+            <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block">Job Title *</label>
+            <input type="text" id="genTitle" placeholder="e.g. Software Engineer Intern" style="width:100%">
+          </div>
+        </div>
+        <div style="margin-top:12px">
+          <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block">Location</label>
+          <input type="text" id="genLocation" placeholder="e.g. San Francisco, CA (optional)" style="width:100%">
+        </div>
+        <div style="margin-top:12px">
+          <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block">Job Description *</label>
+          <textarea id="genJD" rows="10" placeholder="Paste the full job description here..." style="width:100%"></textarea>
+        </div>
+        <div style="margin-top:12px">
+          <label style="font-size:12px;color:var(--text-dim);margin-bottom:4px;display:block">Your Existing Resume (optional — for reference)</label>
+          <textarea id="genResume" rows="4" placeholder="Optionally paste your current resume text for comparison..." style="width:100%"></textarea>
+        </div>
+        <div style="margin-top:16px;display:flex;gap:8px;align-items:center">
+          <button class="btn btn-green" onclick="generateFromManualJD()" id="genSubmitBtn">Generate Resume + Cover Letter</button>
+          <span id="genStatus" class="text-muted text-sm"></span>
+        </div>
+      </div>
+
+      <!-- Results area -->
+      <div id="genResults" style="display:none">
+        <div class="card" style="margin-top:16px">
+          <div class="card-header">
+            <div class="card-title">Match Score</div>
+            <span id="genScoreBadge" class="badge badge-green"></span>
+          </div>
+          <div class="flex gap-4 items-center">
+            <div id="genScoreGauge" class="score-gauge" style="font-size:28px"></div>
+            <div>
+              <div id="genScoreSummary" class="text-dim text-sm"></div>
+              <div id="genScoreGaps" class="text-muted text-xs mt-2"></div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Tailored Resume</div>
+              <div class="flex gap-2">
+                <button class="btn btn-ghost btn-xs" onclick="copyGenText('genResumeText')">Copy Text</button>
+                <button class="btn btn-ghost btn-xs" onclick="downloadGenFile('genLatexText', 'resume.tex')">Download .tex</button>
+              </div>
+            </div>
+            <pre id="genResumeText" style="white-space:pre-wrap;font-size:12px;max-height:500px;overflow-y:auto;background:var(--surface);padding:12px;border-radius:6px;color:var(--text-dim)"></pre>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">Cover Letter</div>
+              <button class="btn btn-ghost btn-xs" onclick="copyGenText('genCoverText')">Copy</button>
+            </div>
+            <pre id="genCoverText" style="white-space:pre-wrap;font-size:12px;max-height:500px;overflow-y:auto;background:var(--surface);padding:12px;border-radius:6px;color:var(--text-dim)"></pre>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:16px">
+          <div class="card-header">
+            <div class="card-title">ATS Keyword Audit</div>
+            <span id="genAtsCoverage" class="badge badge-blue"></span>
+          </div>
+          <div id="genAtsDetails" class="text-sm text-dim"></div>
+        </div>
+
+        <div id="genLatexText" style="display:none"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== RIGHT PANEL: AI CHAT ===== -->
+<aside class="chat-panel" id="chatPanel">
+  <div class="chat-header">
+    <div class="chat-header-title">AI Career Advisor</div>
+    <button class="btn-icon btn-sm" onclick="clearChat()" title="Clear chat">&#128465;</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg ai">Hi! I'm your AI career advisor. Select a job or ask me anything about your job search, interview prep, or career strategy.</div>
+  </div>
+  <div class="chat-quick">
+    <button onclick="quickChat('Rate my chances for this role')">Rate my chances</button>
+    <button onclick="quickChat('Help me prepare for an interview at this company')">Interview prep</button>
+    <button onclick="quickChat('What are the red flags in this job posting?')">Red flags?</button>
+    <button onclick="quickChat('What is the expected salary range for this role?')">Salary range</button>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="Ask anything..." onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="btn btn-primary btn-sm" onclick="sendChat()">Send</button>
+  </div>
+</aside>
+
+</div>
+</div>
+
+<!-- ===== PIPELINE MODAL ===== -->
+<div class="modal-overlay hidden" id="pipelineModal">
+  <div class="modal">
+    <h3>Add to Pipeline</h3>
+    <label>Company</label><input id="pmCompany" placeholder="Company name">
+    <label>Role / Title</label><input id="pmRole" placeholder="Software Engineer Intern">
+    <label>Stage</label>
+    <select id="pmStage"><option value="applied">Applied</option><option value="screen">Phone Screen</option><option value="interview">Interview</option><option value="offer">Offer</option><option value="rejected">Rejected</option></select>
+    <label>Notes</label><textarea id="pmNotes" rows="3" placeholder="Optional notes..."></textarea>
+    <div class="flex gap-2 mt-4" style="justify-content:flex-end">
+      <button class="btn btn-ghost btn-sm" onclick="closePipelineModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="addPipelineItem()">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== KANBAN EDIT MODAL ===== -->
+<div class="modal-overlay hidden" id="kanbanEditModal">
+  <div class="modal">
+    <h3>Edit Pipeline Item</h3>
+    <input type="hidden" id="keId">
+    <label>Company</label><input id="keCompany">
+    <label>Role</label><input id="keRole">
+    <label>Stage</label>
+    <select id="keStage"><option value="applied">Applied</option><option value="screen">Phone Screen</option><option value="interview">Interview</option><option value="offer">Offer</option><option value="rejected">Rejected</option></select>
+    <label>Notes</label><textarea id="keNotes" rows="3"></textarea>
+    <div class="flex gap-2 mt-4" style="justify-content:flex-end">
+      <button class="btn btn-red btn-sm" onclick="deletePipelineItem()">Delete</button>
+      <div style="flex:1"></div>
+      <button class="btn btn-ghost btn-sm" onclick="closeKanbanEditModal()">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="savePipelineItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SETUP MODAL (first-time user) ===== -->
+<div id="setupModal" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;">
+  <div style="background:var(--card);border:1px solid var(--border-light);border-radius:var(--radius-lg);padding:28px 32px;max-width:560px;width:90%;max-height:85vh;overflow-y:auto;">
+    <h2 style="margin-bottom:4px;font-size:20px;color:var(--text);">Welcome to CareerHub AI</h2>
+    <p style="color:var(--text-dim);font-size:13px;margin-bottom:18px;">Set up your profile so the AI can generate tailored resumes, cover letters, and career advice.</p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div>
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">Full Name *</label>
+        <input id="setupName" type="text" style="width:100%;" placeholder="e.g. Jane Smith">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">School / University *</label>
+        <input id="setupSchool" type="text" style="width:100%;" placeholder="e.g. Arizona State University">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">Degree / Program *</label>
+        <input id="setupDegree" type="text" style="width:100%;" placeholder="e.g. MS Computer Science">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">Target Roles (comma separated)</label>
+        <input id="setupRoles" type="text" style="width:100%;" placeholder="e.g. SDE Intern, ML Engineer, Full Stack">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:var(--text-dim);margin-bottom:4px;">Your Resume (paste full text) *</label>
+        <textarea id="setupResume" rows="10" style="width:100%;font-size:12px;font-family:monospace;" placeholder="Paste your full resume text here..."></textarea>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeSetupModal()">Skip for now</button>
+        <button class="btn btn-primary btn-sm" onclick="saveSetupProfile()">Save Profile</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================================================================
+// CONFIG & STATE
+// ===================================================================
+
+// --- USER PROFILE SYSTEM (reads from localStorage) ---
+function getUserProfile() {
+  try {
+    const saved = localStorage.getItem('ch_user_profile');
+    if (saved) return JSON.parse(saved);
+  } catch(e) {}
+  return {
+    name: 'Your Name',
+    school: 'Your University',
+    degree: 'MS Computer Science',
+    targetRoles: 'SDE Intern, ML Engineer, Full Stack',
+    resume: '(No resume set. Open Settings to paste your resume.)'
+  };
+}
+
+function saveUserProfile(profile) {
+  try { localStorage.setItem('ch_user_profile', JSON.stringify(profile)); } catch(e) {}
+}
+
+function getCandidateProfile() {
+  const p = getUserProfile();
+  return `${p.name}
+${p.degree} at ${p.school}
+Targeting: ${p.targetRoles}
+
+(See full resume below for complete background)`;
+}
+
+function getFullResume() {
+  return getUserProfile().resume || '(No resume set. Open Settings to paste your resume.)';
+}
+
+// Setup modal functions
+function showSetupModal() {
+  const modal = document.getElementById('setupModal');
+  modal.style.display = 'flex';
+  const p = getUserProfile();
+  if (p.name !== 'Your Name') document.getElementById('setupName').value = p.name;
+  if (p.school !== 'Your University') document.getElementById('setupSchool').value = p.school;
+  if (p.degree !== 'MS Computer Science') document.getElementById('setupDegree').value = p.degree;
+  if (p.targetRoles !== 'SDE Intern, ML Engineer, Full Stack') document.getElementById('setupRoles').value = p.targetRoles;
+  const resume = p.resume || '';
+  if (resume && !resume.startsWith('(No resume')) document.getElementById('setupResume').value = resume;
+}
+
+function closeSetupModal() {
+  document.getElementById('setupModal').style.display = 'none';
+}
+
+function saveSetupProfile() {
+  const name = document.getElementById('setupName').value.trim();
+  const school = document.getElementById('setupSchool').value.trim();
+  const degree = document.getElementById('setupDegree').value.trim();
+  const roles = document.getElementById('setupRoles').value.trim();
+  const resume = document.getElementById('setupResume').value.trim();
+  if (!name || !school || !degree) {
+    alert('Please fill in Name, School, and Degree.');
+    return;
+  }
+  const profile = {
+    name: name,
+    school: school,
+    degree: degree,
+    targetRoles: roles || 'SDE Intern',
+    resume: resume || '(No resume set.)'
+  };
+  saveUserProfile(profile);
+  closeSetupModal();
+  updateHeaderName();
+  toast('Profile saved!');
+}
+
+function updateHeaderName() {
+  const p = getUserProfile();
+  const el = document.getElementById('headerUserName');
+  if (el) el.textContent = p.name !== 'Your Name' ? p.name + ' — ' + p.school : 'Set up your profile';
+}
+
+// Connections map (add your contacts here or leave empty)
+const CONNECTIONS = {};
+
+// Dynamic references (these are now functions, but we keep const aliases for backward compat in prompts)
+const CANDIDATE_PROFILE = ''; // Use getCandidateProfile() instead
+const FULL_RESUME = ''; // Use getFullResume() instead
+
+// Safe localStorage wrapper (n8n sandbox CSP may block localStorage)
+function storageGet(key, fallback) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; }
+  catch(e) { return fallback; }
+}
+function storageSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch(e) {}
+}
+
+let allJobs = [];
+let currentFilter = 'all';
+let currentRoleFilter = 'all';
+let selectedJobId = null;
+let seenJobs = storageGet('ch_seen', {});
+let appliedJobs = storageGet('ch_applied', {});
+let pipeline = storageGet('ch_pipeline', []);
+let outreachTracker = storageGet('ch_outreach', []);
+let chatHistories = storageGet('ch_chats', {});
+let generatedJDs = storageGet('ch_gen_jds', {});
+let jobAnalyses = storageGet('ch_analyses', {});
+let currentOutreachMsgs = {};
+let currentOutreachType = 'connection';
+let pregenDocs = {};  // Pre-generated docs from pipeline, keyed by job_key
+
+// ===================================================================
+// UTILITIES
+// ===================================================================
+function saveState() {
+  storageSet('ch_seen', seenJobs);
+  storageSet('ch_applied', appliedJobs);
+  storageSet('ch_pipeline', pipeline);
+  storageSet('ch_outreach', outreachTracker);
+  storageSet('ch_chats', chatHistories);
+  storageSet('ch_gen_jds', generatedJDs);
+  storageSet('ch_analyses', jobAnalyses);
+  storageSet('ch_saved_docs', savedDocs);
+}
+
+function toast(msg, duration = 3000) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), duration);
+}
+
+function jobKey(job) {
+  return (job.title || '').trim().toLowerCase() + '||' + (job.company || '').trim().toLowerCase();
+}
+
+function getConnections(company) {
+  if (!company) return [];
+  const c = company.toLowerCase().trim();
+  for (const [key, conns] of Object.entries(CONNECTIONS)) {
+    if (c.includes(key) || key.includes(c)) return conns;
+  }
+  return [];
+}
+
+function scoreClass(score) {
+  if (score == null || score === '' || score === undefined) return 'score-none';
+  const s = Number(score);
+  if (s >= 70) return 'score-high';
+  if (s >= 50) return 'score-mid';
+  return 'score-low';
+}
+
+// Role classification for jobs
+const ROLE_KW = {
+  'SDE': ['software engineer','software developer','sde','backend engineer','backend developer','systems engineer','platform engineer','sre','application engineer','development engineer','junior developer','jr. developer'],
+  'ML/AI': ['machine learning','deep learning','ai engineer','artificial intelligence','data scientist','research engineer','research scientist','computer vision','nlp','ml engineer','ai/ml','robotics','perception','generative ai','llm'],
+  'Frontend': ['frontend','front-end','front end','ui engineer','ui developer','ux engineer','web developer','react developer'],
+  'Fullstack': ['full stack','fullstack','full-stack'],
+  'Data': ['data engineer','data engineering','data platform','analytics engineer','etl','data pipeline','big data','database engineer'],
+  'DevOps': ['devops','cloud engineer','cloud infrastructure','devsecops','release engineer']
+};
+function classifyRole(title, desc) {
+  const t = ((title || '') + ' ' + ((desc || '').slice(0, 300))).toLowerCase();
+  let best = 'SDE', bestScore = 0;
+  for (const [role, kws] of Object.entries(ROLE_KW)) {
+    let sc = 0;
+    for (const kw of kws) {
+      if (title.toLowerCase().includes(kw)) sc += 3;
+      else if (t.includes(kw)) sc += 1;
+    }
+    if (sc > bestScore) { bestScore = sc; best = role; }
+  }
+  if (t.includes('full stack') || t.includes('fullstack') || t.includes('full-stack')) return 'Fullstack';
+  return bestScore > 0 ? best : 'SDE';
+}
+
+// Load pre-generated docs from n8n API
+async function loadPregenDocs() {
+  try {
+    const resp = await fetch('/webhook/job-docs');
+    const data = await resp.json();
+    if (data && data.all) {
+      // Index all docs by job_key
+      for (const item of data.all) {
+        if (item.job_key) pregenDocs[item.job_key] = item;
+      }
+      // Fetch full docs in parallel batches of 8
+      const keys = data.all.filter(i => i.job_key).map(i => i.job_key);
+      for (let i = 0; i < keys.length; i += 8) {
+        const batch = keys.slice(i, i + 8);
+        const results = await Promise.allSettled(
+          batch.map(k => fetch('/webhook/job-docs?job_key=' + encodeURIComponent(k)).then(r => r.json()))
+        );
+        results.forEach((r, idx) => {
+          if (r.status === 'fulfilled' && r.value.found && r.value.doc) {
+            pregenDocs[batch[idx]] = r.value.doc;
+          }
+        });
+      }
+      console.log('[PregenDocs] Loaded', Object.keys(pregenDocs).length, 'docs');
+      // Merge pregen analysis data into allJobs
+      mergePregenIntoJobs();
+      updateUI();
+    }
+  } catch(e) {
+    console.log('[PregenDocs] Not available:', e.message);
+  }
+}
+
+function mergePregenIntoJobs() {
+  const existingKeys = new Set(allJobs.map(j => jobKey(j)));
+
+  // Merge analysis into existing jobs
+  for (const j of allJobs) {
+    const key = jobKey(j);
+    const pg = pregenDocs[key];
+    if (!pg) continue;
+    applyPregenToJob(j, pg);
+  }
+
+  // Add pregen-only jobs that aren't in allJobs yet
+  for (const [key, pg] of Object.entries(pregenDocs)) {
+    if (existingKeys.has(key)) continue;
+    const newJob = {
+      title: pg.title || '',
+      company: pg.company || '',
+      location: pg.location || '',
+      url: pg.url || '',
+      link: pg.url || '',
+      postedAt: pg.posted_at || pg.generated_at || '',
+      source: pg.source || 'pipeline',
+      description: pg.company_research || '',
+      _jdGenerated: true,
+    };
+    applyPregenToJob(newJob, pg);
+    newJob._id = key;
+    allJobs.push(newJob);
+    existingKeys.add(key);
+  }
+}
+
+function applyPregenToJob(j, pg) {
+  if (pg.score != null && j.score == null) j.score = pg.score;
+  const ms = pg.multi_score || {};
+  if (ms.summary && !j.summary) j.summary = ms.summary;
+  if (ms.recommendation && !j.recommendation) j.recommendation = ms.recommendation;
+  if (ms.matching_skills && !j.matching_skills) j.matching_skills = ms.matching_skills;
+  if (ms.missing_skills && !j.missing_skills) j.missing_skills = ms.missing_skills;
+  if (ms.ats_keywords && !j.ats_keywords) j.ats_keywords = ms.ats_keywords;
+  if (ms.red_flags && !j.red_flags) j.red_flags = ms.red_flags;
+  const ats = pg.ats_audit || {};
+  if (ats.matching_keywords && !j.ats_keywords) j.ats_keywords = ats.matching_keywords;
+  if (ats.missing_keywords && !j.missing_skills) j.missing_skills = ats.missing_keywords;
+  if ((!j.description || j.description.length < 30) && pg.company_research && pg.company_research.length > 100) {
+    j.description = pg.company_research;
+    j._jdGenerated = true;
+  }
+}
+
+function setRoleFilter(chip) {
+  document.querySelectorAll('[data-role]').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  currentRoleFilter = chip.dataset.role;
+  renderJobList();
+}
+
+function rowClass(score) {
+  if (score == null || score === '') return '';
+  const s = Number(score);
+  if (s >= 70) return 'row-high';
+  if (s >= 50) return 'row-mid';
+  return 'row-low';
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+  return Math.floor(diff / 86400) + 'd ago';
+}
+
+function truncate(str, len = 60) {
+  if (!str) return '';
+  return str.length > len ? str.slice(0, len) + '...' : str;
+}
+
+function escHtml(str) {
+  if (!str) return '';
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function copyText(elId) {
+  const el = document.getElementById(elId);
+  const text = el.tagName === 'TEXTAREA' || el.tagName === 'INPUT' ? el.value : el.textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard'));
+}
+
+function toggleCollapsible(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.classList.toggle('open');
+}
+
+// ===================================================================
+// AI API (Claude Proxy)
+// ===================================================================
+async function callGemini(prompt, temperature = 0.7) {
+  const resp = await fetch('/webhook/claude-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, temperature })
+  });
+  if (!resp.ok) {
+    const err = await resp.text();
+    throw new Error(`AI API error: ${resp.status} - ${err}`);
+  }
+  const data = await resp.json();
+  return data.text || '';
+}
+
+// ===================================================================
+// DATA FETCHING
+// ===================================================================
+async function loadBatchResults() {
+  try {
+    const resp = await fetch('/webhook/batch-results');
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const jobs = Array.isArray(data) ? data : (data.jobs || data.results || []);
+    console.log('Batch results:', jobs.length, 'jobs, first:', jobs[0] ? Object.keys(jobs[0]) : 'empty');
+    mergeJobs(jobs, true);
+    updateUI();
+    const scored = allJobs.filter(j => j.score != null).length;
+    toast(`Loaded ${jobs.length} jobs (${scored} scored)`);
+  } catch (e) {
+    console.error('Batch load error:', e);
+    toast('Failed to load batch results: ' + e.message);
+  }
+}
+
+async function fetchJobs() {
+  const days = document.getElementById('daysPicker').value;
+  const btn = document.getElementById('fetchBtn');
+  btn.textContent = '...';
+  btn.disabled = true;
+  try {
+    const resp = await fetch(`/webhook/jobs-api?days=${days}`);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const data = await resp.json();
+    const jobs = Array.isArray(data) ? data : (data.jobs || data.results || []);
+    console.log('Jobs API:', jobs.length, 'jobs, first keys:', jobs[0] ? Object.keys(jobs[0]) : 'empty');
+    mergeJobs(jobs, false);
+    updateUI();
+    toast(`Fetched ${jobs.length} jobs (${days}d)`);
+  } catch (e) {
+    console.error('Fetch error:', e);
+    toast('Failed to fetch jobs: ' + e.message);
+  }
+  btn.textContent = 'Fetch';
+  btn.disabled = false;
+}
+
+function normalizeJob(j) {
+  // Flatten _analysis nested object into top-level fields
+  const a = j._analysis || {};
+  if (a.score != null && j.score == null) j.score = a.score;
+  if (j._score != null && j.score == null) j.score = j._score;
+  if (a.summary && !j.summary) j.summary = a.summary;
+  if (a.recommendation && !j.recommendation) j.recommendation = a.recommendation;
+  if (a.ats_keywords && !j.ats_keywords) j.ats_keywords = a.ats_keywords;
+  if (a.matching_skills && !j.matching_skills) j.matching_skills = a.matching_skills;
+  if (a.missing_skills && !j.missing_skills) j.missing_skills = a.missing_skills;
+  if (a.red_flags && !j.red_flags) j.red_flags = a.red_flags;
+  if (a.apply_rationale && !j.apply_rationale) j.apply_rationale = a.apply_rationale;
+  if (a.interview_difficulty && !j.interview_difficulty) j.interview_difficulty = a.interview_difficulty;
+  // Normalize url/link
+  if (!j.url && j.link) j.url = j.link;
+  if (!j.link && j.url) j.link = j.url;
+  // Normalize date fields
+  if (!j.postedAt && j.date) j.postedAt = j.date;
+  // Mark enriched
+  if (j._enriched && !j._jdGenerated) j._jdGenerated = true;
+  return j;
+}
+
+function mergeJobs(newJobs, isBatch) {
+  const existing = new Map(allJobs.map(j => [jobKey(j), j]));
+  for (let j of newJobs) {
+    j = normalizeJob(j);
+    const key = jobKey(j);
+    if (existing.has(key)) {
+      const ex = existing.get(key);
+      // Merge score and analysis data
+      if (j.score != null && (ex.score == null || isBatch)) ex.score = j.score;
+      if (j.summary) ex.summary = j.summary;
+      if (j.recommendation) ex.recommendation = j.recommendation;
+      if (j.ats_keywords) ex.ats_keywords = j.ats_keywords;
+      if (j.matching_skills) ex.matching_skills = j.matching_skills;
+      if (j.missing_skills) ex.missing_skills = j.missing_skills;
+      if (j.red_flags) ex.red_flags = j.red_flags;
+      if (j.apply_rationale) ex.apply_rationale = j.apply_rationale;
+      if (j.interview_difficulty) ex.interview_difficulty = j.interview_difficulty;
+      if (j.url && !ex.url) ex.url = j.url;
+      if (j.description && j.description.length > (ex.description || '').length) {
+        ex.description = j.description;
+      }
+      if (j._jdGenerated) ex._jdGenerated = true;
+    } else {
+      j._id = key;
+      allJobs.push(j);
+      existing.set(key, j);
+    }
+  }
+  // Merge in local analyses
+  for (const j of allJobs) {
+    const key = jobKey(j);
+    if (jobAnalyses[key]) {
+      Object.assign(j, jobAnalyses[key]);
+    }
+    if (generatedJDs[key] && (!j.description || j.description.length < 50)) {
+      j.description = generatedJDs[key];
+      j._jdGenerated = true;
+    }
+  }
+  document.getElementById('lastRefresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+}
+
+async function runBatchAnalysis() {
+  const days = document.getElementById('daysPicker').value;
+  const prog = document.getElementById('analysisProgress');
+  const status = document.getElementById('analysisStatus');
+  prog.style.display = 'block';
+  status.textContent = 'Running batch AI analysis...';
+  try {
+    const resp = await fetch(`/webhook/analyze-jobs?days=${days}&top=35&enrich=true`);
+    const data = await resp.json();
+    const jobs = Array.isArray(data) ? data : (data.jobs || data.results || []);
+    mergeJobs(jobs, true);
+    updateUI();
+    toast(`Analysis complete: ${jobs.length} jobs scored`);
+    status.textContent = `Last analysis: ${new Date().toLocaleTimeString()}`;
+  } catch (e) {
+    console.error('Analysis error:', e);
+    toast('Batch analysis failed');
+    status.textContent = 'Analysis failed';
+  }
+  prog.style.display = 'none';
+}
+
+function runWorkflow(name, description) {
+  const el = document.getElementById('workflowStatus');
+  el.style.display = 'block';
+  const workflows = {
+    'fetch-jobs': { action: () => fetchJobs(), label: 'Fetching new jobs...' },
+    'analyze': { action: () => runBatchAnalysis(), label: 'Running AI scoring...' },
+    'generate-docs': { action: async () => {
+      toast('Pipeline runs locally: python3 generate_job_docs.py --rescore --workers 3');
+      el.textContent = 'Run this locally: python3 generate_job_docs.py --days 30 --min-score 30 --rescore --workers 3 --max-api 5';
+    }, label: 'Doc generation pipeline...' },
+    'upload-docs': { action: async () => {
+      toast('Upload: python3 upload_docs_to_n8n.py');
+      el.textContent = 'Run locally: python3 upload_docs_to_n8n.py';
+    }, label: 'Uploading docs...' },
+    'crawl-jds': { action: async () => {
+      toast('JD crawl: python3 crawl_jds.py');
+      el.textContent = 'Run locally: python3 crawl_jds.py --skip-existing';
+    }, label: 'Crawling JDs...' },
+  };
+  const wf = workflows[name];
+  if (!wf) { toast('Unknown workflow'); return; }
+  el.innerHTML = `<span class="loading-spinner"></span> ${wf.label} <span class="text-xs">(${description})</span>`;
+  wf.action().then(() => {
+    if (name === 'fetch-jobs' || name === 'analyze') {
+      el.innerHTML = `<span style="color:var(--green)">&#10003;</span> ${name} complete`;
+      setTimeout(() => el.style.display = 'none', 5000);
+    }
+  }).catch(e => {
+    el.innerHTML = `<span style="color:var(--red)">&#10007;</span> ${name} failed: ${e.message}`;
+  });
+}
+
+async function refreshAll() {
+  await loadBatchResults();
+  await loadPregenDocs();
+}
+
+// ===================================================================
+// JOB LIST RENDERING
+// ===================================================================
+function getFilteredJobs() {
+  let jobs = [...allJobs];
+  const search = document.getElementById('jobSearch').value.toLowerCase();
+  if (search) {
+    jobs = jobs.filter(j =>
+      (j.title || '').toLowerCase().includes(search) ||
+      (j.company || '').toLowerCase().includes(search) ||
+      (j.location || '').toLowerCase().includes(search)
+    );
+  }
+  if (currentFilter === 'high') jobs = jobs.filter(j => j.score >= 70);
+  else if (currentFilter === 'mid') jobs = jobs.filter(j => j.score >= 50 && j.score < 70);
+  else if (currentFilter === 'new') jobs = jobs.filter(j => j.score == null || j.score === undefined || j.score === '');
+  else if (currentFilter === 'applied') jobs = jobs.filter(j => appliedJobs[jobKey(j)]);
+  else if (currentFilter === 'has-docs') jobs = jobs.filter(j => pregenDocs[jobKey(j)]);
+  else if (currentFilter === 'no-analysis') jobs = jobs.filter(j => {
+    const hasAnalysis = j.score != null && j.score !== '' && (j.summary || j.analysis || j.recommendation);
+    return !hasAnalysis;
+  });
+  else if (currentFilter === 'no-desc') jobs = jobs.filter(j => !j.description || j.description.length < 30);
+
+  // Role filter
+  if (currentRoleFilter !== 'all') {
+    jobs = jobs.filter(j => classifyRole(j.title || '', j.description || '') === currentRoleFilter);
+  }
+
+  const sort = document.getElementById('sortPicker').value;
+  if (sort === 'score') jobs.sort((a, b) => (b.score ?? -1) - (a.score ?? -1));
+  else if (sort === 'date') jobs.sort((a, b) => new Date(b.postedAt || b.date || 0) - new Date(a.postedAt || a.date || 0));
+  else if (sort === 'company') jobs.sort((a, b) => (a.company || '').localeCompare(b.company || ''));
+
+  return jobs;
+}
+
+function renderJobList() {
+  const jobs = getFilteredJobs();
+  const container = document.getElementById('jobList');
+  if (jobs.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">&#128270;</div><div>No jobs match your filters</div></div>';
+    document.getElementById('sidebarFooter').textContent = '0 jobs';
+    return;
+  }
+  let html = '';
+  for (const j of jobs) {
+    const key = jobKey(j);
+    const conns = getConnections(j.company);
+    const status = appliedJobs[key] ? 'applied' : (seenJobs[key] ? 'seen' : 'new');
+    const sc = j.score != null && j.score !== '' ? j.score : null;
+
+    html += `<div class="job-card${selectedJobId === key ? ' selected' : ''}" onclick="selectJob('${escHtml(key)}')">
+      <div class="job-score ${scoreClass(sc)}">${sc != null ? sc : '—'}</div>
+      <div class="job-card-info">
+        <div class="job-card-title">${escHtml(truncate(j.title, 40))}</div>
+        <div class="job-card-company">${escHtml(j.company || 'Unknown')}${conns.length ? ` <span class="conn-badge">&#128100; ${conns.length}</span>` : ''}</div>
+        <div class="job-card-meta">
+          <span>${escHtml(truncate(j.location || '', 20))}</span>
+          <span>${timeAgo(j.postedAt || j.date)}</span>
+          <span class="status-badge status-${status}">${status}</span>
+          <span class="status-badge" style="background:var(--purple-dim);color:var(--purple)">${classifyRole(j.title || '', j.description || '')}</span>
+          ${pregenDocs[key] ? '<span style="font-size:10px" title="Pre-generated docs available">&#128196;</span>' : ''}
+        </div>
+      </div>
+    </div>`;
+  }
+  container.innerHTML = html;
+  document.getElementById('sidebarFooter').textContent = `${jobs.length} of ${allJobs.length} jobs`;
+}
+
+function setFilter(chip) {
+  document.querySelectorAll('.sidebar-filters [data-filter]').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  currentFilter = chip.dataset.filter;
+  renderJobList();
+}
+
+// ===================================================================
+// UI UPDATE
+// ===================================================================
+function updateUI() {
+  renderJobList();
+  updateMetrics();
+  renderPriorityTable();
+  renderPipeline();
+  renderOutreachTracker();
+  document.getElementById('jobCountStatus').textContent = `${allJobs.length} jobs`;
+}
+
+function updateMetrics() {
+  const analyzed = allJobs.filter(j => j.score != null && j.score !== '');
+  const high = analyzed.filter(j => j.score >= 70);
+  const appliedToday = Object.values(appliedJobs).filter(d => {
+    if (!d) return false;
+    const applied = new Date(d);
+    const today = new Date();
+    return applied.toDateString() === today.toDateString();
+  }).length;
+
+  document.getElementById('metricTotal').textContent = allJobs.length;
+  document.getElementById('metricAnalyzed').textContent = analyzed.length;
+  document.getElementById('metricHigh').textContent = high.length;
+  document.getElementById('metricApplied').textContent = appliedToday;
+}
+
+function renderPriorityTable() {
+  const scored = allJobs.filter(j => j.score != null && j.score !== '').sort((a, b) => b.score - a.score);
+  const unscored = allJobs.filter(j => j.score == null || j.score === '' || j.score === undefined);
+  const body = document.getElementById('priorityBody');
+  const empty = document.getElementById('priorityEmpty');
+
+  if (scored.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    document.getElementById('unscoredCount').textContent = unscored.length;
+    renderUnscoredSection(unscored);
+    return;
+  }
+  empty.style.display = 'none';
+
+  let html = '';
+  scored.forEach((j, i) => {
+    const key = jobKey(j);
+    const conns = getConnections(j.company);
+    const rec = j.recommendation || j.apply_rationale || '—';
+    html += `<tr class="${rowClass(j.score)}" onclick="selectJobAndTab('${escHtml(key)}')">
+      <td>${i + 1}</td>
+      <td><span class="job-score ${scoreClass(j.score)}" style="width:32px;height:28px;font-size:12px;display:inline-flex">${j.score}</span></td>
+      <td>${escHtml(j.company || '')}</td>
+      <td>${escHtml(truncate(j.title, 45))}</td>
+      <td class="text-sm text-dim">${escHtml(truncate(j.location || '', 25))}</td>
+      <td>${conns.length ? `<span class="conn-badge">&#128100; ${conns.length}</span>` : '—'}</td>
+      <td class="text-sm">${escHtml(truncate(rec, 50))}</td>
+      <td><button class="btn btn-primary btn-xs" onclick="event.stopPropagation();selectJobAndTab('${escHtml(key)}')">View</button></td>
+    </tr>`;
+  });
+  body.innerHTML = html;
+
+  document.getElementById('unscoredCount').textContent = unscored.length;
+  renderUnscoredSection(unscored);
+}
+
+function renderUnscoredSection(unscored) {
+  const el = document.getElementById('unscoredSection');
+  if (unscored.length === 0) {
+    el.innerHTML = '<div class="text-sm text-muted">All jobs have been scored.</div>';
+    return;
+  }
+  let html = '<table class="priority-table"><thead><tr><th>Company</th><th>Title</th><th>Location</th><th>Action</th></tr></thead><tbody>';
+  for (const j of unscored.slice(0, 50)) {
+    const key = jobKey(j);
+    html += `<tr onclick="selectJobAndTab('${escHtml(key)}')">
+      <td>${escHtml(j.company || '')}</td>
+      <td>${escHtml(truncate(j.title, 45))}</td>
+      <td class="text-sm text-dim">${escHtml(truncate(j.location || '', 25))}</td>
+      <td><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();analyzeJobByKey('${escHtml(key)}')">Analyze</button></td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  if (unscored.length > 50) html += `<div class="text-xs text-muted mt-2">+${unscored.length - 50} more</div>`;
+  el.innerHTML = html;
+}
+
+// ===================================================================
+// JOB SELECTION & APPLY TAB
+// ===================================================================
+function selectJob(key) {
+  selectedJobId = key;
+  seenJobs[key] = true;
+  saveState();
+  renderJobList();
+  renderApplyTab();
+}
+
+function selectJobAndTab(key) {
+  selectJob(key);
+  document.querySelector('.tab-btn[data-tab="apply"]').click();
+}
+
+function getSelectedJob() {
+  if (!selectedJobId) return null;
+  return allJobs.find(j => jobKey(j) === selectedJobId) || null;
+}
+
+function renderApplyTab() {
+  const job = getSelectedJob();
+  if (!job) {
+    document.getElementById('applyNoJob').style.display = 'block';
+    document.getElementById('applyContent').style.display = 'none';
+    return;
+  }
+  document.getElementById('applyNoJob').style.display = 'none';
+  document.getElementById('applyContent').style.display = 'block';
+
+  const key = jobKey(job);
+  const sc = job.score != null ? job.score : null;
+  const gauge = document.getElementById('applyScore');
+  gauge.textContent = sc != null ? sc : '—';
+  gauge.className = 'job-score score-gauge ' + scoreClass(sc);
+  if (sc != null) {
+    const color = sc >= 70 ? 'var(--green)' : sc >= 50 ? 'var(--yellow)' : 'var(--red)';
+    gauge.style.border = `3px solid ${color}`;
+  } else {
+    gauge.style.border = '3px solid var(--border-light)';
+  }
+
+  document.getElementById('applyTitle').textContent = job.title || 'Untitled';
+  document.getElementById('applyCompany').textContent = (job.company || 'Unknown') + (job.location ? ' — ' + job.location : '');
+  document.getElementById('applyMeta').textContent = [
+    job.postedAt || job.date ? 'Posted ' + timeAgo(job.postedAt || job.date) : '',
+    job.source ? 'Source: ' + job.source : ''
+  ].filter(Boolean).join(' | ');
+
+  // Open Job button
+  const openBtn = document.getElementById('openJobBtn');
+  if (job.url || job.link) {
+    openBtn.style.display = 'inline-flex';
+    openBtn.onclick = () => window.open(job.url || job.link, '_blank');
+  } else {
+    openBtn.style.display = 'none';
+  }
+
+  // Connections
+  const conns = getConnections(job.company);
+  const connEl = document.getElementById('applyConnAlert');
+  if (conns.length) {
+    connEl.style.display = 'block';
+    connEl.innerHTML = `<strong>&#128100; You know ${conns.length} ${conns.length === 1 ? 'person' : 'people'} at ${escHtml(job.company)}:</strong><br>` +
+      conns.map(c => `${escHtml(c.name)} — ${escHtml(c.role)}`).join('<br>');
+  } else {
+    connEl.style.display = 'none';
+  }
+
+  // Merge pregen doc data into job if available
+  const pregen = pregenDocs[key];
+  if (pregen) {
+    if (pregen.score != null && job.score == null) job.score = pregen.score;
+    const ms = pregen.multi_score || {};
+    if (ms.summary && !job.summary) job.summary = ms.summary;
+    if (ms.recommendation && !job.recommendation) job.recommendation = ms.recommendation;
+    if (ms.matching_skills && !job.matching_skills) job.matching_skills = ms.matching_skills;
+    if (ms.missing_skills && !job.missing_skills) job.missing_skills = ms.missing_skills;
+    if (ms.ats_keywords && !job.ats_keywords) job.ats_keywords = ms.ats_keywords;
+    if (ms.red_flags && !job.red_flags) job.red_flags = ms.red_flags;
+  }
+
+  // Analysis
+  const hasAnalysis = job.score != null && (job.summary || job.analysis || job.recommendation);
+  document.getElementById('applyAnalysisCard').style.display = hasAnalysis ? 'block' : 'none';
+  document.getElementById('applyNoAnalysis').style.display = hasAnalysis ? 'none' : 'block';
+
+  if (hasAnalysis) {
+    const matchSkills = job.matching_skills || job.matchingSkills || [];
+    const missSkills = job.missing_skills || job.missingSkills || [];
+    const atsKeys = job.ats_keywords || job.atsKeywords || [];
+    const redFlags = job.red_flags || job.redFlags || [];
+
+    let aHtml = '<div class="analysis-grid">';
+    aHtml += `<div class="analysis-item"><div class="analysis-item-label">Summary</div><div class="text-sm">${escHtml(job.summary || job.analysis || '—')}</div></div>`;
+    aHtml += `<div class="analysis-item"><div class="analysis-item-label">Recommendation</div><div class="text-sm">${escHtml(job.recommendation || job.apply_rationale || '—')}</div></div>`;
+    aHtml += `<div class="analysis-item"><div class="analysis-item-label">Matching Skills</div><div>${(Array.isArray(matchSkills) ? matchSkills : [matchSkills]).map(s => `<span class="skill-tag skill-match">${escHtml(s)}</span>`).join('') || '—'}</div></div>`;
+    aHtml += `<div class="analysis-item"><div class="analysis-item-label">Missing Skills</div><div>${(Array.isArray(missSkills) ? missSkills : [missSkills]).map(s => `<span class="skill-tag skill-miss">${escHtml(s)}</span>`).join('') || '—'}</div></div>`;
+    if (atsKeys.length) {
+      aHtml += `<div class="analysis-item"><div class="analysis-item-label">ATS Keywords</div><div class="text-sm text-dim">${(Array.isArray(atsKeys) ? atsKeys : [atsKeys]).map(k => escHtml(k)).join(', ')}</div></div>`;
+    }
+    if (redFlags.length) {
+      aHtml += `<div class="analysis-item"><div class="analysis-item-label">Red Flags</div><div class="text-sm" style="color:var(--red)">${(Array.isArray(redFlags) ? redFlags : [redFlags]).map(f => escHtml(f)).join(', ')}</div></div>`;
+    }
+    aHtml += '</div>';
+    document.getElementById('applyAnalysis').innerHTML = aHtml;
+  }
+
+  // JD - try pregen company_research as fallback for missing descriptions
+  if ((!job.description || job.description.length < 30) && pregen) {
+    if (pregen.company_research && pregen.company_research.length > 100) {
+      job.description = pregen.company_research;
+      job._jdGenerated = true;
+    }
+  }
+  const jd = job.description || '';
+  const jdEl = document.getElementById('applyJD');
+  const jdBadge = document.getElementById('jdBadge');
+  const genBtn = document.getElementById('generateJdBtn');
+  const pasteSection = document.getElementById('pasteJobDetailsSection');
+  if (jd && jd.length > 30) {
+    jdEl.textContent = jd;
+    jdBadge.style.display = 'inline';
+    jdBadge.textContent = job._jdGenerated ? 'AI-Generated' : 'Original JD';
+    jdBadge.className = 'badge ' + (job._jdGenerated ? 'badge-yellow' : 'badge-blue');
+    genBtn.style.display = 'none';
+    pasteSection.style.display = 'none';
+  } else {
+    jdEl.textContent = 'No description available for this job.';
+    jdBadge.style.display = 'none';
+    genBtn.style.display = 'inline-flex';
+    pasteSection.style.display = 'block';
+  }
+  // Always show paste section if user wants to override - add a small link
+  // Clear previous paste input when switching jobs
+  document.getElementById('pasteJobInput').value = '';
+  document.getElementById('parseJobStatus').textContent = '';
+
+  // Applied status
+  const appliedBtn = document.getElementById('markAppliedBtn');
+  if (appliedJobs[key]) {
+    appliedBtn.textContent = 'Applied ✓';
+    appliedBtn.className = 'btn btn-ghost btn-sm';
+    appliedBtn.disabled = true;
+  } else {
+    appliedBtn.textContent = 'Mark as Applied';
+    appliedBtn.className = 'btn btn-green btn-sm';
+    appliedBtn.disabled = false;
+  }
+
+  // Auto-fill outreach if company has connections
+  if (conns.length) {
+    document.getElementById('outreachCompany').value = job.company || '';
+    if (conns[0]) {
+      document.getElementById('outreachName').value = conns[0].name;
+      document.getElementById('outreachRole').value = conns[0].role;
+    }
+  }
+
+  // Reset outputs first, then load saved docs
+  document.getElementById('resumeOutput').style.display = 'none';
+  document.getElementById('resumeLatexOutput').style.display = 'none';
+  document.getElementById('coverLetterOutput').style.display = 'none';
+  document.getElementById('resumeText').value = '';
+  document.getElementById('resumeLatexText').value = '';
+  document.getElementById('coverLetterText').value = '';
+
+  // Load stored extra context
+  const stored = storageGet('ch_resume_text', '');
+  if (stored && !document.getElementById('resumeInput').value) {
+    document.getElementById('resumeInput').value = stored;
+  }
+
+  // Load previously saved resume/cover letter for this job
+  loadSavedDocs();
+}
+
+// ===================================================================
+// SINGLE JOB ANALYSIS (Client-side Gemini)
+// ===================================================================
+async function analyzeCurrentJob() {
+  const job = getSelectedJob();
+  if (!job) return;
+  await analyzeJobByKey(jobKey(job));
+}
+
+async function analyzeJobByKey(key) {
+  const job = allJobs.find(j => jobKey(j) === key);
+  if (!job) return;
+
+  toast('Analyzing job with AI...');
+  const jd = job.description || 'No description available. Use the title and company to infer requirements.';
+
+  const prompt = `You are a job-match analyzer for a candidate. Evaluate how well this candidate matches this job.
+
+CANDIDATE:
+${getCandidateProfile()}
+
+JOB:
+Title: ${job.title || 'Unknown'}
+Company: ${job.company || 'Unknown'}
+Location: ${job.location || 'Unknown'}
+Description: ${jd}
+
+Respond in VALID JSON with these fields:
+{
+  "score": <integer 0-100>,
+  "summary": "<2-3 sentence analysis>",
+  "recommendation": "<should apply / maybe / skip — with 1 sentence reason>",
+  "matching_skills": ["skill1", "skill2", ...],
+  "missing_skills": ["skill1", "skill2", ...],
+  "ats_keywords": ["keyword1", "keyword2", ...],
+  "red_flags": ["flag1", ...],
+  "apply_rationale": "<1 sentence>"
+}
+
+Only output the JSON, nothing else.`;
+
+  try {
+    const raw = await callGemini(prompt, 0.3);
+    const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const result = JSON.parse(cleaned);
+
+    job.score = result.score;
+    job.summary = result.summary;
+    job.recommendation = result.recommendation;
+    job.matching_skills = result.matching_skills;
+    job.missing_skills = result.missing_skills;
+    job.ats_keywords = result.ats_keywords;
+    job.red_flags = result.red_flags;
+    job.apply_rationale = result.apply_rationale;
+
+    jobAnalyses[key] = result;
+    saveState();
+    updateUI();
+    if (selectedJobId === key) renderApplyTab();
+    toast(`Job scored: ${result.score}/100`);
+  } catch (e) {
+    console.error('Analysis error:', e);
+    toast('Failed to analyze job: ' + e.message);
+  }
+}
+
+// ===================================================================
+// JD GENERATION
+// ===================================================================
+async function generateJD() {
+  const job = getSelectedJob();
+  if (!job) return;
+
+  toast('Generating job description...');
+  const prompt = `Generate a realistic, detailed job description for this position. Include responsibilities, requirements, qualifications, and nice-to-haves.
+
+Title: ${job.title || 'Software Engineer'}
+Company: ${job.company || 'Unknown'}
+Location: ${job.location || 'Unknown'}
+
+Write it as if it were the actual job posting. Be specific and professional. 300-500 words.`;
+
+  try {
+    const result = await callGemini(prompt, 0.7);
+    const key = jobKey(job);
+    job.description = result;
+    job._jdGenerated = true;
+    generatedJDs[key] = result;
+    saveState();
+    renderApplyTab();
+    toast('Job description generated');
+  } catch (e) {
+    toast('Failed to generate JD: ' + e.message);
+  }
+}
+
+// ===================================================================
+// PASTE JOB DETAILS — Parse raw page content into structured JD
+// ===================================================================
+function togglePasteJD() {
+  const section = document.getElementById('pasteJobDetailsSection');
+  section.style.display = section.style.display === 'none' ? 'block' : 'none';
+  if (section.style.display === 'block') {
+    document.getElementById('pasteJobInput').focus();
+  }
+}
+async function parseJobDetails() {
+  const job = getSelectedJob();
+  if (!job) return toast('Select a job first');
+
+  const rawInput = document.getElementById('pasteJobInput').value.trim();
+  if (!rawInput || rawInput.length < 50) return toast('Paste more content from the job page');
+
+  const statusEl = document.getElementById('parseJobStatus');
+  statusEl.textContent = 'Parsing with AI...';
+
+  const prompt = `Extract and structure the job description from this raw page content. The content was copied from a job listing page (likely LinkedIn or a company careers page).
+
+RAW PAGE CONTENT:
+${rawInput.slice(0, 12000)}
+
+Extract and return a CLEAN, STRUCTURED job description with these sections:
+- Company Overview (2-3 sentences about the company)
+- Role Summary (what this role is about)
+- Responsibilities (bullet points)
+- Requirements / Qualifications (bullet points - must have)
+- Preferred / Nice to Have (bullet points if available)
+- Benefits / Compensation (if mentioned)
+- Location & Work Type (remote/hybrid/onsite)
+
+IMPORTANT:
+- Extract ONLY real information from the content, do not fabricate
+- If salary/compensation is mentioned, include it
+- Include specific technologies, tools, and skills mentioned
+- Keep the original wording for technical requirements
+- Ignore navigation elements, ads, cookie notices, login prompts, and other page chrome
+
+Return ONLY the structured job description text, no JSON wrapping.`;
+
+  try {
+    const result = await callGemini(prompt, 0.2);
+    if (result && result.length > 100) {
+      const key = jobKey(job);
+      job.description = result;
+      job._jdGenerated = false; // it's from real data, not AI-fabricated
+      generatedJDs[key] = result;
+      saveState();
+      renderApplyTab();
+      statusEl.textContent = 'JD saved! (' + result.length + ' chars)';
+      toast('Job description parsed and saved');
+    } else {
+      statusEl.textContent = 'Parsing returned too little content';
+      toast('Failed to parse - try pasting more content');
+    }
+  } catch (e) {
+    statusEl.textContent = 'Error: ' + e.message;
+    toast('Parse failed: ' + e.message);
+  }
+}
+
+async function parseAndGenerateDocs() {
+  const job = getSelectedJob();
+  if (!job) return toast('Select a job first');
+
+  const rawInput = document.getElementById('pasteJobInput').value.trim();
+  if (!rawInput || rawInput.length < 50) return toast('Paste more content from the job page');
+
+  // First parse the JD
+  await parseJobDetails();
+
+  // Then trigger analysis + resume + cover letter generation in sequence
+  if (job.description && job.description.length > 100) {
+    toast('Now generating AI analysis...');
+    await analyzeCurrentJob();
+    toast('Generating resume...');
+    await generateResume();
+    toast('Generating cover letter...');
+    await generateCoverLetter();
+    toast('All docs generated!');
+  }
+}
+
+// ===================================================================
+// RESUME GENERATION
+// ===================================================================
+async function generateResume() {
+  const job = getSelectedJob();
+  if (!job) return toast('Select a job first');
+
+  const extraContext = document.getElementById('resumeInput').value.trim();
+  storageSet('ch_resume_text', extraContext);
+
+  toast('Generating tailored resume...');
+  const prompt = `You are an expert ATS resume optimizer. Tailor the candidate's REAL resume for the target job.
+
+TARGET JOB:
+Title: ${job.title}
+Company: ${job.company}
+Description: ${(job.description || 'Not available').slice(0, 4000)}
+ATS Keywords: ${(job.ats_keywords || []).join(', ')}
+
+CANDIDATE'S ACTUAL RESUME (use ONLY this data — do NOT invent any projects, experiences, or achievements):
+${getFullResume()}
+
+${extraContext ? 'ADDITIONAL CONTEXT FROM CANDIDATE:\n' + extraContext : ''}
+
+CRITICAL RULES:
+1. ONLY use projects, experience, skills, and achievements from the ACTUAL RESUME above
+2. NEVER fabricate or invent new projects, positions, or metrics — this is fraud
+3. Reorder and emphasize bullet points that best match the JD keywords
+4. Rephrase bullet points to naturally incorporate ATS keywords from the JD
+5. Choose the 2-3 most relevant projects for this specific role
+6. Keep the real company names, dates, and metrics exactly as provided
+7. Keep to 1 page — prioritize relevance over completeness
+8. Use strong action verbs matching the JD language
+9. Put the most relevant skills first in the Skills section
+
+Output the resume text only, well formatted with sections: Header, Education, Experience, Projects (2-3 most relevant), Publication (if relevant), Technical Skills.`;
+
+  try {
+    const result = await callGemini(prompt, 0.3);
+    document.getElementById('resumeText').value = result;
+    document.getElementById('resumeOutput').style.display = 'block';
+    toast('Resume generated — review and edit before using');
+  } catch (e) {
+    toast('Failed: ' + e.message);
+  }
+}
+
+async function generateResumeLatex() {
+  const job = getSelectedJob();
+  if (!job) return toast('Select a job first');
+
+  const extraContext = document.getElementById('resumeInput').value.trim();
+  storageSet('ch_resume_text', extraContext);
+
+  toast('Generating LaTeX resume...');
+  const prompt = `Generate a professional LaTeX resume using Jake's Resume template style (clean, single-column, ATS-friendly).
+
+TARGET JOB:
+Title: ${job.title}
+Company: ${job.company}
+Description: ${(job.description || 'Not available').slice(0, 3000)}
+
+CANDIDATE'S ACTUAL RESUME (use ONLY this data — do NOT invent anything):
+${getFullResume()}
+
+${extraContext ? 'ADDITIONAL CONTEXT:\n' + extraContext : ''}
+
+CRITICAL: Only use real projects, experience, and metrics from the resume above. Never fabricate content.
+Select the 2-3 most relevant projects for this role. Rephrase bullets to match JD keywords.
+Output ONLY the complete LaTeX code. Use packages: geometry, enumitem, titlesec, hyperref, fontawesome5. Keep to 1 page.`;
+
+  try {
+    const result = await callGemini(prompt, 0.3);
+    document.getElementById('resumeLatexText').value = result;
+    document.getElementById('resumeLatexOutput').style.display = 'block';
+    toast('LaTeX resume generated');
+  } catch (e) {
+    toast('Failed: ' + e.message);
+  }
+}
+
+// ===================================================================
+// SAVE/LOAD RESUME & COVER LETTER PER JOB
+// ===================================================================
+let savedDocs = storageGet('ch_saved_docs', {});
+
+function saveResumeForJob() {
+  const job = getSelectedJob();
+  if (!job) return toast('No job selected');
+  const key = jobKey(job);
+  if (!savedDocs[key]) savedDocs[key] = {};
+  savedDocs[key].resume = document.getElementById('resumeText').value;
+  savedDocs[key].updatedAt = new Date().toISOString();
+  storageSet('ch_saved_docs', savedDocs);
+  toast('Resume saved for ' + (job.company || 'this job'));
+}
+
+function saveLatexForJob() {
+  const job = getSelectedJob();
+  if (!job) return toast('No job selected');
+  const key = jobKey(job);
+  if (!savedDocs[key]) savedDocs[key] = {};
+  savedDocs[key].latex = document.getElementById('resumeLatexText').value;
+  storageSet('ch_saved_docs', savedDocs);
+  toast('LaTeX saved for ' + (job.company || 'this job'));
+}
+
+function saveCoverLetterForJob() {
+  const job = getSelectedJob();
+  if (!job) return toast('No job selected');
+  const key = jobKey(job);
+  if (!savedDocs[key]) savedDocs[key] = {};
+  savedDocs[key].coverLetter = document.getElementById('coverLetterText').value;
+  savedDocs[key].updatedAt = new Date().toISOString();
+  storageSet('ch_saved_docs', savedDocs);
+  toast('Cover letter saved for ' + (job.company || 'this job'));
+}
+
+function loadSavedDocs() {
+  const job = getSelectedJob();
+  if (!job) return;
+  const key = jobKey(job);
+
+  // Check locally saved docs first
+  const docs = savedDocs[key];
+  if (docs) {
+    if (docs.resume) {
+      document.getElementById('resumeText').value = docs.resume;
+      document.getElementById('resumeOutput').style.display = 'block';
+    }
+    if (docs.latex) {
+      document.getElementById('resumeLatexText').value = docs.latex;
+      document.getElementById('resumeLatexOutput').style.display = 'block';
+    }
+    if (docs.coverLetter) {
+      document.getElementById('coverLetterText').value = docs.coverLetter;
+      document.getElementById('coverLetterOutput').style.display = 'block';
+    }
+    return; // Local docs take priority
+  }
+
+  // Check pre-generated docs from pipeline
+  const pregen = pregenDocs[key];
+  if (pregen) {
+    if (pregen.resume_text) {
+      document.getElementById('resumeText').value = pregen.resume_text;
+      document.getElementById('resumeOutput').style.display = 'block';
+    }
+    if (pregen.resume_latex) {
+      document.getElementById('resumeLatexText').value = pregen.resume_latex;
+      document.getElementById('resumeLatexOutput').style.display = 'block';
+    }
+    if (pregen.cover_letter) {
+      document.getElementById('coverLetterText').value = pregen.cover_letter;
+      document.getElementById('coverLetterOutput').style.display = 'block';
+    }
+    // Auto-fill outreach if available
+    if (pregen.outreach && !pregen.outreach.error) {
+      const o = pregen.outreach;
+      if (o.linkedin_message) {
+        currentOutreachMsgs.connection = o.linkedin_message;
+      }
+      if (o.cold_email) {
+        currentOutreachMsgs.email = o.cold_email.body || '';
+      }
+      if (o.referral_ask) {
+        currentOutreachMsgs.referral = o.referral_ask;
+      }
+    }
+    toast('Pre-generated docs loaded from pipeline');
+  }
+}
+
+// ===================================================================
+// COVER LETTER
+// ===================================================================
+async function generateCoverLetter() {
+  const job = getSelectedJob();
+  if (!job) return toast('Select a job first');
+
+  toast('Generating cover letter...');
+  const conns = getConnections(job.company);
+  const connNote = conns.length ? `The candidate knows: ${conns.map(c => c.name + ' (' + c.role + ')').join(', ')} at this company.` : '';
+
+  const prompt = `Write a cover letter for this specific job application.
+
+JOB:
+Title: ${job.title}
+Company: ${job.company}
+Description: ${(job.description || 'Not available').slice(0, 3000)}
+
+CANDIDATE'S FULL BACKGROUND:
+${getFullResume()}
+${connNote}
+
+STRICT RULES FOR PERSONALIZATION:
+1. NEVER start with "I am writing to express my interest" or any generic opening — start with something specific about the company's product, mission, or a recent achievement that genuinely connects to the candidate's experience
+2. DO NOT use phrases like "enthusiastic interest", "I believe I would be a great fit", "I am confident that" — these are filler
+3. Opening sentence MUST reference something specific about ${job.company} (their product, tech, mission, recent news) and connect it to a concrete experience from the candidate's background
+4. Use ONLY real achievements from the candidate's resume — never invent metrics or projects
+5. Match 2-3 specific bullet points from the candidate's experience to specific requirements in the JD
+6. Include actual numbers (100+ TPS, 83% reduction, 50% cost cut, 92% code coverage) — recruiters remember specifics
+7. If the candidate has connections at this company, mention them naturally
+8. Tone: confident professional peer, not desperate applicant
+9. 3 paragraphs, ~200-250 words
+10. End with availability and a specific next step, not generic "thank you for considering"
+
+Output the cover letter text only.`;
+
+  try {
+    const result = await callGemini(prompt, 0.7);
+    document.getElementById('coverLetterText').value = result;
+    document.getElementById('coverLetterOutput').style.display = 'block';
+    toast('Cover letter generated');
+  } catch (e) {
+    toast('Failed: ' + e.message);
+  }
+}
+
+// ===================================================================
+// TRACK APPLICATION
+// ===================================================================
+function markApplied() {
+  const job = getSelectedJob();
+  if (!job) return;
+  const key = jobKey(job);
+  const notes = document.getElementById('applyNotes').value;
+
+  appliedJobs[key] = new Date().toISOString();
+
+  // Add to pipeline
+  const exists = pipeline.find(p => p.company === job.company && p.role === job.title);
+  if (!exists) {
+    pipeline.push({
+      id: Date.now().toString(),
+      company: job.company || 'Unknown',
+      role: job.title || 'Unknown',
+      stage: 'applied',
+      date: new Date().toISOString().split('T')[0],
+      notes: notes,
+      url: job.url || ''
+    });
+  }
+
+  saveState();
+  renderApplyTab();
+  updateUI();
+  toast('Marked as applied');
+}
+
+// ===================================================================
+// OUTREACH
+// ===================================================================
+async function generateOutreach(type) {
+  const name = document.getElementById('outreachName').value.trim();
+  const role = document.getElementById('outreachRole').value.trim();
+  const company = document.getElementById('outreachCompany').value.trim();
+  const context = document.getElementById('outreachContext').value.trim();
+
+  if (!name || !company) return toast('Please fill in name and company');
+
+  const job = getSelectedJob();
+  const jobInfo = job ? `The candidate is applying for: ${job.title} at ${job.company}.` : '';
+
+  toast('Generating outreach messages...');
+
+  const types = type === 'all' ? ['connection', 'email', 'referral'] : [type];
+
+  for (const t of types) {
+    let instruc = '';
+    if (t === 'connection') {
+      instruc = `Generate a LinkedIn connection request message. MUST be under 300 characters. Be genuine, mention a specific reason to connect. No generic "I'd love to connect" filler.`;
+    } else if (t === 'email') {
+      instruc = `Generate a cold email with Subject line and Body. Be concise (150 words max), professional but warm. Include a specific ask.`;
+    } else {
+      instruc = `Generate a referral request message. Be respectful of their time, specific about the role, and make it easy for them to say yes. 150-200 words.`;
+    }
+
+    const prompt = `${instruc}
+
+CONTEXT:
+- Sender: ${getUserProfile().name}, ${getUserProfile().degree} student at ${getUserProfile().school}
+- Recipient: ${name}, ${role} at ${company}
+${jobInfo}
+${context ? 'Additional context: ' + context : ''}
+
+CANDIDATE BACKGROUND:
+${getCandidateProfile()}
+
+Output ONLY the message text (and subject line for email, on its own line starting with "Subject: ").`;
+
+    try {
+      const result = await callGemini(prompt, 0.7);
+      currentOutreachMsgs[t] = result;
+    } catch (e) {
+      currentOutreachMsgs[t] = 'Error generating message: ' + e.message;
+    }
+  }
+
+  currentOutreachType = types[0];
+  renderOutreachResults();
+  toast('Outreach messages generated');
+}
+
+function renderOutreachResults() {
+  const container = document.getElementById('outreachResults');
+  container.style.display = 'block';
+
+  const tabs = document.getElementById('outreachTabs');
+  const labels = { connection: 'Connection Request', email: 'Cold Email', referral: 'Referral Ask' };
+  tabs.innerHTML = Object.keys(currentOutreachMsgs).map(t =>
+    `<button class="btn ${t === currentOutreachType ? 'btn-primary' : 'btn-ghost'} btn-sm" onclick="switchOutreachType('${t}')">${labels[t]}</button>`
+  ).join('');
+
+  document.getElementById('outreachOutput').textContent = currentOutreachMsgs[currentOutreachType] || '';
+}
+
+function switchOutreachType(t) {
+  currentOutreachType = t;
+  renderOutreachResults();
+}
+
+function copyOutreach() {
+  const text = currentOutreachMsgs[currentOutreachType];
+  if (text) navigator.clipboard.writeText(text).then(() => toast('Copied'));
+}
+
+function saveOutreach() {
+  const name = document.getElementById('outreachName').value.trim();
+  const company = document.getElementById('outreachCompany').value.trim();
+  if (!name) return;
+
+  for (const [type, msg] of Object.entries(currentOutreachMsgs)) {
+    outreachTracker.push({
+      id: Date.now().toString() + type,
+      date: new Date().toISOString().split('T')[0],
+      name, company, type, message: msg, status: 'drafted'
+    });
+  }
+  saveState();
+  renderOutreachTracker();
+  toast('Saved to outreach tracker');
+}
+
+function renderOutreachTracker() {
+  const body = document.getElementById('outreachTrackerBody');
+  const empty = document.getElementById('outreachEmpty');
+  if (outreachTracker.length === 0) {
+    body.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  const labels = { connection: 'Connect', email: 'Email', referral: 'Referral' };
+  const statusColors = { drafted: 'badge-yellow', sent: 'badge-blue', replied: 'badge-green' };
+  body.innerHTML = outreachTracker.slice().reverse().map(o =>
+    `<tr>
+      <td class="text-sm">${o.date}</td>
+      <td>${escHtml(o.name)}</td>
+      <td>${escHtml(o.company)}</td>
+      <td><span class="badge badge-purple">${labels[o.type] || o.type}</span></td>
+      <td><span class="badge ${statusColors[o.status] || 'badge-yellow'}" style="cursor:pointer" onclick="cycleOutreachStatus('${o.id}')">${o.status}</span></td>
+      <td><button class="btn btn-ghost btn-xs" onclick="deleteOutreach('${o.id}')">&#10005;</button></td>
+    </tr>`
+  ).join('');
+}
+
+function cycleOutreachStatus(id) {
+  const item = outreachTracker.find(o => o.id === id);
+  if (!item) return;
+  const cycle = { drafted: 'sent', sent: 'replied', replied: 'drafted' };
+  item.status = cycle[item.status] || 'drafted';
+  saveState();
+  renderOutreachTracker();
+}
+
+function deleteOutreach(id) {
+  outreachTracker = outreachTracker.filter(o => o.id !== id);
+  saveState();
+  renderOutreachTracker();
+}
+
+// ===================================================================
+// PIPELINE
+// ===================================================================
+function renderPipeline() {
+  const stages = ['applied', 'screen', 'interview', 'offer', 'rejected'];
+  for (const s of stages) {
+    const items = pipeline.filter(p => p.stage === s);
+    document.getElementById('kc-' + s).textContent = items.length;
+    const container = document.getElementById('ki-' + s);
+    container.innerHTML = items.map(p =>
+      `<div class="kanban-card" onclick="editPipelineItem('${p.id}')">
+        <div class="kc-company">${escHtml(p.company)}</div>
+        <div class="kc-role">${escHtml(p.role)}</div>
+        <div class="kc-date">${p.date}${p.notes ? ' — ' + escHtml(truncate(p.notes, 30)) : ''}</div>
+      </div>`
+    ).join('');
+  }
+
+  document.getElementById('pipeTotal').textContent = pipeline.length;
+  document.getElementById('pipeActive').textContent = pipeline.filter(p => ['applied', 'screen', 'interview'].includes(p.stage)).length;
+  document.getElementById('pipeRejected').textContent = pipeline.filter(p => p.stage === 'rejected').length;
+}
+
+function showPipelineModal() {
+  document.getElementById('pipelineModal').classList.remove('hidden');
+  document.getElementById('pmCompany').value = '';
+  document.getElementById('pmRole').value = '';
+  document.getElementById('pmStage').value = 'applied';
+  document.getElementById('pmNotes').value = '';
+
+  const job = getSelectedJob();
+  if (job) {
+    document.getElementById('pmCompany').value = job.company || '';
+    document.getElementById('pmRole').value = job.title || '';
+  }
+}
+
+function closePipelineModal() {
+  document.getElementById('pipelineModal').classList.add('hidden');
+}
+
+function addPipelineItem() {
+  const company = document.getElementById('pmCompany').value.trim();
+  const role = document.getElementById('pmRole').value.trim();
+  if (!company || !role) return toast('Company and role are required');
+
+  pipeline.push({
+    id: Date.now().toString(),
+    company, role,
+    stage: document.getElementById('pmStage').value,
+    date: new Date().toISOString().split('T')[0],
+    notes: document.getElementById('pmNotes').value.trim()
+  });
+  saveState();
+  renderPipeline();
+  closePipelineModal();
+  toast('Added to pipeline');
+}
+
+function editPipelineItem(id) {
+  const item = pipeline.find(p => p.id === id);
+  if (!item) return;
+  document.getElementById('keId').value = id;
+  document.getElementById('keCompany').value = item.company;
+  document.getElementById('keRole').value = item.role;
+  document.getElementById('keStage').value = item.stage;
+  document.getElementById('keNotes').value = item.notes || '';
+  document.getElementById('kanbanEditModal').classList.remove('hidden');
+}
+
+function closeKanbanEditModal() {
+  document.getElementById('kanbanEditModal').classList.add('hidden');
+}
+
+function savePipelineItem() {
+  const id = document.getElementById('keId').value;
+  const item = pipeline.find(p => p.id === id);
+  if (!item) return;
+  item.company = document.getElementById('keCompany').value.trim();
+  item.role = document.getElementById('keRole').value.trim();
+  item.stage = document.getElementById('keStage').value;
+  item.notes = document.getElementById('keNotes').value.trim();
+  saveState();
+  renderPipeline();
+  closeKanbanEditModal();
+  toast('Updated');
+}
+
+function deletePipelineItem() {
+  const id = document.getElementById('keId').value;
+  pipeline = pipeline.filter(p => p.id !== id);
+  saveState();
+  renderPipeline();
+  closeKanbanEditModal();
+  toast('Removed from pipeline');
+}
+
+// ===================================================================
+// TABS
+// ===================================================================
+function switchTab(btn) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+}
+
+// ===================================================================
+// AI CHAT
+// ===================================================================
+function toggleChat() {
+  document.getElementById('chatPanel').classList.toggle('collapsed');
+}
+
+function getChatKey() {
+  return selectedJobId || '_general';
+}
+
+function loadChatHistory() {
+  const key = getChatKey();
+  const msgs = chatHistories[key] || [];
+  const container = document.getElementById('chatMessages');
+  const userName = getUserProfile().name.split(' ')[0];
+  container.innerHTML = '<div class="chat-msg ai">Hi' + (userName !== 'Your' ? ' ' + userName : '') + '! I\'m your AI career advisor. ' +
+    (selectedJobId ? 'I can see you\'re looking at a job. Ask me anything about it!' : 'Select a job or ask me anything about your job search.') +
+    '</div>';
+  for (const m of msgs) {
+    appendChatBubble(m.role, m.text, false);
+  }
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendChatBubble(role, text, scroll = true) {
+  const container = document.getElementById('chatMessages');
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (role === 'user' ? 'user' : 'ai');
+  // Simple markdown-like rendering for AI messages
+  if (role === 'ai') {
+    let formatted = escHtml(text);
+    formatted = formatted.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    formatted = formatted.replace(/```([\s\S]*?)```/g, '<pre>$1</pre>');
+    div.innerHTML = formatted;
+  } else {
+    div.textContent = text;
+  }
+  container.appendChild(div);
+  if (scroll) container.scrollTop = container.scrollHeight;
+}
+
+function quickChat(text) {
+  document.getElementById('chatInput').value = text;
+  sendChat();
+}
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  const key = getChatKey();
+  if (!chatHistories[key]) chatHistories[key] = [];
+  chatHistories[key].push({ role: 'user', text });
+
+  appendChatBubble('user', text);
+
+  // Build context
+  const job = getSelectedJob();
+  let jobContext = '';
+  if (job) {
+    jobContext = `\nCURRENT JOB BEING VIEWED:
+Title: ${job.title}
+Company: ${job.company}
+Location: ${job.location || 'Unknown'}
+Score: ${job.score != null ? job.score + '/100' : 'Not scored'}
+Description: ${(job.description || 'Not available').slice(0, 1500)}
+Analysis: ${job.summary || job.analysis || 'None'}
+Matching Skills: ${(job.matching_skills || []).join(', ') || 'None'}
+Missing Skills: ${(job.missing_skills || []).join(', ') || 'None'}
+Red Flags: ${(job.red_flags || []).join(', ') || 'None'}`;
+    const conns = getConnections(job.company);
+    if (conns.length) {
+      jobContext += `\nConnections at this company: ${conns.map(c => c.name + ' (' + c.role + ')').join(', ')}`;
+    }
+  }
+
+  const history = chatHistories[key].slice(-10).map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.text}`).join('\n');
+
+  const prompt = `You are an expert career advisor for a software engineering job seeker. Be concise, specific, and actionable. Keep responses under 300 words unless depth is needed.
+
+CANDIDATE PROFILE:
+${getCandidateProfile()}
+${jobContext}
+
+CONVERSATION HISTORY:
+${history}
+
+User: ${text}
+
+Respond helpfully and concisely.`;
+
+  // Show typing indicator
+  const typing = document.createElement('div');
+  typing.className = 'chat-msg ai';
+  typing.innerHTML = '<span class="spinner"></span> Thinking...';
+  document.getElementById('chatMessages').appendChild(typing);
+  document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+
+  try {
+    const result = await callGemini(prompt, 0.7);
+    typing.remove();
+    chatHistories[key].push({ role: 'ai', text: result });
+    appendChatBubble('ai', result);
+    saveState();
+  } catch (e) {
+    typing.remove();
+    appendChatBubble('ai', 'Sorry, I encountered an error: ' + e.message);
+  }
+}
+
+function clearChat() {
+  const key = getChatKey();
+  chatHistories[key] = [];
+  saveState();
+  loadChatHistory();
+  toast('Chat cleared');
+}
+
+function openJobUrl() {
+  const job = getSelectedJob();
+  if (job && (job.url || job.link)) window.open(job.url || job.link, '_blank');
+}
+
+function addCurrentToPipeline() {
+  const job = getSelectedJob();
+  if (!job) return toast('Select a job first');
+  document.getElementById('pmCompany').value = job.company || '';
+  document.getElementById('pmRole').value = job.title || '';
+  document.getElementById('pipelineModal').classList.remove('hidden');
+}
+
+// ===================================================================
+// INIT
+// ===================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  updateHeaderName();
+  // Show setup modal on first visit (no profile saved)
+  const savedProfile = getUserProfile();
+  if (savedProfile.name === 'Your Name') {
+    showSetupModal();
+  }
+  loadChatHistory();
+  renderPipeline();
+  renderOutreachTracker();
+  loadBatchResults();
+  loadPregenDocs();
+});
+
+// Reload chat when job selection changes
+const origSelectJob = selectJob;
+selectJob = function(key) {
+  origSelectJob(key);
+  loadChatHistory();
+};
+
+// ===================================================================
+// MANUAL JD INPUT — Generate Docs Tab
+// ===================================================================
+async function generateFromManualJD() {
+  const company = document.getElementById('genCompany').value.trim();
+  const title = document.getElementById('genTitle').value.trim();
+  const location = document.getElementById('genLocation').value.trim() || 'USA';
+  const jd = document.getElementById('genJD').value.trim();
+  const existingResume = document.getElementById('genResume').value.trim();
+
+  if (!company || !title || !jd) {
+    toast('Please fill in Company, Title, and Job Description');
+    return;
+  }
+
+  const btn = document.getElementById('genSubmitBtn');
+  const status = document.getElementById('genStatus');
+  btn.disabled = true;
+  btn.textContent = 'Generating...';
+  document.getElementById('genResults').style.display = 'none';
+
+  const _p = getUserProfile();
+  const candidateCtx = `CANDIDATE: ${_p.name} | ${_p.degree} at ${_p.school}
+TARGET ROLES: ${_p.targetRoles}
+
+FULL RESUME:
+${_p.resume || '(No resume provided)'}`.slice(0, 5000);
+
+  try {
+    // Step 1: Generate Resume
+    status.textContent = 'Step 1/4: Generating tailored resume...';
+    const resumePrompt = `You are the world's #1 ATS resume expert. Generate a one-page plain-text resume for ${_p.name} tailored to this job.
+
+${candidateCtx}
+${existingResume ? '\\nEXISTING RESUME (for reference):\\n' + existingResume.slice(0, 3000) : ''}
+
+JOB: ${title} at ${company} (${location})
+JOB DESCRIPTION:
+${jd.slice(0, 6000)}
+
+RULES: ONE PAGE. Mirror JD keywords exactly. Only use real data. Every bullet has quantified impact. Section order: Education > Skills > Experience > Projects > Achievements.
+Return ONLY the resume text.`;
+
+    const resumeText = await callGeminiRaw(resumePrompt, 16000);
+
+    // Step 2: Generate Cover Letter
+    status.textContent = 'Step 2/4: Generating cover letter...';
+    const coverPrompt = `Write a 250-320 word cover letter for ${_p.name} applying to ${title} at ${company}.
+
+${candidateCtx}
+
+JOB DESCRIPTION:
+${jd.slice(0, 5000)}
+
+RULES: 4 paragraphs. Para 1: Company-specific hook (NOT starting with "I"). Para 2: Highlight strongest metrics from the resume. Para 3: Best project for this role. Para 4: Confident close. Sign as ${_p.name}. NEVER use "passionate" or "I believe I would be a great fit."
+Return ONLY the cover letter.`;
+
+    const coverText = await callGeminiRaw(coverPrompt, 8192);
+
+    // Step 3: Generate LaTeX Resume
+    status.textContent = 'Step 3/4: Generating LaTeX resume...';
+    const latexPrompt = `Generate a LaTeX resume body (from \\begin{document} to \\end{document}) for ${_p.name} tailored to: ${title} at ${company}.
+
+${candidateCtx}
+
+JOB DESCRIPTION:
+${jd.slice(0, 4000)}
+
+TEMPLATE FORMAT: Header uses {\\Huge \\scshape ${_p.name.toUpperCase()}}. Education in 3-col tabular. Skills as Languages + Technologies. Experience uses \\resumeSubRole for sub-positions. Projects use \\href{url}{\\textbf{Name} \\ExternalLink}.
+ONE PAGE. Mirror JD keywords. Return ONLY LaTeX code.`;
+
+    const latexText = await callGeminiRaw(latexPrompt, 16000);
+
+    // Step 4: ATS Audit + Score
+    status.textContent = 'Step 4/4: Running ATS audit...';
+    const auditPrompt = `Analyze keyword coverage between this resume and job description.
+RESUME:
+${resumeText.slice(0, 4000)}
+
+JOB DESCRIPTION:
+${jd.slice(0, 4000)}
+
+Return ONLY JSON: {"overall_score": 0-100, "coverage_pct": 0-100, "matched_keywords": ["..."], "missing_keywords": ["..."], "gaps": ["..."], "summary": "2 sentences", "recommendation": "STRONG_APPLY/APPLY/MAYBE/SKIP"}`;
+
+    let auditResult = {};
+    try {
+      const auditRaw = await callGeminiRaw(auditPrompt, 4096);
+      const jsonMatch = auditRaw.match(/\{[\s\S]*\}/);
+      if (jsonMatch) auditResult = JSON.parse(jsonMatch[0]);
+    } catch(e) { console.warn('ATS audit parse failed:', e); }
+
+    // Display results
+    document.getElementById('genResults').style.display = 'block';
+    document.getElementById('genResumeText').textContent = resumeText;
+    document.getElementById('genCoverText').textContent = coverText;
+    document.getElementById('genLatexText').textContent = latexText;
+
+    const score = auditResult.overall_score || auditResult.coverage_pct || 0;
+    const scoreEl = document.getElementById('genScoreGauge');
+    scoreEl.textContent = score;
+    scoreEl.style.background = score >= 70 ? 'var(--green-dim)' : score >= 50 ? 'var(--yellow-dim)' : 'var(--red-dim)';
+    scoreEl.style.color = score >= 70 ? 'var(--green)' : score >= 50 ? 'var(--yellow)' : 'var(--red)';
+
+    document.getElementById('genScoreBadge').textContent = auditResult.recommendation || '';
+    document.getElementById('genScoreSummary').textContent = auditResult.summary || '';
+
+    const gaps = auditResult.gaps || auditResult.missing_keywords || [];
+    document.getElementById('genScoreGaps').textContent = gaps.length ? 'Missing: ' + gaps.join(', ') : '';
+
+    const coverage = auditResult.coverage_pct || 0;
+    document.getElementById('genAtsCoverage').textContent = coverage + '% keyword coverage';
+
+    const matched = (auditResult.matched_keywords || []).map(k => `<span class="skill-tag skill-match">${k}</span>`).join('');
+    const missing = (auditResult.missing_keywords || []).map(k => `<span class="skill-tag skill-miss">${k}</span>`).join('');
+    document.getElementById('genAtsDetails').innerHTML = '<div class="mb-2"><strong>Matched:</strong> ' + (matched || 'N/A') + '</div><div><strong>Missing:</strong> ' + (missing || 'None') + '</div>';
+
+    status.textContent = 'Done!';
+    toast('Documents generated successfully!');
+
+  } catch(e) {
+    status.textContent = 'Error: ' + e.message;
+    toast('Generation failed: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Generate Resume + Cover Letter';
+  }
+}
+
+async function callGeminiRaw(prompt, maxTokens) {
+  const resp = await fetch('/webhook/claude-proxy', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt, maxTokens })
+  });
+  if (!resp.ok) throw new Error('AI API error: ' + resp.status);
+  const data = await resp.json();
+  let text = data.text || '';
+  text = text.replace(/^```(?:latex|tex|text|json|markdown)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+  return text.trim();
+}
+
+function copyGenText(elementId) {
+  const text = document.getElementById(elementId).textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard!')).catch(() => toast('Copy failed'));
+}
+
+function downloadGenFile(elementId, filename) {
+  const text = document.getElementById(elementId).textContent;
+  const blob = new Blob([text], { type: 'text/plain' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+</script>
+</body>
+</html>

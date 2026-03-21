@@ -1,0 +1,28 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated output
+generated_docs/
+pipeline_output.json
+batch_analysis_results.json
+linkedin_manual_jobs*.json
+
+# Data files
+*.har
+MASTER_CAREER_VAULT*.json
+
+# Backups
+backup_*/
+
+# Project instructions (contains keys/credentials)
+CLAUDE.md
+
+# Office docs
+*.docx
+
+# Misc
+untitled folder/
