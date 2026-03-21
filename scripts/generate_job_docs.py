@@ -16,7 +16,7 @@ NEW in v2:
   - Error recovery (continue on partial failures)
   - Manual JD input mode (--manual)
   - User's exact LaTeX template (textcomp, \resumeSubRole, tighter margins)
-  - Expanded IDFC bullets (B3a frontend + B3b backend split)
+  - Expanded work experience bullets (B3a frontend + B3b backend split)
 
 Usage:
   python3 generate_job_docs.py                      # default: last 7 days, score > 30
@@ -881,7 +881,7 @@ The preamble defines these commands. Use them EXACTLY:
  \\end{{itemize}}
 \\vspace{{-8pt}}
 
-4. PROFESSIONAL EXPERIENCE — IDFC as combined block with \\resumeSubRole:
+4. PROFESSIONAL EXPERIENCE — Example Bank as combined block with \\resumeSubRole:
 \\section{{Professional Experience}}
   \\resumeSubHeadingListStart
     \\item\\vspace{{-2pt}}
@@ -941,8 +941,8 @@ The preamble defines these commands. Use them EXACTLY:
 5. Every bullet = action verb + quantified impact
 6. Mirror JD keywords in bullets and skills
 7. Do NOT include preamble — start from \\begin{{document}}
-8. Use the EXACT heading format shown above (PRADEEP REDDY VENUTHURLA in full caps)
-9. Use \\resumeSubRole for the SWE/Intern sub-roles under IDFC
+8. Use the EXACT heading format shown above (YOUR FULL NAME in full caps)
+9. Use \\resumeSubRole for the SWE/Intern sub-roles under Example Bank
 10. Education uses 3-column tabular with l@{{\\extracolsep{{\\fill}}}}c@{{\\extracolsep{{\\fill}}}}r
 11. Skills section has exactly 2 categories: Languages and Technologies
 12. Project format: \\href{{url}}{{\\textbf{{Name}} \\raisebox{{-0.1\\height}}\\ExternalLink}} $|$ \\textit{{context $|$ (tech stack)}}
@@ -1031,7 +1031,7 @@ PARAGRAPH 4 — THE CLOSE (2-3 sentences):
 7. ONLY reference real data from the MASTER VAULT
 8. Address to: Hiring Manager at {company}
 9. Sign as: Your Name
-10. Do NOT mention PES GPA
+10. Do NOT mention Previous University GPA
 
 Return ONLY the cover letter text. No commentary, no explanations, no subject line."""
 
@@ -1188,7 +1188,7 @@ Return ONLY valid JSON:
   "matched_keywords": ["keyword1", "keyword3", ...],
   "missing_keywords": ["keyword2", ...],
   "coverage_pct": 85,
-  "suggestions": ["Add X to skills section", "Mention Y in IDFC bullets"]
+  "suggestions": ["Add X to skills section", "Mention Y in work experience bullets"]
 }}"""
 
 
