@@ -506,6 +506,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [feedbackQuestion, setFeedbackQuestion] = useState("");
   const [askingFeedback, setAskingFeedback] = useState(false);
   const [feedbackVoiceRecording, setFeedbackVoiceRecording] = useState(false);
+  const [replayingAudio, setReplayingAudio] = useState(false);
+  const replayAudioRef = useRef<HTMLAudioElement | null>(null);
   const feedbackRecognitionRef = useRef<any>(null);
   const recordingStartRef = useRef<number>(0);
 
@@ -949,35 +951,43 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       timerRef.current = null;
     }
 
-    let audioUrl: string | undefined;
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      const recorder = mediaRecorderRef.current;
-      recorder.onstop = () => {
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-        audioUrl = URL.createObjectURL(blob);
-        recorder.stream.getTracks().forEach((t) => t.stop());
-      };
-      recorder.stop();
-      mediaRecorderRef.current = null;
-    }
-
     const finalText = fullTranscriptRef.current.trim();
     const durationSec = Math.round((Date.now() - recordingStartRef.current) / 1000);
 
-    if (finalText) {
-      const record: AnswerRecord3D = {
-        questionIndex: currentQIdx,
-        question: allQuestionsRef.current[currentQIdx],
-        answer: finalText,
-        audioUrl,
-        durationSec,
-      };
-      setAllAnswers(prev => [...prev, record]);
-
-      if (onAnswerRecorded) {
-        setTimeout(() => onAnswerRecorded(currentQIdx, finalText, audioUrl, durationSec), 200);
+    // Stop media recorder and get audio blob URL
+    const audioPromise = new Promise<string | undefined>((resolve) => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        const recorder = mediaRecorderRef.current;
+        recorder.onstop = () => {
+          const blob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+          const url = URL.createObjectURL(blob);
+          recorder.stream.getTracks().forEach((t) => t.stop());
+          resolve(url);
+        };
+        recorder.stop();
+        mediaRecorderRef.current = null;
+      } else {
+        resolve(undefined);
       }
-    }
+    });
+
+    // Wait for audio URL then store the answer record
+    audioPromise.then((audioUrl) => {
+      if (finalText) {
+        const record: AnswerRecord3D = {
+          questionIndex: currentQIdx,
+          question: allQuestionsRef.current[currentQIdx],
+          answer: finalText,
+          audioUrl,
+          durationSec,
+        };
+        setAllAnswers(prev => [...prev, record]);
+
+        if (onAnswerRecorded) {
+          setTimeout(() => onAnswerRecorded(currentQIdx, finalText, audioUrl, durationSec), 200);
+        }
+      }
+    });
 
     setMode("reviewing");
     setAutoFeedbackDone(false);
@@ -1770,6 +1780,55 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                   ))}&rdquo;
                 </div>
               </div>
+
+              {/* Replay your answer audio */}
+              {(() => {
+                const latest = allAnswers[allAnswers.length - 1];
+                const answerAudioUrl = latest?.audioUrl;
+                return answerAudioUrl ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "rgba(192,132,252,0.06)", borderRadius: 10, borderLeft: "3px solid #c084fc" }}>
+                    <button
+                      onClick={() => {
+                        if (replayingAudio && replayAudioRef.current) {
+                          replayAudioRef.current.pause();
+                          replayAudioRef.current.currentTime = 0;
+                          setReplayingAudio(false);
+                        } else {
+                          const audio = new Audio(answerAudioUrl);
+                          audio.onended = () => setReplayingAudio(false);
+                          audio.onerror = () => setReplayingAudio(false);
+                          audio.play();
+                          replayAudioRef.current = audio;
+                          setReplayingAudio(true);
+                        }
+                      }}
+                      style={{
+                        width: 36, height: 36, borderRadius: "50%", border: "none", cursor: "pointer",
+                        background: replayingAudio ? "rgba(239,68,68,0.2)" : "rgba(192,132,252,0.15)",
+                        color: replayingAudio ? "#ef4444" : "#c084fc",
+                        fontSize: 16, display: "flex", alignItems: "center", justifyContent: "center",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      {replayingAudio ? "⏹" : "▶"}
+                    </button>
+                    <div>
+                      <div style={{ color: "#c084fc", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                        {replayingAudio ? "Playing your answer..." : "Replay Your Answer"}
+                      </div>
+                      <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 2 }}>
+                        {latest.durationSec}s · {latest.answer.split(/\s+/).filter(Boolean).length} words
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: "8px 14px", background: "rgba(100,116,139,0.06)", borderRadius: 10, borderLeft: "3px solid #475569" }}>
+                    <div style={{ color: "#64748b", fontSize: 11, fontStyle: "italic" }}>
+                      Your answer transcript: &ldquo;{(allAnswers[allAnswers.length - 1]?.answer || transcript || "").slice(0, 120)}{(allAnswers[allAnswers.length - 1]?.answer || transcript || "").length > 120 ? "..." : ""}&rdquo;
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Score + badges */}
               {feedbackData.analysis && (
