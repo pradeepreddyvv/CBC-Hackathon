@@ -7,15 +7,6 @@ import { SpeechmaticsSTT } from "@/lib/speechmatics";
 
 // ── Types ───────────────────────────────────────────────────────
 
-type Turn = {
-  speaker: "interviewer" | "candidate";
-  text: string;
-  duration: number;
-  words: string[];
-  wordTimings: number[];
-  globalStart: number;
-};
-
 type CharacterRig = {
   group: THREE.Group;
   head: THREE.Group;
@@ -24,10 +15,7 @@ type CharacterRig = {
   rLid: THREE.Mesh;
   lUA: THREE.Mesh;
   rUA: THREE.Mesh;
-};
-
-type BubbleRig = {
-  update: (text: string, color: string) => void;
+  speakerGlow: THREE.PointLight;
 };
 
 type SceneRig = {
@@ -36,8 +24,6 @@ type SceneRig = {
   camera: THREE.PerspectiveCamera;
   iv: CharacterRig;
   cd: CharacterRig;
-  ivBubble: BubbleRig;
-  cdBubble: BubbleRig;
 };
 
 type RuntimeState = {
@@ -80,219 +66,497 @@ interface Props {
 
 // ── Helpers ─────────────────────────────────────────────────────
 
-function fmt(ms: number): string {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+function makeMesh(geo: THREE.BufferGeometry, color: number, opts?: { roughness?: number; metalness?: number }): THREE.Mesh {
+  const mat = new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts?.roughness ?? 0.65,
+    metalness: opts?.metalness ?? 0,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
 }
 
-function makeMesh(geo: THREE.BufferGeometry, color: number): THREE.Mesh {
-  return new THREE.Mesh(
-    geo,
-    new THREE.MeshStandardMaterial({ color, roughness: 0.65 })
-  );
-}
+// ── Professional Character Builder ──────────────────────────────
 
-function buildChar(scene: THREE.Scene, isLeft: boolean): CharacterRig {
+function buildPerson(
+  scene: THREE.Scene,
+  skinColor: number,
+  suitColor: number,
+  hairColor: number,
+  isInterviewer: boolean
+): CharacterRig {
   const g = new THREE.Group();
-  const skin = isLeft ? 0xc68642 : 0xfcd9b0;
-  const shirt = isLeft ? 0x1e1b4b : 0x1d4ed8;
-  const pants = isLeft ? 0x111827 : 0x1e3a5f;
-  const hair = isLeft ? 0x555566 : 0x3b2000;
+  const shirtColor = isInterviewer ? 0xf0f0f0 : 0xe8e0d8;
 
-  const torso = makeMesh(new THREE.CylinderGeometry(0.27, 0.31, 0.82, 10), shirt);
+  // Torso (suit jacket)
+  const torso = makeMesh(new THREE.BoxGeometry(0.52, 0.62, 0.3), suitColor);
   torso.position.y = 1.08;
   g.add(torso);
 
-  const lUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
-  lUA.position.set(-0.4, 1.18, 0);
-  lUA.rotation.z = Math.PI / 10;
-  g.add(lUA);
+  // Suit lapels
+  const lapelL = makeMesh(new THREE.BoxGeometry(0.08, 0.4, 0.02), suitColor, { roughness: 0.4 });
+  lapelL.position.set(-0.16, 1.18, 0.16);
+  lapelL.rotation.z = 0.15;
+  g.add(lapelL);
+  const lapelR = makeMesh(new THREE.BoxGeometry(0.08, 0.4, 0.02), suitColor, { roughness: 0.4 });
+  lapelR.position.set(0.16, 1.18, 0.16);
+  lapelR.rotation.z = -0.15;
+  g.add(lapelR);
 
-  const rUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
-  rUA.position.set(0.4, 1.18, 0);
-  rUA.rotation.z = -Math.PI / 10;
+  // Shirt collar
+  const collarL = makeMesh(new THREE.BoxGeometry(0.12, 0.06, 0.08), shirtColor);
+  collarL.position.set(-0.1, 1.42, 0.12);
+  collarL.rotation.z = 0.3;
+  g.add(collarL);
+  const collarR = makeMesh(new THREE.BoxGeometry(0.12, 0.06, 0.08), shirtColor);
+  collarR.position.set(0.1, 1.42, 0.12);
+  collarR.rotation.z = -0.3;
+  g.add(collarR);
+
+  // Shirt V-neck area
+  const shirtFront = makeMesh(new THREE.BoxGeometry(0.18, 0.3, 0.02), shirtColor);
+  shirtFront.position.set(0, 1.2, 0.155);
+  g.add(shirtFront);
+
+  // Upper arms
+  const lUA = makeMesh(new THREE.CylinderGeometry(0.1, 0.09, 0.48, 8), suitColor);
+  lUA.position.set(-0.38, 1.1, 0);
+  lUA.rotation.z = Math.PI / 8;
+  g.add(lUA);
+  const rUA = makeMesh(new THREE.CylinderGeometry(0.1, 0.09, 0.48, 8), suitColor);
+  rUA.position.set(0.38, 1.1, 0);
+  rUA.rotation.z = -Math.PI / 8;
   g.add(rUA);
 
-  const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
-  lLA.position.set(-0.5, 0.8, 0.1);
-  lLA.rotation.x = 0.4;
+  // Lower arms (skin)
+  const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.4, 8), skinColor);
+  lLA.position.set(-0.46, 0.78, 0.15);
+  lLA.rotation.x = 0.5;
   g.add(lLA);
-
-  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
-  rLA.position.set(0.5, 0.8, 0.1);
-  rLA.rotation.x = 0.4;
+  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.4, 8), skinColor);
+  rLA.position.set(0.46, 0.78, 0.15);
+  rLA.rotation.x = 0.5;
   g.add(rLA);
 
-  const lHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
-  lHand.position.set(-0.52, 0.6, 0.25);
+  // Hands
+  const lHand = makeMesh(new THREE.SphereGeometry(0.065, 8, 6), skinColor);
+  lHand.position.set(-0.48, 0.62, 0.3);
   g.add(lHand);
-
-  const rHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
-  rHand.position.set(0.52, 0.6, 0.25);
+  const rHand = makeMesh(new THREE.SphereGeometry(0.065, 8, 6), skinColor);
+  rHand.position.set(0.48, 0.62, 0.3);
   g.add(rHand);
 
-  const lLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
-  lLeg.position.set(-0.15, 0.39, 0);
+  // Legs (sitting)
+  const lLeg = makeMesh(new THREE.CylinderGeometry(0.11, 0.1, 0.5, 8), suitColor);
+  lLeg.position.set(-0.14, 0.55, 0.12);
+  lLeg.rotation.x = Math.PI / 2.5;
   g.add(lLeg);
-
-  const rLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
-  rLeg.position.set(0.15, 0.39, 0);
+  const rLeg = makeMesh(new THREE.CylinderGeometry(0.11, 0.1, 0.5, 8), suitColor);
+  rLeg.position.set(0.14, 0.55, 0.12);
+  rLeg.rotation.x = Math.PI / 2.5;
   g.add(rLeg);
 
-  const lShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
-  lShoe.position.set(-0.15, 0.05, 0.06);
+  // Shoes
+  const lShoe = makeMesh(new THREE.BoxGeometry(0.14, 0.08, 0.24), 0x1a1a1a, { roughness: 0.3, metalness: 0.2 });
+  lShoe.position.set(-0.14, 0.32, 0.32);
   g.add(lShoe);
-
-  const rShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
-  rShoe.position.set(0.15, 0.05, 0.06);
+  const rShoe = makeMesh(new THREE.BoxGeometry(0.14, 0.08, 0.24), 0x1a1a1a, { roughness: 0.3, metalness: 0.2 });
+  rShoe.position.set(0.14, 0.32, 0.32);
   g.add(rShoe);
 
-  const neck = makeMesh(new THREE.CylinderGeometry(0.1, 0.12, 0.22, 8), skin);
-  neck.position.y = 1.6;
+  // Neck
+  const neck = makeMesh(new THREE.CylinderGeometry(0.09, 0.1, 0.16, 8), skinColor);
+  neck.position.y = 1.48;
   g.add(neck);
 
+  // Head
   const head = new THREE.Group();
-  head.position.y = 1.82;
+  head.position.y = 1.68;
   g.add(head);
 
-  const skull = makeMesh(new THREE.SphereGeometry(0.3, 16, 12), skin);
-  skull.scale.y = 1.15;
+  const skull = makeMesh(new THREE.SphereGeometry(0.24, 16, 12), skinColor);
+  skull.scale.y = 1.12;
   head.add(skull);
 
-  const hairMesh = makeMesh(new THREE.SphereGeometry(0.31, 10, 8), hair);
-  hairMesh.position.y = 0.17;
-  hairMesh.scale.set(1, 0.5, 1);
+  // Hair
+  const hairMesh = makeMesh(new THREE.SphereGeometry(0.25, 12, 10), hairColor);
+  hairMesh.position.y = 0.12;
+  hairMesh.scale.set(1.02, 0.55, 1.02);
   head.add(hairMesh);
 
-  const lEye = makeMesh(new THREE.SphereGeometry(0.048, 8, 6), 0x111111);
-  lEye.position.set(-0.11, 0.05, 0.26);
-  head.add(lEye);
+  // Side hair
+  const sideHairL = makeMesh(new THREE.SphereGeometry(0.08, 8, 6), hairColor);
+  sideHairL.position.set(-0.22, 0.02, 0);
+  sideHairL.scale.set(0.6, 1, 0.8);
+  head.add(sideHairL);
+  const sideHairR = makeMesh(new THREE.SphereGeometry(0.08, 8, 6), hairColor);
+  sideHairR.position.set(0.22, 0.02, 0);
+  sideHairR.scale.set(0.6, 1, 0.8);
+  head.add(sideHairR);
 
-  const rEye = makeMesh(new THREE.SphereGeometry(0.048, 8, 6), 0x111111);
-  rEye.position.set(0.11, 0.05, 0.26);
-  head.add(rEye);
+  // Eyes
+  const eyeWhiteGeo = new THREE.SphereGeometry(0.042, 8, 6);
+  const lEyeW = makeMesh(eyeWhiteGeo, 0xffffff);
+  lEyeW.position.set(-0.09, 0.04, 0.2);
+  head.add(lEyeW);
+  const rEyeW = makeMesh(eyeWhiteGeo, 0xffffff);
+  rEyeW.position.set(0.09, 0.04, 0.2);
+  head.add(rEyeW);
 
-  const lLid = makeMesh(new THREE.SphereGeometry(0.05, 8, 6), skin);
-  lLid.position.set(-0.11, 0.05, 0.26);
+  const pupilGeo = new THREE.SphereGeometry(0.022, 8, 6);
+  const lPupil = makeMesh(pupilGeo, 0x2d1b00);
+  lPupil.position.set(-0.09, 0.04, 0.235);
+  head.add(lPupil);
+  const rPupil = makeMesh(pupilGeo, 0x2d1b00);
+  rPupil.position.set(0.09, 0.04, 0.235);
+  head.add(rPupil);
+
+  // Eyelids
+  const lLid = makeMesh(new THREE.SphereGeometry(0.045, 8, 6), skinColor);
+  lLid.position.set(-0.09, 0.04, 0.22);
   head.add(lLid);
-
-  const rLid = makeMesh(new THREE.SphereGeometry(0.05, 8, 6), skin);
-  rLid.position.set(0.11, 0.05, 0.26);
+  const rLid = makeMesh(new THREE.SphereGeometry(0.045, 8, 6), skinColor);
+  rLid.position.set(0.09, 0.04, 0.22);
   head.add(rLid);
 
-  const nose = makeMesh(new THREE.SphereGeometry(0.05, 6, 5), skin);
-  nose.position.set(0, -0.04, 0.28);
-  nose.scale.set(0.8, 0.7, 0.9);
+  // Eyebrows
+  const browGeo = new THREE.BoxGeometry(0.08, 0.015, 0.02);
+  const lBrow = makeMesh(browGeo, hairColor);
+  lBrow.position.set(-0.09, 0.1, 0.22);
+  head.add(lBrow);
+  const rBrow = makeMesh(browGeo, hairColor);
+  rBrow.position.set(0.09, 0.1, 0.22);
+  head.add(rBrow);
+
+  // Nose
+  const nose = makeMesh(new THREE.SphereGeometry(0.04, 6, 5), skinColor);
+  nose.position.set(0, -0.02, 0.24);
+  nose.scale.set(0.7, 0.65, 0.85);
   head.add(nose);
 
+  // Ears
+  const earGeo = new THREE.SphereGeometry(0.04, 6, 5);
+  const lEar = makeMesh(earGeo, skinColor);
+  lEar.position.set(-0.24, 0.02, 0);
+  lEar.scale.set(0.5, 0.8, 0.6);
+  head.add(lEar);
+  const rEar = makeMesh(earGeo, skinColor);
+  rEar.position.set(0.24, 0.02, 0);
+  rEar.scale.set(0.5, 0.8, 0.6);
+  head.add(rEar);
+
+  // Mouth
   const mouthGrp = new THREE.Group();
-  mouthGrp.position.set(0, -0.13, 0.27);
+  mouthGrp.position.set(0, -0.1, 0.22);
   head.add(mouthGrp);
 
-  const lips = makeMesh(new THREE.BoxGeometry(0.13, 0.04, 0.02), 0x8b3a2a);
+  const lips = makeMesh(new THREE.BoxGeometry(0.1, 0.03, 0.02), 0x994433);
   mouthGrp.add(lips);
-
-  const inner = makeMesh(new THREE.BoxGeometry(0.09, 0.001, 0.02), 0x2d0000);
-  inner.position.y = -0.02;
+  const inner = makeMesh(new THREE.BoxGeometry(0.07, 0.001, 0.02), 0x3d0000);
+  inner.position.y = -0.015;
   mouthGrp.add(inner);
 
-  // Glasses + tie for interviewer
-  if (isLeft) {
-    const geoT = new THREE.TorusGeometry(0.085, 0.011, 6, 20);
-    const gM = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    const gl = new THREE.Mesh(geoT, gM);
-    gl.position.set(-0.11, 0.06, 0.26);
-    gl.rotation.y = 0.1;
+  // Glasses for interviewer
+  if (isInterviewer) {
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8, roughness: 0.2 });
+    const glassGeo = new THREE.TorusGeometry(0.06, 0.008, 6, 20);
+    const gl = new THREE.Mesh(glassGeo, glassMat);
+    gl.position.set(-0.09, 0.05, 0.22);
     head.add(gl);
-    const gr = new THREE.Mesh(geoT, gM);
-    gr.position.set(0.11, 0.06, 0.26);
-    gr.rotation.y = -0.1;
+    const gr = new THREE.Mesh(glassGeo, glassMat);
+    gr.position.set(0.09, 0.05, 0.22);
     head.add(gr);
-    const br = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.01, 0.01), gM);
-    br.position.set(0, 0.06, 0.28);
-    head.add(br);
-    const tie = makeMesh(new THREE.BoxGeometry(0.08, 0.38, 0.04), 0x7c3aed);
-    tie.position.set(0, 1.13, 0.26);
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.008, 0.008), glassMat);
+    bridge.position.set(0, 0.05, 0.24);
+    head.add(bridge);
+
+    // Tie
+    const tie = makeMesh(new THREE.BoxGeometry(0.06, 0.32, 0.03), 0x8b2252);
+    tie.position.set(0, 1.12, 0.16);
     g.add(tie);
+    const tieKnot = makeMesh(new THREE.SphereGeometry(0.035, 6, 5), 0x8b2252);
+    tieKnot.position.set(0, 1.3, 0.16);
+    g.add(tieKnot);
   }
+
+  // Speaker glow light (activated when talking)
+  const speakerGlow = new THREE.PointLight(isInterviewer ? 0x6366f1 : 0x10b981, 0, 3);
+  speakerGlow.position.set(0, 1.8, 0.5);
+  g.add(speakerGlow);
 
   scene.add(g);
-  return { group: g, head, mouthGrp, lLid, rLid, lUA, rUA };
+  return { group: g, head, mouthGrp, lLid, rLid, lUA, rUA, speakerGlow };
 }
 
-function makeBubble(scene: THREE.Scene, side: "left" | "right"): BubbleRig {
-  const cvs = document.createElement("canvas");
-  cvs.width = 512;
-  cvs.height = 200;
-  const ctx = cvs.getContext("2d");
-  const tex = new THREE.CanvasTexture(cvs);
+// ── Office Chair ────────────────────────────────────────────────
 
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(2.4, 0.9),
-    new THREE.MeshBasicMaterial({
-      map: tex,
+function buildChair(scene: THREE.Scene, x: number, rotY: number) {
+  const cg = new THREE.Group();
+  const cushionColor = 0x1e293b;
+  const metalColor = 0x888888;
+
+  // Seat cushion
+  const seat = makeMesh(new THREE.BoxGeometry(0.56, 0.08, 0.52), cushionColor, { roughness: 0.85 });
+  seat.position.y = 0.52;
+  cg.add(seat);
+
+  // Back rest
+  const back = makeMesh(new THREE.BoxGeometry(0.52, 0.58, 0.06), cushionColor, { roughness: 0.85 });
+  back.position.set(0, 0.84, -0.24);
+  cg.add(back);
+
+  // Armrests
+  const armGeo = new THREE.BoxGeometry(0.06, 0.04, 0.36);
+  const lArm = makeMesh(armGeo, cushionColor);
+  lArm.position.set(-0.28, 0.66, -0.04);
+  cg.add(lArm);
+  const rArm = makeMesh(armGeo, cushionColor);
+  rArm.position.set(0.28, 0.66, -0.04);
+  cg.add(rArm);
+
+  // Armrest supports
+  const supportGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.14, 6);
+  const lSupport = makeMesh(supportGeo, metalColor, { metalness: 0.7 });
+  lSupport.position.set(-0.28, 0.58, -0.04);
+  cg.add(lSupport);
+  const rSupport = makeMesh(supportGeo, metalColor, { metalness: 0.7 });
+  rSupport.position.set(0.28, 0.58, -0.04);
+  cg.add(rSupport);
+
+  // Metal legs (4 legs)
+  const legGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.52, 6);
+  [[-0.2, 0.2], [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2]].forEach(([px, pz]) => {
+    const leg = makeMesh(legGeo, metalColor, { metalness: 0.8, roughness: 0.2 });
+    leg.position.set(px, 0.26, pz);
+    cg.add(leg);
+  });
+
+  cg.position.set(x, 0, 1.2);
+  cg.rotation.y = rotY;
+  scene.add(cg);
+}
+
+// ── Desk with Props ─────────────────────────────────────────────
+
+function buildTable(scene: THREE.Scene) {
+  const tg = new THREE.Group();
+  const woodColor = 0x5c3a1e;
+
+  // Table top
+  const top = makeMesh(new THREE.BoxGeometry(3.2, 0.08, 1.4), woodColor, { roughness: 0.35, metalness: 0.08 });
+  top.position.y = 0.88;
+  tg.add(top);
+
+  // Table legs (metal)
+  const legGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.84, 8);
+  [[-1.4, -0.6], [-1.4, 0.6], [1.4, -0.6], [1.4, 0.6]].forEach(([x, z]) => {
+    const leg = makeMesh(legGeo, 0x666666, { metalness: 0.8, roughness: 0.2 });
+    leg.position.set(x, 0.44, z);
+    tg.add(leg);
+  });
+
+  // Laptop (interviewer side)
+  const laptopBase = makeMesh(new THREE.BoxGeometry(0.4, 0.02, 0.28), 0x333333, { metalness: 0.5 });
+  laptopBase.position.set(-0.8, 0.93, -0.1);
+  tg.add(laptopBase);
+  const laptopScreen = makeMesh(new THREE.BoxGeometry(0.38, 0.26, 0.012), 0x222222, { metalness: 0.3 });
+  laptopScreen.position.set(-0.8, 1.06, -0.24);
+  laptopScreen.rotation.x = -0.15;
+  tg.add(laptopScreen);
+  // Screen glow
+  const screenFace = makeMesh(new THREE.PlaneGeometry(0.34, 0.22), 0x334488);
+  (screenFace.material as THREE.MeshStandardMaterial).emissive = new THREE.Color(0x334488);
+  (screenFace.material as THREE.MeshStandardMaterial).emissiveIntensity = 0.3;
+  screenFace.position.set(-0.8, 1.06, -0.233);
+  screenFace.rotation.x = -0.15;
+  tg.add(screenFace);
+
+  // Notepad
+  const notepad = makeMesh(new THREE.BoxGeometry(0.18, 0.012, 0.24), 0xf5f0e0);
+  notepad.position.set(-0.3, 0.928, 0.15);
+  tg.add(notepad);
+  // Pen
+  const pen = makeMesh(new THREE.CylinderGeometry(0.008, 0.008, 0.18, 6), 0x1a1a88);
+  pen.position.set(-0.18, 0.938, 0.15);
+  pen.rotation.z = Math.PI / 2;
+  pen.rotation.y = 0.3;
+  tg.add(pen);
+
+  // Water glass (candidate side)
+  const glassMat = new THREE.MeshStandardMaterial({ color: 0xaaddff, transparent: true, opacity: 0.4, roughness: 0.1, metalness: 0.1 });
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.12, 12), glassMat);
+  glass.position.set(0.7, 0.95, 0.2);
+  tg.add(glass);
+  // Water
+  const water = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.032, 0.08, 12),
+    new THREE.MeshStandardMaterial({ color: 0x4488cc, transparent: true, opacity: 0.5 })
+  );
+  water.position.set(0.7, 0.94, 0.2);
+  tg.add(water);
+
+  scene.add(tg);
+}
+
+// ── Professional Office ─────────────────────────────────────────
+
+function buildOffice(scene: THREE.Scene) {
+  const floorColor = 0x8b7355;
+  const wallColor = 0xe8e0d0;
+  const ceilingColor = 0xf5f5f0;
+
+  // Floor (wood-look)
+  const floor = makeMesh(new THREE.PlaneGeometry(12, 12), floorColor, { roughness: 0.6, metalness: 0.05 });
+  floor.rotation.x = -Math.PI / 2;
+  floor.receiveShadow = true;
+  scene.add(floor);
+
+  // Back wall
+  const backWall = makeMesh(new THREE.PlaneGeometry(12, 5), wallColor, { roughness: 0.9 });
+  backWall.position.set(0, 2.5, -4);
+  scene.add(backWall);
+
+  // Left wall
+  const leftWall = makeMesh(new THREE.PlaneGeometry(12, 5), wallColor, { roughness: 0.9 });
+  leftWall.position.set(-6, 2.5, 0);
+  leftWall.rotation.y = Math.PI / 2;
+  scene.add(leftWall);
+
+  // Right wall
+  const rightWall = makeMesh(new THREE.PlaneGeometry(12, 5), wallColor, { roughness: 0.9 });
+  rightWall.position.set(6, 2.5, 0);
+  rightWall.rotation.y = -Math.PI / 2;
+  scene.add(rightWall);
+
+  // Ceiling
+  const ceiling = makeMesh(new THREE.PlaneGeometry(12, 12), ceilingColor);
+  ceiling.rotation.x = Math.PI / 2;
+  ceiling.position.y = 5;
+  scene.add(ceiling);
+
+  // Window (back wall, left side)
+  const windowFrame = makeMesh(new THREE.BoxGeometry(2.4, 2.2, 0.08), 0x555555, { metalness: 0.3 });
+  windowFrame.position.set(-2.2, 2.8, -3.96);
+  scene.add(windowFrame);
+
+  // Window glass (emissive to simulate outside light)
+  const windowGlass = new THREE.Mesh(
+    new THREE.PlaneGeometry(2.2, 2),
+    new THREE.MeshStandardMaterial({
+      color: 0x88bbee,
+      emissive: 0x88bbee,
+      emissiveIntensity: 0.6,
       transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
+      opacity: 0.7,
     })
   );
+  windowGlass.position.set(-2.2, 2.8, -3.92);
+  scene.add(windowGlass);
 
-  mesh.position.set(side === "left" ? -3.3 : 3.3, 3.6, -0.3);
-  mesh.rotation.y = side === "left" ? 0.25 : -0.25;
-  scene.add(mesh);
+  // Window dividers
+  const divH = makeMesh(new THREE.BoxGeometry(2.2, 0.04, 0.05), 0x555555, { metalness: 0.3 });
+  divH.position.set(-2.2, 2.8, -3.93);
+  scene.add(divH);
+  const divV = makeMesh(new THREE.BoxGeometry(0.04, 2, 0.05), 0x555555, { metalness: 0.3 });
+  divV.position.set(-2.2, 2.8, -3.93);
+  scene.add(divV);
 
-  function wrap(text: string, maxW: number): string[] {
-    if (!ctx) return [];
-    const ws = text.split(" ");
-    const lines: string[] = [];
-    let line = "";
-    ws.forEach((w) => {
-      const test = line ? `${line} ${w}` : w;
-      if (ctx.measureText(test).width > maxW && line) {
-        lines.push(line);
-        line = w;
-      } else {
-        line = test;
-      }
-    });
-    if (line) lines.push(line);
-    return lines;
+  // Ceiling light panel
+  const lightPanel = new THREE.Mesh(
+    new THREE.BoxGeometry(1.6, 0.04, 0.8),
+    new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      emissive: 0xfff8e8,
+      emissiveIntensity: 0.5,
+    })
+  );
+  lightPanel.position.set(0, 4.96, 0);
+  scene.add(lightPanel);
+
+  // Rug under table
+  const rug = new THREE.Mesh(
+    new THREE.PlaneGeometry(4.5, 3.5),
+    new THREE.MeshStandardMaterial({ color: 0x3d3244, roughness: 0.95 })
+  );
+  rug.rotation.x = -Math.PI / 2;
+  rug.position.set(0, 0.005, 0.5);
+  scene.add(rug);
+
+  // Bookshelf (back wall, right side)
+  const shelfGroup = new THREE.Group();
+  shelfGroup.position.set(2.5, 0, -3.8);
+
+  // Shelf frame
+  const shelfFrame = makeMesh(new THREE.BoxGeometry(1.2, 2.8, 0.35), 0x5c3a1e, { roughness: 0.5 });
+  shelfFrame.position.y = 1.8;
+  shelfGroup.add(shelfFrame);
+
+  // Shelf boards
+  for (let i = 0; i < 4; i++) {
+    const board = makeMesh(new THREE.BoxGeometry(1.1, 0.03, 0.32), 0x6b4423);
+    board.position.set(0, 0.6 + i * 0.7, 0.02);
+    shelfGroup.add(board);
   }
 
-  function update(text: string, color: string): void {
-    if (!ctx) return;
-    ctx.clearRect(0, 0, 512, 200);
-    if (!text) { tex.needsUpdate = true; return; }
-
-    ctx.fillStyle = "rgba(255,255,255,0.96)";
-    ctx.beginPath();
-    ctx.roundRect(8, 8, 496, 156, 22);
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 5;
-    ctx.stroke();
-
-    const tx = side === "left" ? 80 : 390;
-    ctx.fillStyle = "rgba(255,255,255,0.96)";
-    ctx.beginPath();
-    ctx.moveTo(tx, 164);
-    ctx.lineTo(tx + 18, 190);
-    ctx.lineTo(tx + 36, 164);
-    ctx.fill();
-    ctx.strokeStyle = color;
-    ctx.beginPath();
-    ctx.moveTo(tx, 166);
-    ctx.lineTo(tx + 18, 190);
-    ctx.lineTo(tx + 36, 166);
-    ctx.stroke();
-
-    ctx.fillStyle = "#1e293b";
-    ctx.font = "bold 25px system-ui, sans-serif";
-    wrap(text, 460).slice(0, 3).forEach((line, i) => ctx.fillText(line, 24, 44 + i * 34));
-    tex.needsUpdate = true;
+  // Books on shelves
+  const bookColors = [0xc0392b, 0x2980b9, 0x27ae60, 0x8e44ad, 0xe67e22, 0x1abc9c, 0xf39c12, 0x2c3e50];
+  for (let shelf = 0; shelf < 3; shelf++) {
+    const y = 0.76 + shelf * 0.7;
+    const numBooks = 4 + Math.floor(Math.random() * 3);
+    let xPos = -0.4;
+    for (let b = 0; b < numBooks; b++) {
+      const w = 0.04 + Math.random() * 0.06;
+      const h = 0.2 + Math.random() * 0.12;
+      const book = makeMesh(
+        new THREE.BoxGeometry(w, h, 0.2),
+        bookColors[(shelf * 5 + b) % bookColors.length]
+      );
+      book.position.set(xPos + w / 2, y + h / 2, 0);
+      shelfGroup.add(book);
+      xPos += w + 0.02;
+    }
   }
+  scene.add(shelfGroup);
 
-  return { update };
+  // Potted plant (corner)
+  const potGroup = new THREE.Group();
+  potGroup.position.set(-4.5, 0, -3);
+
+  const pot = makeMesh(new THREE.CylinderGeometry(0.18, 0.14, 0.3, 8), 0x8b4513, { roughness: 0.8 });
+  pot.position.y = 0.15;
+  potGroup.add(pot);
+  const soil = makeMesh(new THREE.CylinderGeometry(0.17, 0.17, 0.03, 8), 0x3d2b1f);
+  soil.position.y = 0.31;
+  potGroup.add(soil);
+
+  // Plant leaves
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x2d5a27, roughness: 0.8 });
+  for (let i = 0; i < 6; i++) {
+    const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.12, 6, 5), leafMat);
+    const angle = (i / 6) * Math.PI * 2;
+    leaf.position.set(Math.cos(angle) * 0.1, 0.45 + Math.random() * 0.2, Math.sin(angle) * 0.1);
+    leaf.scale.set(1, 0.6, 0.8);
+    potGroup.add(leaf);
+  }
+  // Center leaves
+  const centerLeaf = new THREE.Mesh(new THREE.SphereGeometry(0.15, 6, 5), leafMat);
+  centerLeaf.position.y = 0.6;
+  potGroup.add(centerLeaf);
+
+  scene.add(potGroup);
+
+  // Wall art / certificate frame (back wall center)
+  const frameOuter = makeMesh(new THREE.BoxGeometry(1.0, 0.7, 0.04), 0x4a3520, { roughness: 0.4, metalness: 0.1 });
+  frameOuter.position.set(0, 3.2, -3.96);
+  scene.add(frameOuter);
+  const frameInner = new THREE.Mesh(
+    new THREE.PlaneGeometry(0.85, 0.55),
+    new THREE.MeshStandardMaterial({ color: 0xf8f4e8 })
+  );
+  frameInner.position.set(0, 3.2, -3.93);
+  scene.add(frameInner);
 }
 
 // ── Default questions ───────────────────────────────────────────
@@ -349,10 +613,10 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   // Adaptive questions
   const [adaptiveQs, setAdaptiveQs] = useState<string[]>([]);
   const [allQuestions, setAllQuestions] = useState<string[]>(interviewQs);
-  const [followUpFlags, setFollowUpFlags] = useState<boolean[]>(interviewQs.map(() => false));  // track which Qs are follow-ups
-  const [autoFeedbackDone, setAutoFeedbackDone] = useState(false); // prevent double-fire
+  const [followUpFlags, setFollowUpFlags] = useState<boolean[]>(interviewQs.map(() => false));
+  const [autoFeedbackDone, setAutoFeedbackDone] = useState(false);
 
-  // ── Three.js setup ──────────────────────────────────────────
+  // ── Three.js setup (Professional Scene) ────────────────────────
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -361,147 +625,77 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     const W = mount.clientWidth;
     const H = mount.clientHeight;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
-    renderer.setPixelRatio(window.devicePixelRatio);
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(W, H);
     renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
     mount.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x1a1a2e);
-    scene.fog = new THREE.Fog(0x1a1a2e, 20, 38);
+    scene.background = new THREE.Color(0xd4c8b8);
+    scene.fog = new THREE.FogExp2(0xd4c8b8, 0.04);
 
-    const camera = new THREE.PerspectiveCamera(52, W / H, 0.1, 100);
-    camera.position.set(0, 2.8, 9);
-    camera.lookAt(0, 1.8, 0);
+    const camera = new THREE.PerspectiveCamera(48, W / H, 0.1, 100);
+    camera.position.set(0, 2.55, 4.8);
+    camera.lookAt(0, 1.5, 0);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.45));
-    const key = new THREE.DirectionalLight(0xfff5e0, 1.2);
-    key.position.set(4, 8, 6);
-    key.castShadow = true;
-    scene.add(key);
-    const fill2 = new THREE.DirectionalLight(0xc7d8ff, 0.5);
-    fill2.position.set(-5, 4, 2);
-    scene.add(fill2);
-    const spot = new THREE.SpotLight(0xfff0cc, 1.5, 12, Math.PI / 5, 0.4, 1.5);
-    spot.position.set(0, 7, 1);
-    spot.castShadow = true;
-    scene.add(spot);
+    // ── Lighting (Professional Studio) ──────────────────────────
 
-    // Floor
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 30),
-      new THREE.MeshStandardMaterial({ color: 0x0f0c29, roughness: 0.8 })
-    );
-    floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
-    scene.add(floor);
+    // Ambient fill
+    scene.add(new THREE.AmbientLight(0xfff8f0, 0.35));
 
-    // Grid lines
-    const gM = new THREE.MeshBasicMaterial({ color: 0x1e1b4b, transparent: true, opacity: 0.4 });
-    for (let i = -14; i <= 14; i += 2) {
-      const h = new THREE.Mesh(new THREE.PlaneGeometry(30, 0.02), gM);
-      h.rotation.x = -Math.PI / 2;
-      h.position.set(0, 0.001, i);
-      scene.add(h);
-      const v = new THREE.Mesh(new THREE.PlaneGeometry(0.02, 30), gM);
-      v.rotation.x = -Math.PI / 2;
-      v.position.set(i, 0.001, 0);
-      scene.add(v);
-    }
+    // Key light (warm sun from window direction)
+    const keyLight = new THREE.DirectionalLight(0xfff0d4, 1.8);
+    keyLight.position.set(-4, 6, 2);
+    keyLight.castShadow = true;
+    keyLight.shadow.mapSize.set(2048, 2048);
+    keyLight.shadow.camera.near = 0.5;
+    keyLight.shadow.camera.far = 20;
+    keyLight.shadow.camera.left = -6;
+    keyLight.shadow.camera.right = 6;
+    keyLight.shadow.camera.top = 6;
+    keyLight.shadow.camera.bottom = -2;
+    keyLight.shadow.bias = -0.0005;
+    keyLight.shadow.radius = 4;
+    scene.add(keyLight);
 
-    // Wall
-    const wall = new THREE.Mesh(
-      new THREE.PlaneGeometry(30, 12),
-      new THREE.MeshStandardMaterial({ color: 0x16213e, roughness: 0.9 })
-    );
-    wall.position.set(0, 6, -8);
-    scene.add(wall);
+    // Fill light (cool blue from right)
+    const fillLight = new THREE.DirectionalLight(0xc7d8ff, 0.5);
+    fillLight.position.set(5, 3, 3);
+    scene.add(fillLight);
 
-    for (let x = -12; x <= 12; x += 3) {
-      const p = new THREE.Mesh(
-        new THREE.PlaneGeometry(2.4, 8),
-        new THREE.MeshStandardMaterial({ color: 0x1a1f4a })
-      );
-      p.position.set(x, 4, -7.95);
-      scene.add(p);
-    }
+    // Rim/back light
+    const rimLight = new THREE.DirectionalLight(0xffeedd, 0.6);
+    rimLight.position.set(0, 4, -4);
+    scene.add(rimLight);
 
-    // Table
-    const tTop = new THREE.Mesh(
-      new THREE.BoxGeometry(5, 0.12, 1.8),
-      new THREE.MeshStandardMaterial({ color: 0x4a2c0a, roughness: 0.4, metalness: 0.15 })
-    );
-    tTop.position.set(0, 1.0, 0);
-    tTop.castShadow = true;
-    tTop.receiveShadow = true;
-    scene.add(tTop);
+    // Ceiling light
+    const ceilingLight = new THREE.PointLight(0xfff8e8, 0.6, 8);
+    ceilingLight.position.set(0, 4.5, 0.5);
+    scene.add(ceilingLight);
 
-    [[-1.8, -0.7], [-1.8, 0.7], [1.8, -0.7], [1.8, 0.7]].forEach(([x, z]) => {
-      const leg = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.06, 0.06, 0.8, 8),
-        new THREE.MeshStandardMaterial({ color: 0x2d1a05 })
-      );
-      leg.position.set(x, 0.6, z);
-      scene.add(leg);
-    });
+    // ── Build Office Environment ────────────────────────────────
+    buildOffice(scene);
+    buildTable(scene);
+    buildChair(scene, -1.6, 0.4);
+    buildChair(scene, 1.6, -0.4);
 
-    // Microphone
-    const micB = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.2, 0.04, 16),
-      new THREE.MeshStandardMaterial({ color: 0x111111, metalness: 0.9 })
-    );
-    micB.position.set(0, 1.07, 0);
-    scene.add(micB);
-    const micS = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.025, 0.025, 0.35, 8),
-      new THREE.MeshStandardMaterial({ color: 0x222222, metalness: 0.8 })
-    );
-    micS.position.set(0, 1.24, 0);
-    scene.add(micS);
-    const micH = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 12, 8),
-      new THREE.MeshStandardMaterial({ color: 0x333333, metalness: 0.7 })
-    );
-    micH.position.set(0, 1.45, 0);
-    scene.add(micH);
+    // ── Characters ──────────────────────────────────────────────
 
-    // Chairs
-    [[-2.2, 0.55], [2.2, -0.55]].forEach(([cx, ry]) => {
-      const cg = new THREE.Group();
-      const cM = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.7 });
-      const seat = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.06, 0.7), cM);
-      seat.position.y = 0.6;
-      cg.add(seat);
-      const back = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.65, 0.06), cM);
-      back.position.set(0, 0.94, -0.3);
-      cg.add(back);
-      [[-0.28, 0.28], [0.28, 0.28], [-0.28, -0.28], [0.28, -0.28]].forEach(([px, pz]) => {
-        const leg = new THREE.Mesh(
-          new THREE.CylinderGeometry(0.04, 0.04, 0.6, 6),
-          new THREE.MeshStandardMaterial({ color: 0x334155 })
-        );
-        leg.position.set(px, 0.3, pz);
-        cg.add(leg);
-      });
-      cg.position.set(cx, 0, 1.4);
-      cg.rotation.y = ry;
-      scene.add(cg);
-    });
+    // Interviewer (left): darker skin, navy suit, dark hair
+    const iv = buildPerson(scene, 0xc68642, 0x1a1a3e, 0x2a2030, true);
+    iv.group.position.set(-1.6, 0, 0.7);
+    iv.group.rotation.y = 0.4;
 
-    // Characters
-    const iv = buildChar(scene, true);
-    iv.group.position.set(-2.2, 0, 0.6);
-    iv.group.rotation.y = 0.55;
+    // Candidate (right): lighter skin, charcoal suit, brown hair
+    const cd = buildPerson(scene, 0xfcd9b0, 0x2d2d3a, 0x3b2000, false);
+    cd.group.position.set(1.6, 0, 0.7);
+    cd.group.rotation.y = -0.4;
 
-    const cd = buildChar(scene, false);
-    cd.group.position.set(2.2, 0, 0.6);
-    cd.group.rotation.y = -0.55;
-
-    const ivBubble = makeBubble(scene, "left");
-    const cdBubble = makeBubble(scene, "right");
-
-    sceneRef.current = { renderer, scene, camera, iv, cd, ivBubble, cdBubble };
+    sceneRef.current = { renderer, scene, camera, iv, cd };
 
     const handleResize = () => {
       const w = mount.clientWidth;
@@ -529,9 +723,11 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         { ch: sr.iv, talking: interviewerTalking },
         { ch: sr.cd, talking: candidateTalking },
       ].forEach(({ ch, talking }) => {
-        const s = talking ? Math.abs(Math.sin(ts / 100)) * 0.9 + 0.1 : 0;
-        ch.mouthGrp.scale.y = 1 + s * 2.5;
-        ch.mouthGrp.position.y = -0.13 - s * 0.04;
+        const s = talking ? Math.abs(Math.sin(ts / 90)) * 0.85 + 0.15 : 0;
+        ch.mouthGrp.scale.y = 1 + s * 2.8;
+        ch.mouthGrp.position.y = -0.1 - s * 0.035;
+        // Speaker glow
+        ch.speakerGlow.intensity = talking ? 0.8 + Math.sin(ts / 300) * 0.3 : 0;
       });
 
       // Head bob/nod
@@ -539,43 +735,43 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         { ch: sr.iv, talking: interviewerTalking, listening: candidateTalking },
         { ch: sr.cd, talking: candidateTalking, listening: interviewerTalking },
       ].forEach(({ ch, talking, listening }) => {
-        ch.head.position.y = talking ? 1.82 + Math.sin(ts / 180) * 0.025 : 1.82;
-        ch.head.rotation.x = listening ? Math.sin(ts / 900) * 0.05 : 0;
+        ch.head.position.y = talking ? 1.68 + Math.sin(ts / 170) * 0.02 : 1.68;
+        ch.head.rotation.x = listening ? Math.sin(ts / 800) * 0.045 : 0;
       });
 
       // Side tilt
-      sr.iv.head.rotation.z = !interviewerTalking && candidateTalking ? Math.sin(ts / 700) * 0.04 : 0;
-      sr.cd.head.rotation.z = !candidateTalking && interviewerTalking ? Math.sin(ts / 700) * 0.04 : 0;
+      sr.iv.head.rotation.z = !interviewerTalking && candidateTalking ? Math.sin(ts / 650) * 0.035 : 0;
+      sr.cd.head.rotation.z = !candidateTalking && interviewerTalking ? Math.sin(ts / 650) * 0.035 : 0;
 
       // Arm gesture
       [
         { ch: sr.iv, talking: interviewerTalking },
         { ch: sr.cd, talking: candidateTalking },
       ].forEach(({ ch, talking }) => {
-        const sw = talking ? Math.sin(ts / 400) * 0.18 : 0;
-        ch.lUA.rotation.z = Math.PI / 10 + sw;
-        ch.rUA.rotation.z = -(Math.PI / 10 + sw);
+        const sw = talking ? Math.sin(ts / 350) * 0.15 : 0;
+        ch.lUA.rotation.z = Math.PI / 8 + sw;
+        ch.rUA.rotation.z = -(Math.PI / 8 + sw);
       });
 
       // Eye blink
       st.blinkTimer += dt;
-      if (st.blinkTimer > 3400) { st.blinkTimer = 0; st.blinkState = 1; }
+      if (st.blinkTimer > 3200) { st.blinkTimer = 0; st.blinkState = 1; }
       if (st.blinkState === 1) {
         [sr.iv.lLid, sr.iv.rLid, sr.cd.lLid, sr.cd.rLid].forEach((l) => {
-          l.scale.y = Math.max(0.05, l.scale.y - 0.28);
+          l.scale.y = Math.max(0.05, l.scale.y - 0.3);
         });
         if (sr.iv.lLid.scale.y <= 0.05) st.blinkState = 2;
       } else if (st.blinkState === 2) {
         [sr.iv.lLid, sr.iv.rLid, sr.cd.lLid, sr.cd.rLid].forEach((l) => {
-          l.scale.y = Math.min(1, l.scale.y + 0.32);
+          l.scale.y = Math.min(1, l.scale.y + 0.35);
         });
         if (sr.iv.lLid.scale.y >= 1) st.blinkState = 0;
       }
 
-      // Camera drift
-      camera.position.x = Math.sin(ts / 8000) * 0.22;
-      camera.position.y = 2.8 + Math.sin(ts / 6000) * 0.07;
-      camera.lookAt(0, 1.8, 0);
+      // Gentle camera drift
+      camera.position.x = Math.sin(ts / 10000) * 0.15;
+      camera.position.y = 2.55 + Math.sin(ts / 7000) * 0.05;
+      camera.lookAt(0, 1.5, 0);
 
       renderer.render(scene, camera);
     }
@@ -594,19 +790,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  // Update bubbles when text changes
-  useEffect(() => {
-    if (!sceneRef.current) return;
-    const { ivBubble, cdBubble } = sceneRef.current;
-    if (activeSpeaker === "interviewer") {
-      ivBubble.update(bubbleText, "#6366f1");
-      cdBubble.update("", "#10b981");
-    } else {
-      ivBubble.update("", "#6366f1");
-      cdBubble.update(bubbleText, "#10b981");
-    }
-  }, [bubbleText, activeSpeaker]);
 
   // ── TTS: Interviewer asks question ────────────────────────────
 
@@ -642,7 +825,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       utter.voice = pickVoice(voices, malePrefs);
     }
 
-    // Show words as they're spoken
     const words = questionText.split(" ");
     let wordIdx = 0;
 
@@ -675,7 +857,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setBubbleText("");
     recordingStartRef.current = Date.now();
 
-    // Start audio recording (for replay)
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
@@ -687,7 +868,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       mediaRecorderRef.current = mediaRecorder;
     } catch { /* ignore */ }
 
-    // Transcript update handler (shared by both STT engines)
     const handleTranscript = (fullText: string) => {
       fullTranscriptRef.current = fullText;
       setTranscript(fullText);
@@ -695,7 +875,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       setBubbleText(words.slice(-7).join(" "));
     };
 
-    // Try Speechmatics STT first, fall back to browser SpeechRecognition
     const smApiKey = process.env.NEXT_PUBLIC_SPEECHMATICS_API_KEY;
     if (smApiKey) {
       const stt = new SpeechmaticsSTT({
@@ -716,13 +895,11 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       startBrowserSTT(handleTranscript);
     }
 
-    // Timer
     timerRef.current = setInterval(() => {
       setRecordingSeconds((s) => s + 1);
     }, 1000);
   }, [isRecording]);
 
-  // Browser SpeechRecognition fallback
   const startBrowserSTT = useCallback((onText: (text: string) => void) => {
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognitionAPI) return;
@@ -758,14 +935,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setIsRecording(false);
     setCandidateTalking(false);
 
-    // Stop Speechmatics STT
     if (smSttRef.current) {
       const finalText = smSttRef.current.stop();
       if (finalText) fullTranscriptRef.current = finalText;
       smSttRef.current = null;
     }
 
-    // Stop browser SpeechRecognition
     if (recognitionRef.current) {
       recognitionRef.current.onend = null;
       recognitionRef.current.stop();
@@ -792,7 +967,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     const durationSec = Math.round((Date.now() - recordingStartRef.current) / 1000);
 
     if (finalText) {
-      // Save answer record
       const record: AnswerRecord3D = {
         questionIndex: currentQIdx,
         question: allQuestions[currentQIdx],
@@ -833,7 +1007,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       let res: Response;
 
       if (mode === "single") {
-        // Get latest answer
         const latest = allAnswers[allAnswers.length - 1];
         if (!latest) { setFeedbackLoading(false); setMode("reviewing"); return; }
 
@@ -850,7 +1023,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           }),
         });
       } else {
-        // Full session analysis
         res = await fetch("/api/mock-feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -871,7 +1043,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       const data = await res.json();
       setFeedbackData(data);
 
-      // Update answer record with analysis
       if (mode === "single" && data.analysis) {
         setAllAnswers(prev => {
           const updated = [...prev];
@@ -884,7 +1055,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         });
       }
 
-      // Speak the humanized feedback via TTS
       if (data.humanized?.spoken_feedback && window.speechSynthesis) {
         const utter = new SpeechSynthesisUtterance(data.humanized.spoken_feedback);
         utter.rate = 0.9;
@@ -906,7 +1076,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         window.speechSynthesis.speak(utter);
       }
 
-      // Fetch adaptive follow-up questions based on weak areas
       if (data.analysis) {
         const weakAreas = mode === "single"
           ? (data.analysis.weak_areas || [])
@@ -961,7 +1130,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       setMode("asking");
       askQuestion(next);
     } else if (adaptiveQs.length > 0) {
-      // There are adaptive questions queued
       const next = currentQIdx + 1;
       setCurrentQIdx(next);
       setTranscript("");
@@ -969,7 +1137,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       setMode("asking");
       askQuestion(next);
     } else {
-      // Session complete — trigger final session analysis
       requestFeedback("session");
     }
   }, [currentQIdx, allQuestions.length, adaptiveQs.length, askQuestion, requestFeedback]);
@@ -993,18 +1160,64 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   // ── Render ────────────────────────────────────────────────────
 
   return (
-    <div style={{ width: "100%", height: "100vh", background: "#1a1a2e", display: "flex", flexDirection: "column", position: "relative" }}>
+    <div style={{ width: "100%", height: "100vh", background: "#d4c8b8", display: "flex", flexDirection: "column", position: "relative" }}>
       {/* Three.js canvas */}
       <div ref={mountRef} style={{ flex: 1, overflow: "hidden" }} />
+
+      {/* Speech bubble overlay (HTML-based) */}
+      {bubbleText && mode !== "intro" && (
+        <div style={{
+          position: "absolute",
+          top: activeSpeaker === "interviewer" ? 60 : 60,
+          left: activeSpeaker === "interviewer" ? "8%" : "auto",
+          right: activeSpeaker === "candidate" ? "8%" : "auto",
+          maxWidth: 340,
+          background: "rgba(255,255,255,0.95)",
+          borderRadius: 16,
+          padding: "12px 18px",
+          border: `2px solid ${activeSpeaker === "interviewer" ? "#6366f1" : "#10b981"}`,
+          boxShadow: `0 4px 20px ${activeSpeaker === "interviewer" ? "rgba(99,102,241,0.25)" : "rgba(16,185,129,0.25)"}`,
+          fontSize: 14,
+          color: "#1e293b",
+          lineHeight: 1.5,
+          fontWeight: 500,
+          zIndex: 10,
+          animation: "fadeIn 0.2s ease-out",
+        }}>
+          <div style={{
+            fontSize: 10,
+            fontWeight: 700,
+            textTransform: "uppercase",
+            letterSpacing: 1,
+            color: activeSpeaker === "interviewer" ? "#6366f1" : "#10b981",
+            marginBottom: 4,
+          }}>
+            {activeSpeaker === "interviewer" ? "Interviewer" : "You"}
+          </div>
+          {bubbleText}
+          {/* Triangle pointer */}
+          <div style={{
+            position: "absolute",
+            bottom: -10,
+            left: activeSpeaker === "interviewer" ? 30 : "auto",
+            right: activeSpeaker === "candidate" ? 30 : "auto",
+            width: 0, height: 0,
+            borderLeft: "10px solid transparent",
+            borderRight: "10px solid transparent",
+            borderTop: `10px solid ${activeSpeaker === "interviewer" ? "#6366f1" : "#10b981"}`,
+          }} />
+        </div>
+      )}
 
       {/* Speaker label */}
       <div style={{
         position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)",
-        background: "rgba(0,0,0,0.72)", borderRadius: 999, padding: "6px 20px",
+        background: "rgba(0,0,0,0.65)", borderRadius: 999, padding: "6px 20px",
         color: mode === "feedback" ? "#f59e0b" : activeSpeaker === "interviewer" ? "#6366f1" : "#10b981",
         fontSize: 13, fontWeight: 700, letterSpacing: 0.5,
         border: `1px solid ${mode === "feedback" ? "#f59e0b55" : activeSpeaker === "interviewer" ? "#6366f155" : "#10b98155"}`,
         backdropFilter: "blur(8px)",
+        zIndex: 20,
       }}>
         {mode === "intro" ? `${companyName || "Mock"} Interview` :
          mode === "asking" ? (followUpFlags[currentQIdx] ? "Follow-up question..." : "Interviewer is asking...") :
@@ -1018,6 +1231,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         <div style={{
           position: "absolute", top: 14, right: 20,
           display: "flex", alignItems: "center", gap: 8,
+          zIndex: 20,
         }}>
           {/* Feedback button (visible in reviewing mode) */}
           {(mode === "reviewing" || mode === "recording" && !isRecording) && allAnswers.length > 0 && (
@@ -1078,7 +1292,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
               title={showQuestionText ? "Hide question text" : "Show question text"}
               style={{
                 width: 34, height: 34, borderRadius: "50%", cursor: "pointer",
-                background: showQuestionText ? "rgba(99,102,241,0.85)" : "rgba(0,0,0,0.72)",
+                background: showQuestionText ? "rgba(99,102,241,0.85)" : "rgba(0,0,0,0.65)",
                 color: showQuestionText ? "#fff" : "#94a3b8",
                 fontSize: 18, fontWeight: 800, fontFamily: "serif", fontStyle: "italic",
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -1091,7 +1305,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             </button>
           )}
           <div style={{
-            background: "rgba(0,0,0,0.72)", borderRadius: 999, padding: "6px 16px",
+            background: "rgba(0,0,0,0.65)", borderRadius: 999, padding: "6px 16px",
             color: "#94a3b8", fontSize: 12, fontWeight: 600,
             border: "1px solid rgba(255,255,255,0.1)",
           }}>
@@ -1108,6 +1322,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           background: "rgba(0,0,0,0.78)", borderRadius: 12, padding: "12px 18px",
           minHeight: 50, maxHeight: mode === "feedback" ? 350 : 160,
           overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(8px)",
+          zIndex: 20,
         }}>
           {mode === "asking" && (
             <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.5 }}>
@@ -1120,7 +1335,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                   {allQuestions[currentQIdx]}
                 </>
               ) : (
-                <span style={{ color: "#64748b", fontSize: 13, marginLeft: 10 }}>Listening to interviewer... tap ⓘ to read</span>
+                <span style={{ color: "#64748b", fontSize: 13, marginLeft: 10 }}>Listening to interviewer... tap i to read</span>
               )}
             </div>
           )}
@@ -1172,14 +1387,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                   {/* Score and analysis */}
                   {feedbackData.analysis && (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                      {/* Overall score */}
                       <div style={{ background: "rgba(99,102,241,0.12)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
                         <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Score</div>
                         <div style={{ color: "#6366f1", fontSize: 22, fontWeight: 800 }}>
                           {(feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || "—"}
                         </div>
                       </div>
-                      {/* Readiness (session mode) */}
                       {(feedbackData.analysis as any).readiness_label && (
                         <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
                           <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Readiness</div>
@@ -1188,7 +1401,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                           </div>
                         </div>
                       )}
-                      {/* Hiring recommendation (session mode) */}
                       {(feedbackData.analysis as any).hiring_recommendation && (
                         <div style={{ background: "rgba(245,158,11,0.12)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
                           <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Recommendation</div>
@@ -1255,6 +1467,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         background: "rgba(15,12,41,0.92)", borderRadius: 16, padding: "13px 20px",
         border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(10px)",
         display: "flex", alignItems: "center", gap: 14,
+        zIndex: 20,
       }}>
         {/* Intro — Start button */}
         {mode === "intro" && (
@@ -1361,6 +1574,10 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>
