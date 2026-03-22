@@ -9,6 +9,9 @@ import {
   getProfile, saveUserProfile, recordAnswer, recordSession, getWeakAreas, getSessionCount,
   FeedbackResult, AnswerRecord, SessionRecord, UserProfile,
 } from "@/lib/store";
+import {
+  cloudGetOrCreateUser, cloudSaveProfile, cloudSaveSession, cloudSaveAnswer,
+} from "@/lib/cloud-sync";
 
 type Tab = "setup" | "practice" | "progress" | "history";
 
@@ -48,6 +51,7 @@ export default function Home() {
   const [showContextPrompt, setShowContextPrompt] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [resumeHighlights, setResumeHighlights] = useState<any>(null);
+  const [cloudUserId, setCloudUserId] = useState<string | null>(null);
 
   // Session state
   const [sessionId, setSessionId] = useState("");
@@ -71,13 +75,17 @@ export default function Home() {
   // Generating session
   const [generatingSession, setGeneratingSession] = useState(false);
 
-  // Load saved profile on mount
+  // Load saved profile on mount + sync to cloud
   useEffect(() => {
     const saved = getProfile();
     if (saved.userProfile?.name) {
       setProfile(saved.userProfile);
       setProfileSaved(true);
       if (saved.answers.length > 0) setTab("practice");
+      // Connect to InsForge cloud
+      cloudGetOrCreateUser(saved.userProfile.name).then(uid => {
+        if (uid) setCloudUserId(uid);
+      });
     }
   }, []);
 
@@ -85,6 +93,15 @@ export default function Home() {
     saveUserProfile(profile);
     setProfileSaved(true);
     setTab("practice");
+    // Sync to InsForge cloud
+    if (profile.name) {
+      cloudGetOrCreateUser(profile.name).then(uid => {
+        if (uid) {
+          setCloudUserId(uid);
+          cloudSaveProfile(uid, profile);
+        }
+      });
+    }
   }, [profile]);
 
   const autoFillFromResumeOrContext = useCallback(async () => {
@@ -249,7 +266,7 @@ export default function Home() {
         // Update session record
         const allScores = [...sessionAnswers, record].map(a => a.feedback.overall_score);
         const allWeak = [...new Set([...sessionAnswers, record].flatMap(a => a.feedback.weak_areas))];
-        recordSession({
+        const sessionData = {
           id: sessionId,
           company: profile.targetCompany,
           role: profile.targetRole,
@@ -258,7 +275,14 @@ export default function Home() {
           avgScore: Math.round(allScores.reduce((a, b) => a + b, 0) / allScores.length),
           weakAreas: allWeak,
           sessionNumber: getSessionCount(),
-        });
+        };
+        recordSession(sessionData);
+
+        // Sync to InsForge cloud
+        if (cloudUserId) {
+          cloudSaveAnswer(cloudUserId, { ...record, feedback: record.feedback as unknown as Record<string, unknown> });
+          cloudSaveSession(cloudUserId, sessionData);
+        }
       }
     } catch (e) {
       console.error("Feedback error:", e);
