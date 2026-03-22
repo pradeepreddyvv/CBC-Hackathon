@@ -39,79 +39,144 @@ type TtsState = {
 
 // ── 3D Scene Builders (from user's InterviewReplay) ─────────────
 
-function buildPerson(skinColor: number, suitColor: number, hairColor: number) {
-  const group   = new THREE.Group();
-  const skin    = new THREE.MeshLambertMaterial({ color: skinColor });
-  const suit    = new THREE.MeshLambertMaterial({ color: suitColor });
-  const hairMat = new THREE.MeshLambertMaterial({ color: hairColor });
-  const dark    = new THREE.MeshLambertMaterial({ color: 0x111111 });
-  const white   = new THREE.MeshLambertMaterial({ color: 0xf0f0f0 });
-  const pants   = new THREE.MeshLambertMaterial({ color: 0x0f1520 });
-  const shoeMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+function makeMesh(geo: THREE.BufferGeometry, color: number): THREE.Mesh {
+  return new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.65 }));
+}
 
-  const add = (geo: THREE.BufferGeometry, mat: THREE.Material, px: number, py: number, pz: number, castShadow = true) => {
-    const m = new THREE.Mesh(geo, mat);
-    m.position.set(px, py, pz);
-    if (castShadow) m.castShadow = true;
-    group.add(m);
-    return m;
-  };
-
-  // Head
-  const head = add(new THREE.SphereGeometry(0.185, 24, 24), skin, 0, 1.08, 0);
-
-  // Mouth — super big for visible animation
-  const mouthMat = new THREE.MeshLambertMaterial({ color: 0x331111 });
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.06), mouthMat);
-  mouth.position.set(0, 0.99, 0.16);
-  mouth.name = "mouth";
-  group.add(mouth);
-
-  // Hair cap
-  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 12), hairMat);
-  hairCap.scale.y = 0.52;
-  hairCap.position.set(0, 1.19, -0.01);
-  group.add(hairCap);
-
-  // Eyes
-  [-0.075, 0.075].forEach(x => {
-    add(new THREE.SphereGeometry(0.026, 8, 8), dark, x, 1.1, 0.158);
-    const gleam = new THREE.Mesh(new THREE.SphereGeometry(0.008, 6, 6), white);
-    gleam.position.set(x + 0.01, 1.112, 0.178);
-    group.add(gleam);
-  });
-
-  // Nose
-  add(new THREE.SphereGeometry(0.018, 6, 6), skin, 0, 1.055, 0.178);
-
-  // Collar
-  add(new THREE.BoxGeometry(0.095, 0.12, 0.015), white, 0, 0.895, 0.095);
+function buildPerson(skinColor: number, suitColor: number, hairColor: number, isInterviewer = false) {
+  const group = new THREE.Group();
+  const skin = skinColor;
+  const shirt = suitColor;
+  const pants = isInterviewer ? 0x111827 : 0x1e3a5f;
+  const hair = hairColor;
 
   // Torso
-  add(new THREE.BoxGeometry(0.36, 0.44, 0.22), suit, 0, 0.775, 0);
-
-  // Shoulders
-  [-0.22, 0.22].forEach(x => add(new THREE.BoxGeometry(0.14, 0.13, 0.22), suit, x, 0.935, 0));
+  const torso = makeMesh(new THREE.CylinderGeometry(0.27, 0.31, 0.82, 10), shirt);
+  torso.position.y = 1.08;
+  group.add(torso);
 
   // Upper arms
-  [-0.265, 0.265].forEach(x => add(new THREE.BoxGeometry(0.1, 0.3, 0.1), suit, x, 0.77, 0));
+  const lUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
+  lUA.position.set(-0.4, 1.18, 0);
+  lUA.rotation.z = Math.PI / 10;
+  group.add(lUA);
 
-  // Forearms
-  [-0.265, 0.265].forEach(x => add(new THREE.BoxGeometry(0.09, 0.1, 0.3), suit, x, 0.635, 0.15));
+  const rUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
+  rUA.position.set(0.4, 1.18, 0);
+  rUA.rotation.z = -Math.PI / 10;
+  group.add(rUA);
+
+  // Lower arms
+  const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  lLA.position.set(-0.5, 0.8, 0.1);
+  lLA.rotation.x = 0.4;
+  group.add(lLA);
+
+  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  rLA.position.set(0.5, 0.8, 0.1);
+  rLA.rotation.x = 0.4;
+  group.add(rLA);
 
   // Hands
-  [-0.265, 0.265].forEach(x => add(new THREE.SphereGeometry(0.058, 8, 8), skin, x, 0.635, 0.29));
+  const lHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
+  lHand.position.set(-0.52, 0.6, 0.25);
+  group.add(lHand);
 
-  // Upper legs (sitting)
-  [-0.11, 0.11].forEach(x => add(new THREE.BoxGeometry(0.12, 0.11, 0.44), pants, x, 0.5, 0.22));
+  const rHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
+  rHand.position.set(0.52, 0.6, 0.25);
+  group.add(rHand);
 
-  // Lower legs
-  [-0.11, 0.11].forEach(x => add(new THREE.BoxGeometry(0.1, 0.38, 0.1), pants, x, 0.3, 0.45));
+  // Legs
+  const lLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
+  lLeg.position.set(-0.15, 0.39, 0);
+  group.add(lLeg);
+
+  const rLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
+  rLeg.position.set(0.15, 0.39, 0);
+  group.add(rLeg);
 
   // Shoes
-  [-0.11, 0.11].forEach(x => add(new THREE.BoxGeometry(0.13, 0.07, 0.24), shoeMat, x, 0.12, 0.52));
+  const lShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
+  lShoe.position.set(-0.15, 0.05, 0.06);
+  group.add(lShoe);
 
-  return { group, head, mouth };
+  const rShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
+  rShoe.position.set(0.15, 0.05, 0.06);
+  group.add(rShoe);
+
+  // Neck
+  const neck = makeMesh(new THREE.CylinderGeometry(0.1, 0.12, 0.22, 8), skin);
+  neck.position.y = 1.6;
+  group.add(neck);
+
+  // Head group (for head animation)
+  const headGrp = new THREE.Group();
+  headGrp.position.y = 1.82;
+  group.add(headGrp);
+
+  // Skull
+  const skull = makeMesh(new THREE.SphereGeometry(0.3, 16, 12), skin);
+  skull.scale.y = 1.15;
+  headGrp.add(skull);
+
+  // Hair
+  const hairMesh = makeMesh(new THREE.SphereGeometry(0.31, 10, 8), hair);
+  hairMesh.position.y = 0.17;
+  hairMesh.scale.set(1, 0.5, 1);
+  headGrp.add(hairMesh);
+
+  // Eyes
+  const lEye = makeMesh(new THREE.SphereGeometry(0.048, 8, 6), 0x111111);
+  lEye.position.set(-0.11, 0.05, 0.26);
+  headGrp.add(lEye);
+
+  const rEye = makeMesh(new THREE.SphereGeometry(0.048, 8, 6), 0x111111);
+  rEye.position.set(0.11, 0.05, 0.26);
+  headGrp.add(rEye);
+
+  // Nose
+  const nose = makeMesh(new THREE.SphereGeometry(0.05, 6, 5), skin);
+  nose.position.set(0, -0.04, 0.28);
+  nose.scale.set(0.8, 0.7, 0.9);
+  headGrp.add(nose);
+
+  // Mouth group (for mouth animation)
+  const mouth = new THREE.Group();
+  mouth.position.set(0, -0.13, 0.27);
+  headGrp.add(mouth);
+
+  const lips = makeMesh(new THREE.BoxGeometry(0.13, 0.04, 0.02), 0x8b3a2a);
+  mouth.add(lips);
+
+  const inner = makeMesh(new THREE.BoxGeometry(0.09, 0.001, 0.02), 0x2d0000);
+  inner.position.y = -0.02;
+  mouth.add(inner);
+
+  // Interviewer extras: glasses + tie
+  if (isInterviewer) {
+    const gM = new THREE.MeshStandardMaterial({ color: 0x222222 });
+    const geoT = new THREE.TorusGeometry(0.085, 0.011, 6, 20);
+
+    const gl = new THREE.Mesh(geoT, gM);
+    gl.position.set(-0.11, 0.06, 0.26);
+    gl.rotation.y = 0.1;
+    headGrp.add(gl);
+
+    const gr = new THREE.Mesh(geoT, gM);
+    gr.position.set(0.11, 0.06, 0.26);
+    gr.rotation.y = -0.1;
+    headGrp.add(gr);
+
+    const br = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.01, 0.01), gM);
+    br.position.set(0, 0.06, 0.28);
+    headGrp.add(br);
+
+    const tie = makeMesh(new THREE.BoxGeometry(0.08, 0.38, 0.04), 0x7c3aed);
+    tie.position.set(0, 1.13, 0.26);
+    group.add(tie);
+  }
+
+  return { group, head: headGrp, mouth };
 }
 
 function buildChair() {
@@ -278,46 +343,60 @@ function SpeechBubble({ text, side, visible, isQuestion, feedbackMode, fullText,
   const isFeedback = feedbackMode && fullText;
   return (
     <div style={{
-      width: isFeedback ? 520 : undefined,
-      maxWidth: isFeedback ? 520 : 300,
-      minWidth: isFeedback ? 420 : 120,
-      background: isQuestion ? "linear-gradient(135deg,#1e3a5f,#163050)" : "linear-gradient(135deg,#2d1b4e,#1f1038)",
+      width: isFeedback ? 380 : undefined,
+      maxWidth: isFeedback ? 380 : 300,
+      minWidth: isFeedback ? 300 : 120,
+      background: "linear-gradient(160deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94))",
       border: `1px solid ${isQuestion ? "rgba(96,165,250,0.35)" : "rgba(192,132,252,0.35)"}`,
-      borderRadius: isLeft ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
-      padding: isFeedback ? "10px 16px" : "9px 13px", position: "relative",
-      boxShadow: `0 6px 28px ${isQuestion ? "rgba(96,165,250,0.2)" : "rgba(192,132,252,0.2)"}`,
+      borderRadius: isLeft ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
+      padding: isFeedback ? "10px 14px" : "9px 13px", position: "relative",
+      boxShadow: `0 10px 26px rgba(2,6,23,0.55)`,
+      backdropFilter: "blur(10px)",
       opacity: visible ? 1 : 0,
       transform: visible ? "translateY(0) scale(1)" : "translateY(8px) scale(0.94)",
       transition: "all 0.4s cubic-bezier(0.34,1.2,0.64,1)",
       pointerEvents: "none" as const,
     }}>
-      <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, color: isQuestion ? "rgba(96,165,250,0.9)" : "rgba(192,132,252,0.9)" }}>
-        {isQuestion ? "Interviewer" : "You"}
+      <div style={{
+        display: "inline-block", padding: "2px 10px", borderRadius: 14, marginBottom: 6,
+        background: isQuestion ? "rgba(96,165,250,0.25)" : "rgba(192,132,252,0.25)",
+        fontSize: 9, letterSpacing: 2, textTransform: "uppercase", fontWeight: 700,
+        color: isQuestion ? "#93c5fd" : "#c4b5fd",
+      }}>
+        {isQuestion ? "Interviewer" : "Candidate"}
       </div>
       {isFeedback ? (
         <div ref={scrollRef} style={{
-          fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.65,
-          maxHeight: 88, overflowY: "auto", scrollBehavior: "smooth",
+          fontSize: 14, lineHeight: 1.7,
+          maxHeight: 96, overflowY: "auto", scrollBehavior: "smooth",
         }}>
           {fullText.split(" ").map((word, i) => (
             <span key={i} style={{
-              color: spokenWordIdx !== undefined && i <= spokenWordIdx ? "#facc15" : "rgba(255,255,255,0.55)",
+              display: "inline-block",
+              fontSize: 14,
+              borderRadius: 3,
+              padding: "0 2px",
+              transition: "all 0.12s",
+              color: spokenWordIdx !== undefined && i === spokenWordIdx ? "#f8fafc"
+                : spokenWordIdx !== undefined && i < spokenWordIdx ? "#facc15"
+                : "#475569",
               fontWeight: spokenWordIdx !== undefined && i === spokenWordIdx ? 700 : 400,
-              transition: "color 0.15s",
+              background: spokenWordIdx !== undefined && i === spokenWordIdx ? "rgba(56,189,248,0.35)" : "transparent",
+              transform: spokenWordIdx !== undefined && i === spokenWordIdx ? "scale(1.08)" : "scale(1)",
             }}>
               {word}{" "}
             </span>
           ))}
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>{text}</div>
+        <div style={{ fontSize: 13, color: "#f8fafc", lineHeight: 1.55, fontWeight: 600 }}>{text}</div>
       )}
       <div style={{
         position: "absolute", bottom: -8,
         ...(isLeft ? { left: 14 } : { right: 14 }),
         width: 0, height: 0,
         borderLeft: "8px solid transparent", borderRight: "8px solid transparent",
-        borderTop: `8px solid ${isQuestion ? "#163050" : "#1f1038"}`,
+        borderTop: "8px solid rgba(15,23,42,0.96)",
       }} />
     </div>
   );
@@ -500,12 +579,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     ivChair.rotation.y = Math.PI / 2;
     scene.add(ivChair);
 
-    const { group: ivGroup, head: ivHead, mouth: ivMouth } = buildPerson(0xf0c27f, 0x1e3a5f, 0x180e04);
+    const { group: ivGroup, head: ivHead, mouth: ivMouth } = buildPerson(0xc68642, 0x1e1b4b, 0x555566, true);
     ivGroup.position.set(-1.28, 0, 0.1);
     ivGroup.rotation.y = Math.PI / 2;
     scene.add(ivGroup);
-    ivHeadRef.current = ivHead;
-    ivMouthRef.current = ivMouth;
+    ivHeadRef.current = ivHead as any;
+    ivMouthRef.current = ivMouth as any;
 
     // ── Candidate (right) ───────────────────────────────────────
     const cdChair = buildChair();
@@ -513,12 +592,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     cdChair.rotation.y = -Math.PI / 2;
     scene.add(cdChair);
 
-    const { group: cdGroup, head: cdHead, mouth: cdMouth } = buildPerson(0xdba87a, 0x2d1b4e, 0x8B4513);
+    const { group: cdGroup, head: cdHead, mouth: cdMouth } = buildPerson(0xfcd9b0, 0x1d4ed8, 0x3b2000, false);
     cdGroup.position.set(1.28, 0, 0.1);
     cdGroup.rotation.y = -Math.PI / 2;
     scene.add(cdGroup);
-    cdHeadRef.current = cdHead;
-    cdMouthRef.current = cdMouth;
+    cdHeadRef.current = cdHead as any;
+    cdMouthRef.current = cdMouth as any;
 
     clockRef.current = new THREE.Clock();
 
@@ -544,7 +623,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
 
       if (leftWrapRef.current) {
         leftWrapRef.current.style.left = `${ivX}px`;
-        leftWrapRef.current.style.top = `${ivY - 155}px`;
+        leftWrapRef.current.style.top = `${ivY - 180}px`;
         leftWrapRef.current.style.bottom = "auto";
       }
       if (rightWrapRef.current) {
@@ -561,24 +640,28 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       const t = clockRef.current!.getElapsedTime();
       const spk = activeSpeakerRef.current;
 
-      // Head bobs
-      if (ivHeadRef.current) ivHeadRef.current.position.y = 1.08 + (spk === 1 ? Math.sin(t * 4.2) * 0.013 : Math.sin(t * 0.9) * 0.004);
-      if (cdHeadRef.current) cdHeadRef.current.position.y = 1.08 + (spk === 2 ? Math.sin(t * 4.0 + 0.6) * 0.013 : Math.sin(t * 0.85 + 1.2) * 0.004);
+      // Head bobs (head is now a Group at y=1.82)
+      if (ivHeadRef.current) {
+        ivHeadRef.current.position.y = spk === 1 ? 1.82 + Math.sin(t * 4.2) * 0.025 : 1.82;
+        ivHeadRef.current.rotation.x = spk !== 1 && spk === 2 ? Math.sin(t * 0.9) * 0.05 : 0;
+        ivHeadRef.current.rotation.z = spk !== 1 && spk === 2 ? Math.sin(t * 0.7) * 0.04 : 0;
+      }
+      if (cdHeadRef.current) {
+        cdHeadRef.current.position.y = spk === 2 ? 1.82 + Math.sin(t * 4.0 + 0.6) * 0.025 : 1.82;
+        cdHeadRef.current.rotation.x = spk !== 2 && spk === 1 ? Math.sin(t * 0.9) * 0.05 : 0;
+        cdHeadRef.current.rotation.z = spk !== 2 && spk === 1 ? Math.sin(t * 0.7) * 0.04 : 0;
+      }
 
-      // Mouth animation — dramatic open/close when speaking
+      // Mouth animation (mouth is now a Group — scale.y for open/close)
       if (ivMouthRef.current) {
-        const openAmt = spk === 1
-          ? 0.05 + Math.abs(Math.sin(t * 10.5)) * 0.12 + Math.abs(Math.sin(t * 6.3)) * 0.06
-          : 0.05;
-        ivMouthRef.current.scale.y = openAmt / 0.05;
-        ivMouthRef.current.position.y = 0.99 - (openAmt - 0.05) * 0.5;
+        const s = spk === 1 ? Math.abs(Math.sin(t * 10.5)) * 0.9 + 0.1 : 0;
+        ivMouthRef.current.scale.y = 1 + s * 2.5;
+        ivMouthRef.current.position.y = -0.13 - s * 0.04;
       }
       if (cdMouthRef.current) {
-        const openAmt = spk === 2
-          ? 0.05 + Math.abs(Math.sin(t * 9.8 + 0.4)) * 0.12 + Math.abs(Math.sin(t * 5.9 + 0.7)) * 0.06
-          : 0.05;
-        cdMouthRef.current.scale.y = openAmt / 0.05;
-        cdMouthRef.current.position.y = 0.99 - (openAmt - 0.05) * 0.5;
+        const s = spk === 2 ? Math.abs(Math.sin(t * 9.8 + 0.4)) * 0.9 + 0.1 : 0;
+        cdMouthRef.current.scale.y = 1 + s * 2.5;
+        cdMouthRef.current.position.y = -0.13 - s * 0.04;
       }
 
       // Speaker glow
