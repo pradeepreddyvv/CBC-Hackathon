@@ -56,38 +56,39 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number, is
   torso.position.y = 1.08;
   group.add(torso);
 
-  // Upper arms — angled down from shoulders, slightly forward (resting on table)
-  const lUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
-  lUA.position.set(-0.38, 1.15, 0.08);
-  lUA.rotation.z = Math.PI / 6;
-  lUA.rotation.x = -0.3;
+  // Upper arms — attached at shoulder edges of torso, angled down
+  const lUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.48, 8), shirt);
+  lUA.position.set(-0.32, 1.22, 0.05);
+  lUA.rotation.z = Math.PI / 5;
+  lUA.rotation.x = -0.25;
   group.add(lUA);
 
-  const rUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
-  rUA.position.set(0.38, 1.15, 0.08);
-  rUA.rotation.z = -Math.PI / 6;
-  rUA.rotation.x = -0.3;
+  const rUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.48, 8), shirt);
+  rUA.position.set(0.32, 1.22, 0.05);
+  rUA.rotation.z = -Math.PI / 5;
+  rUA.rotation.x = -0.25;
   group.add(rUA);
 
   // Forearm groups (for gesture animation — rotate these)
+  // Positioned at the end of upper arms (elbow joint)
   const lForearmGrp = new THREE.Group();
-  lForearmGrp.position.set(-0.52, 0.88, 0.18);
+  lForearmGrp.position.set(-0.46, 0.94, 0.16);
   group.add(lForearmGrp);
-  const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.40, 8), skin);
   lLA.rotation.x = -Math.PI / 2.5;
   lForearmGrp.add(lLA);
-  const lHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
-  lHand.position.set(0, -0.05, 0.22);
+  const lHand = makeMesh(new THREE.SphereGeometry(0.08, 8, 6), skin);
+  lHand.position.set(0, -0.04, 0.20);
   lForearmGrp.add(lHand);
 
   const rForearmGrp = new THREE.Group();
-  rForearmGrp.position.set(0.52, 0.88, 0.18);
+  rForearmGrp.position.set(0.46, 0.94, 0.16);
   group.add(rForearmGrp);
-  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.40, 8), skin);
   rLA.rotation.x = -Math.PI / 2.5;
   rForearmGrp.add(rLA);
-  const rHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
-  rHand.position.set(0, -0.05, 0.22);
+  const rHand = makeMesh(new THREE.SphereGeometry(0.08, 8, 6), skin);
+  rHand.position.set(0, -0.04, 0.20);
   rForearmGrp.add(rHand);
 
   // Legs — sitting: thighs horizontal, shins vertical
@@ -499,6 +500,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [showFeedbackMenu, setShowFeedbackMenu] = useState(false);
   const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
   const [feedbackFullText, setFeedbackFullText] = useState("");
+  const [feedbackWordIdx, setFeedbackWordIdx] = useState(-1);
   const [coachingData, setCoachingData] = useState<{ coaching_plan?: string; priority_skill?: string; example_rewrite?: string; encouragement?: string } | null>(null);
   const [feedbackQA, setFeedbackQA] = useState<{ q: string; a: string; tip?: string }[]>([]);
   const [feedbackQuestion, setFeedbackQuestion] = useState("");
@@ -703,14 +705,14 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           // Right hand: periodic raise gesture
           ivRArmRef.current.rotation.x = idleR - gesture;
           ivRArmRef.current.rotation.z = -gesture * 0.3;
-          ivRArmRef.current.position.y = 0.88 + gesture * 0.08;
+          ivRArmRef.current.position.y = 0.94 + gesture * 0.08;
         } else {
           // Idle: very subtle breathing
           ivLArmRef.current.rotation.x = idleL;
           ivLArmRef.current.rotation.z = 0;
           ivRArmRef.current.rotation.x = idleR;
           ivRArmRef.current.rotation.z = 0;
-          ivRArmRef.current.position.y = 0.88;
+          ivRArmRef.current.position.y = 0.94;
         }
       }
       // Candidate arms
@@ -723,7 +725,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           // Left hand: periodic raise
           cdLArmRef.current.rotation.x = idleL - gesture;
           cdLArmRef.current.rotation.z = gesture * 0.25;
-          cdLArmRef.current.position.y = 0.88 + gesture * 0.06;
+          cdLArmRef.current.position.y = 0.94 + gesture * 0.06;
           // Right hand: subtle emphasis
           cdRArmRef.current.rotation.x = idleR + Math.sin(t * 1.8) * 0.03;
           cdRArmRef.current.rotation.z = 0;
@@ -731,7 +733,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           // Idle
           cdLArmRef.current.rotation.x = idleL;
           cdLArmRef.current.rotation.z = 0;
-          cdLArmRef.current.position.y = 0.88;
+          cdLArmRef.current.position.y = 0.94;
           cdRArmRef.current.rotation.x = idleR;
           cdRArmRef.current.rotation.z = 0;
         }
@@ -1090,14 +1092,29 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         }
         setInterviewerTalking(true);
         setFeedbackSpeaking(true);
+        setFeedbackWordIdx(0);
 
-        // Show fixed-length chunks — simpler and more reliable than word tracking
+        // Show fixed-length chunks for 3D bubble
         const feedbackWords = feedbackText.split(" ");
         const chunkSize = 8;
         let chunkIdx = 0;
         setBubbleText(feedbackWords.slice(0, chunkSize).join(" "));
 
-        // Advance bubble text every ~2.5s
+        // Track word index for sidebar highlighting via onboundary
+        utter.onboundary = (e: SpeechSynthesisEvent) => {
+          if (e.name !== "word") return;
+          const spokenSoFar = feedbackText.substring(0, e.charIndex + e.charLength).trim();
+          const wIdx = spokenSoFar.split(/\s+/).length - 1;
+          setFeedbackWordIdx(wIdx);
+          // Also update bubble chunks
+          const newChunk = Math.floor(wIdx / chunkSize);
+          if (newChunk !== chunkIdx) {
+            chunkIdx = newChunk;
+            setBubbleText(feedbackWords.slice(chunkIdx * chunkSize, (chunkIdx + 1) * chunkSize).join(" "));
+          }
+        };
+
+        // Fallback: advance bubble text every ~2.5s if onboundary doesn't fire
         const bubbleTimer = setInterval(() => {
           chunkIdx++;
           const start = chunkIdx * chunkSize;
@@ -1110,6 +1127,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           clearInterval(bubbleTimer);
           setInterviewerTalking(false);
           setFeedbackSpeaking(false);
+          setFeedbackWordIdx(feedbackWords.length);
           setBubbleText(feedbackWords.slice(-chunkSize).join(" "));
         };
         window.speechSynthesis.speak(utter);
@@ -1173,11 +1191,25 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         setInterviewerTalking(true);
         setFeedbackSpeaking(true);
         setFeedbackFullText(data.response);
+        setFeedbackWordIdx(0);
 
         const words = data.response.split(" ");
         const chunkSize = 8;
         let chunkIdx = 0;
         setBubbleText(words.slice(0, chunkSize).join(" "));
+
+        // Track word index for sidebar highlighting
+        utter.onboundary = (e: SpeechSynthesisEvent) => {
+          if (e.name !== "word") return;
+          const spokenSoFar = data.response.substring(0, e.charIndex + e.charLength).trim();
+          const wIdx = spokenSoFar.split(/\s+/).length - 1;
+          setFeedbackWordIdx(wIdx);
+          const newChunk = Math.floor(wIdx / chunkSize);
+          if (newChunk !== chunkIdx) {
+            chunkIdx = newChunk;
+            setBubbleText(words.slice(chunkIdx * chunkSize, (chunkIdx + 1) * chunkSize).join(" "));
+          }
+        };
 
         const bubbleTimer = setInterval(() => {
           chunkIdx++;
@@ -1191,6 +1223,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           clearInterval(bubbleTimer);
           setInterviewerTalking(false);
           setFeedbackSpeaking(false);
+          setFeedbackWordIdx(words.length);
           setBubbleText(words.slice(-chunkSize).join(" "));
         };
         window.speechSynthesis.speak(utter);
@@ -1722,8 +1755,19 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                 <div style={{ color: "#facc15", fontSize: 10, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
                   Interviewer says{feedbackSpeaking ? " (speaking...)" : ""}:
                 </div>
-                <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.6, fontStyle: "italic" }}>
-                  &ldquo;{feedbackData.humanized?.spoken_feedback || "No feedback available"}&rdquo;
+                <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.8, fontStyle: "italic" }}>
+                  &ldquo;{(feedbackData.humanized?.spoken_feedback || "No feedback available").split(" ").map((word: string, i: number) => (
+                    <span key={i} style={{
+                      color: feedbackSpeaking
+                        ? (feedbackWordIdx >= i ? "#ffffff" : "rgba(148,163,184,0.45)")
+                        : "#e2e8f0",
+                      fontWeight: feedbackSpeaking && feedbackWordIdx === i ? 800 : feedbackSpeaking && feedbackWordIdx > i ? 500 : 400,
+                      background: feedbackSpeaking && feedbackWordIdx === i ? "rgba(250,204,21,0.25)" : "transparent",
+                      borderRadius: feedbackSpeaking && feedbackWordIdx === i ? 3 : 0,
+                      padding: feedbackSpeaking && feedbackWordIdx === i ? "1px 3px" : "0 1px",
+                      transition: "all 0.12s ease",
+                    }}>{word} </span>
+                  ))}&rdquo;
                 </div>
               </div>
 
