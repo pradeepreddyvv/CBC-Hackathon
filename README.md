@@ -77,6 +77,70 @@ CareerHub AI is an open-source, AI-powered career intelligence platform that aut
 
 ## Quick Start
 
+### Run the Next.js Interview Coach (current frontend)
+
+This repo includes a full Next.js frontend under `src/app`.
+
+1. Install dependencies
+```bash
+npm install
+```
+
+2. Create `.env.local` in the project root
+```bash
+GEMINI_API_KEY=your_gemini_key
+# Optional fallback (supported too)
+# GEMINI_KEY=your_gemini_key
+# Optional model override
+# GEMINI_MODEL=gemini-2.0-flash
+```
+
+3. Start the app
+```bash
+npm run dev
+```
+
+4. Open local URL shown in terminal (usually `http://localhost:3000`, or `3001` if 3000 is occupied)
+
+5. Verify production build
+```bash
+npm run build
+```
+
+### Run the Pipeline Scripts (Python + n8n)
+
+1. Create and activate a Python environment
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install requests fastapi uvicorn httpx
+```
+
+2. Export environment variables (script stack uses `GEMINI_KEY`)
+```bash
+export GEMINI_KEY=your_gemini_key
+export N8N_BASE=http://localhost:5678
+export N8N_API_KEY=your_n8n_api_key
+```
+
+3. Common commands
+```bash
+# Analyze jobs
+python3 scripts/batch_analyze_jobs.py --days 7
+
+# Generate docs
+python3 scripts/generate_job_docs.py --days 7 --min-score 30
+
+# Upload generated docs to n8n
+python3 scripts/upload_docs_to_n8n.py
+```
+
+4. Optional JD service
+```bash
+python3 scripts/jd_service.py
+# health check: http://localhost:8765/health
+```
+
 ### 1. Clone & Configure
 ```bash
 git clone https://github.com/metalgenesis123321/CBC-Hackathon.git

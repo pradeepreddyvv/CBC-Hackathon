@@ -7,7 +7,10 @@ N8N_BASE = os.environ.get("N8N_BASE", "http://localhost:5678")
 N8N_API_KEY = os.environ.get("N8N_API_KEY", "")
 HEADERS = {"X-N8N-API-KEY": N8N_API_KEY, "Content-Type": "application/json"}
 WORKFLOW_ID = os.environ.get("N8N_CAREER_HUB_WORKFLOW_ID", "QFs7q2WxKKbux1Mq")
-HTML_FILE = os.environ.get("CAREER_HUB_HTML", os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "career_hub_v2.html"))
+_PROJECT_ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+_DEFAULT_HTML = os.path.join(_PROJECT_ROOT, "career_hub.html")
+_LEGACY_HTML = os.path.join(_PROJECT_ROOT, "career_hub_v2.html")
+HTML_FILE = os.environ.get("CAREER_HUB_HTML", _DEFAULT_HTML if os.path.exists(_DEFAULT_HTML) else _LEGACY_HTML)
 
 def main():
     print("Reading HTML file...")
