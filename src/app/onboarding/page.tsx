@@ -1,9 +1,9 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import AppNav from "@/components/AppNav";
-import { saveUserProfile } from "@/lib/store";
+import { saveUserProfile, getProfile } from "@/lib/store";
 
 const C = { cyan: "#22d3ee", violet: "#818cf8", success: "#34d399", warning: "#fbbf24", danger: "#f87171", text: "var(--text)", sec: "var(--text-sec)", tert: "var(--text-tert)" };
 const card = { background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 20 };
@@ -44,8 +44,63 @@ export default function OnboardingPage() {
   const [data, setData] = useState<OnboardingData>({ name:user?.name||"", country:"", resumeText:"", llmContext:"", targetRoles:[], background:"", experience:"", skills:"", interviewType:"mixed", companyName:"Google", jobDescription:"", yearsExperience:"0-2", roundType:"General Prep", targetSkills:"", researchResults:null, generatedQuestions:[] });
   const [isOtherCompany, setIsOtherCompany] = useState(false);
   const [autoFillJdLoading, setAutoFillJdLoading] = useState(false);
+  const [prefilled, setPrefilled] = useState(false);
   const update = (fields: Partial<OnboardingData>) => setData(prev => ({ ...prev, ...fields }));
   const toggleRole = (role: string) => setData(prev => ({ ...prev, targetRoles: prev.targetRoles.includes(role) ? prev.targetRoles.filter(r=>r!==role) : [...prev.targetRoles, role] }));
+
+  // Pre-fill from DB + localStorage on mount (resume parsing data, previous onboarding data)
+  useEffect(() => {
+    if (prefilled) return;
+    // 1. Load from localStorage profile
+    const localProfile = getProfile();
+    const lp = localProfile.userProfile;
+    if (lp?.name) {
+      setData(prev => ({
+        ...prev,
+        name: lp.name || prev.name,
+        background: lp.background || prev.background,
+        experience: lp.experience || prev.experience,
+        skills: lp.skills || prev.skills,
+        country: lp.country || prev.country,
+        companyName: lp.targetCompany || prev.companyName,
+        targetRoles: lp.targetRole ? [lp.targetRole] : prev.targetRoles,
+      }));
+      if (lp.targetCompany && !COMPANY_PRESETS.includes(lp.targetCompany)) {
+        setIsOtherCompany(true);
+      }
+    }
+    // 2. Load session config
+    try {
+      const cfg = JSON.parse(localStorage.getItem("interview_session_config") || "{}");
+      if (cfg.interviewType) setData(prev => ({ ...prev, interviewType: cfg.interviewType }));
+      if (cfg.roundType) setData(prev => ({ ...prev, roundType: cfg.roundType }));
+      if (cfg.jobDescription) setData(prev => ({ ...prev, jobDescription: cfg.jobDescription }));
+      if (cfg.country) setData(prev => ({ ...prev, country: prev.country || cfg.country }));
+    } catch { /* ignore */ }
+
+    // 3. Fetch from DB (most authoritative)
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(resp => {
+      if (!resp?.user) return;
+      const u = resp.user;
+      setData(prev => ({
+        ...prev,
+        name: u.name || prev.name,
+        background: u.background || prev.background,
+        experience: u.experience || prev.experience,
+        skills: u.skills || prev.skills,
+        country: u.country || prev.country,
+        companyName: u.target_company || prev.companyName,
+        targetRoles: u.target_roles?.length ? u.target_roles : (u.target_role ? [u.target_role] : prev.targetRoles),
+        interviewType: u.interview_type || prev.interviewType,
+        resumeText: u.resume_text || prev.resumeText,
+        llmContext: u.llm_context || prev.llmContext,
+      }));
+      if (u.target_company && !COMPANY_PRESETS.includes(u.target_company)) {
+        setIsOtherCompany(true);
+      }
+      setPrefilled(true);
+    }).catch(() => { setPrefilled(true); });
+  }, [prefilled]);
 
   const autoFill = useCallback(async () => {
     if (!data.resumeText && !data.llmContext) return;

@@ -74,15 +74,20 @@ export default function ProfilePage() {
         setCustomCompany(localProfile.userProfile.targetCompany);
       }
     } else if (sessionCompany || user) {
-      // At least fill from session config / auth user
+      // Fill from auth context user object + session config
+      const company = user?.target_company || sessionCompany || "";
       setProfile(prev => ({
         ...prev,
         name: user?.name || prev.name,
-        targetCompany: sessionCompany && COMPANY_PRESETS.includes(sessionCompany) ? sessionCompany : sessionCompany ? "Other" : prev.targetCompany,
-        country: sessionCountry || prev.country,
+        background: user?.background || prev.background,
+        targetRole: user?.target_role || prev.targetRole,
+        targetCompany: company && COMPANY_PRESETS.includes(company) ? company : company ? "Other" : prev.targetCompany,
+        experience: user?.experience || prev.experience,
+        skills: user?.skills || prev.skills,
+        country: user?.country || sessionCountry || prev.country,
       }));
-      if (sessionCompany && !COMPANY_PRESETS.includes(sessionCompany)) {
-        setCustomCompany(sessionCompany);
+      if (company && !COMPANY_PRESETS.includes(company)) {
+        setCustomCompany(company);
       }
     }
 

@@ -7,6 +7,16 @@ interface User {
   name: string;
   avatar_url?: string;
   onboarded?: boolean;
+  background?: string;
+  target_role?: string;
+  target_company?: string;
+  experience?: string;
+  skills?: string;
+  country?: string;
+  resume_text?: string;
+  llm_context?: string;
+  target_roles?: string[];
+  interview_type?: string;
 }
 
 interface AuthContextType {
