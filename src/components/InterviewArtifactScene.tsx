@@ -270,15 +270,21 @@ function buildOffice(scene: THREE.Scene) {
 
 // ── Speech Bubble Component ─────────────────────────────────────
 
-function SpeechBubble({ text, side, visible, isQuestion }: { text: string; side: "left" | "right"; visible: boolean; isQuestion: boolean }) {
+function SpeechBubble({ text, side, visible, isQuestion, feedbackMode, fullText, spokenWordIdx, scrollRef }: {
+  text: string; side: "left" | "right"; visible: boolean; isQuestion: boolean;
+  feedbackMode?: boolean; fullText?: string; spokenWordIdx?: number; scrollRef?: React.RefObject<HTMLDivElement | null>;
+}) {
   const isLeft = side === "left";
+  const isFeedback = feedbackMode && fullText;
   return (
     <div style={{
-      maxWidth: 300, minWidth: 120,
+      width: isFeedback ? 520 : undefined,
+      maxWidth: isFeedback ? 520 : 300,
+      minWidth: isFeedback ? 420 : 120,
       background: isQuestion ? "linear-gradient(135deg,#1e3a5f,#163050)" : "linear-gradient(135deg,#2d1b4e,#1f1038)",
       border: `1px solid ${isQuestion ? "rgba(96,165,250,0.35)" : "rgba(192,132,252,0.35)"}`,
       borderRadius: isLeft ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
-      padding: "9px 13px", position: "relative",
+      padding: isFeedback ? "10px 16px" : "9px 13px", position: "relative",
       boxShadow: `0 6px 28px ${isQuestion ? "rgba(96,165,250,0.2)" : "rgba(192,132,252,0.2)"}`,
       opacity: visible ? 1 : 0,
       transform: visible ? "translateY(0) scale(1)" : "translateY(8px) scale(0.94)",
@@ -288,7 +294,24 @@ function SpeechBubble({ text, side, visible, isQuestion }: { text: string; side:
       <div style={{ fontSize: 9, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, color: isQuestion ? "rgba(96,165,250,0.9)" : "rgba(192,132,252,0.9)" }}>
         {isQuestion ? "Interviewer" : "You"}
       </div>
-      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>{text}</div>
+      {isFeedback ? (
+        <div ref={scrollRef} style={{
+          fontSize: 13, color: "rgba(255,255,255,0.92)", lineHeight: 1.65,
+          maxHeight: 88, overflowY: "auto", scrollBehavior: "smooth",
+        }}>
+          {fullText.split(" ").map((word, i) => (
+            <span key={i} style={{
+              color: spokenWordIdx !== undefined && i <= spokenWordIdx ? "#facc15" : "rgba(255,255,255,0.55)",
+              fontWeight: spokenWordIdx !== undefined && i === spokenWordIdx ? 700 : 400,
+              transition: "color 0.15s",
+            }}>
+              {word}{" "}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.92)", lineHeight: 1.55 }}>{text}</div>
+      )}
       <div style={{
         position: "absolute", bottom: -8,
         ...(isLeft ? { left: 14 } : { right: 14 }),
@@ -1073,6 +1096,10 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             side="left"
             visible={!!bubbleText && activeSpeaker === "interviewer" && mode !== "intro"}
             isQuestion={true}
+            feedbackMode={mode === "feedback" && !!feedbackFullText}
+            fullText={mode === "feedback" ? feedbackFullText : undefined}
+            spokenWordIdx={mode === "feedback" ? spokenWordIdx : undefined}
+            scrollRef={feedbackBoxRef}
           />
         </div>
 
@@ -1085,51 +1112,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             isQuestion={false}
           />
         </div>
-
-        {/* Fixed feedback text box — shown during feedback mode above characters */}
-        {mode === "feedback" && feedbackFullText && (
-          <div style={{
-            position: "absolute",
-            top: 70,
-            left: "50%",
-            transform: "translateX(-50%)",
-            width: "80%",
-            maxWidth: 520,
-            zIndex: 15,
-          }}>
-            <div
-              ref={feedbackBoxRef}
-              style={{
-                background: "rgba(6,12,22,0.92)",
-                border: "1px solid rgba(250,204,21,0.25)",
-                borderRadius: 14,
-                padding: "14px 18px",
-                maxHeight: 88,
-                overflowY: "auto",
-                scrollBehavior: "smooth",
-                backdropFilter: "blur(12px)",
-                boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-              }}
-            >
-              <p style={{
-                color: "#e2e8f0",
-                fontSize: 14,
-                lineHeight: "22px",
-                margin: 0,
-                fontStyle: "italic",
-              }}>
-                {feedbackFullText.split(" ").map((word, i) => (
-                  <span key={i} style={{
-                    color: i <= spokenWordIdx ? "#facc15" : "#94a3b8",
-                    transition: "color 0.15s",
-                  }}>
-                    {word}{" "}
-                  </span>
-                ))}
-              </p>
-            </div>
-          </div>
-        )}
 
         {/* Progress dots — always 5 total (Normal→FollowUp→Normal→FollowUp→Normal) */}
         {mode !== "intro" && (
