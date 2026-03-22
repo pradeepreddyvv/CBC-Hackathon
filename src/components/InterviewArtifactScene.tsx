@@ -1552,16 +1552,29 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(10px)",
         display: "flex", alignItems: "center", gap: 14, zIndex: 20,
       }}>
-        {/* Intro — Start button */}
+        {/* Intro — Ethics notice + Start button */}
         {mode === "intro" && (
-          <button onClick={startInterview} style={{
-            width: "100%", padding: "14px 0", borderRadius: 12, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
-            background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
-            fontSize: 16, fontWeight: 700, boxShadow: "0 0 30px rgba(96,165,250,0.18)",
-            letterSpacing: 0.5,
-          }}>
-            Start Interview (5 Questions)
-          </button>
+          <div style={{ width: "100%", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{
+              display: "flex", gap: 12, padding: "10px 14px",
+              background: "rgba(96,165,250,0.06)", borderRadius: 10,
+              border: "1px solid rgba(96,165,250,0.12)",
+            }}>
+              <div style={{ fontSize: 18, flexShrink: 0, marginTop: 1 }}>&#9432;</div>
+              <div style={{ fontSize: 11, color: "#94a3b8", lineHeight: 1.6 }}>
+                <span style={{ color: "#60a5fa", fontWeight: 700 }}>Practice tool, not professional advice.</span>{" "}
+                AI feedback helps you practice — it doesn&apos;t replace human mentorship. Your audio is transcribed in real-time and never stored on our servers. We encourage authentic answers over scripted ones.
+              </div>
+            </div>
+            <button onClick={startInterview} style={{
+              width: "100%", padding: "14px 0", borderRadius: 12, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
+              background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
+              fontSize: 16, fontWeight: 700, boxShadow: "0 0 30px rgba(96,165,250,0.18)",
+              letterSpacing: 0.5,
+            }}>
+              Start Interview (5 Questions)
+            </button>
+          </div>
         )}
 
         {/* Asking / Generating follow-up */}
@@ -1657,8 +1670,18 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           background: "rgba(8,14,28,0.98)", borderLeft: "1px solid rgba(255,255,255,0.08)",
           padding: "20px 18px", display: "flex", flexDirection: "column", gap: 14,
         }}>
-          <div style={{ color: "#facc15", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
-            {feedbackMode === "single" ? "Question Feedback" : "Session Analysis"}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <div style={{ color: "#facc15", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5 }}>
+              {feedbackMode === "single" ? "Question Feedback" : "Session Analysis"}
+            </div>
+            <div style={{
+              fontSize: 9, color: "#64748b", padding: "3px 8px", borderRadius: 6,
+              background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)",
+              display: "flex", alignItems: "center", gap: 4,
+            }}>
+              <span style={{ width: 5, height: 5, borderRadius: "50%", background: "#6c63ff", display: "inline-block" }} />
+              AI-Generated
+            </div>
           </div>
 
           {feedbackLoading ? (

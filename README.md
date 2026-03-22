@@ -426,6 +426,21 @@ npm start
 
 ---
 
+## Ethical Design
+
+We believe AI interview tools carry real responsibility. Here's how we address potential harms:
+
+| Concern | How We Address It |
+|---------|-------------------|
+| **AI replacing human mentors** | Every feedback screen is labeled "AI-Generated" and the app explicitly states it supplements, not replaces, human mentorship |
+| **Privacy of spoken answers** | Audio is transcribed in real-time via Speechmatics WebSocket — raw audio is never uploaded or stored on our servers. Transcripts are stored only if the user opts to save |
+| **Cultural bias in feedback** | STAR framework scoring evaluates structure and content, not accent, grammar, or cultural communication style. We don't penalize non-native English patterns |
+| **Encouraging scripted answers** | Follow-up questions probe deeper into answers to test authenticity. The system rewards genuine experience over rehearsed responses |
+| **Overconfidence in AI scores** | Scores are presented as practice indicators with context ("Getting There", "Almost Ready"), not as definitive hiring predictions |
+| **Data ownership** | Users can see exactly what data is stored (profile, transcripts, scores) and all data is tied to their account |
+
+---
+
 ## Team
 
 Built for HackASU 2026 Claude Builder Club Hackathon
