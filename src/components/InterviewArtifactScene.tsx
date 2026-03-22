@@ -56,7 +56,7 @@ type CharacterRig = {
 };
 
 type BubbleRig = {
-  update: (text: string, color: string) => void;
+  update: (text: string, accent: string) => void;
 };
 
 type SceneRig = {
@@ -76,11 +76,14 @@ type RuntimeState = {
   blinkTimer: number;
   blinkState: 0 | 1 | 2;
   renderedTurn: number;
+  speechDriven: boolean;
 };
 
 type TtsState = {
   currentTurn: number;
   utterance: SpeechSynthesisUtterance | null;
+  runId: number;
+  nextTimer: ReturnType<typeof setTimeout> | null;
 };
 
 function fmt(ms: number): string {
@@ -265,7 +268,7 @@ function makeBubble(scene: THREE.Scene, side: "left" | "right"): BubbleRig {
     return lines;
   }
 
-  function update(text: string, color: string): void {
+  function update(text: string, accent: string): void {
     if (!ctx) return;
     ctx.clearRect(0, 0, 512, 200);
     if (!text) {
@@ -273,35 +276,54 @@ function makeBubble(scene: THREE.Scene, side: "left" | "right"): BubbleRig {
       return;
     }
 
-    ctx.fillStyle = "rgba(255,255,255,0.96)";
+    const grad = ctx.createLinearGradient(0, 0, 512, 200);
+    grad.addColorStop(0, "rgba(15,23,42,0.96)");
+    grad.addColorStop(1, "rgba(30,41,59,0.94)");
+
+    ctx.shadowColor = "rgba(2,6,23,0.55)";
+    ctx.shadowBlur = 20;
+    ctx.shadowOffsetY = 8;
+    ctx.fillStyle = grad;
     ctx.beginPath();
     ctx.roundRect(8, 8, 496, 156, 22);
     ctx.fill();
+    ctx.shadowColor = "transparent";
 
-    ctx.strokeStyle = color;
-    ctx.lineWidth = 5;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = 4;
     ctx.stroke();
 
     const tx = side === "left" ? 80 : 390;
-    ctx.fillStyle = "rgba(255,255,255,0.96)";
+    ctx.fillStyle = "rgba(15,23,42,0.95)";
     ctx.beginPath();
     ctx.moveTo(tx, 164);
     ctx.lineTo(tx + 18, 190);
     ctx.lineTo(tx + 36, 164);
     ctx.fill();
 
-    ctx.strokeStyle = color;
+    ctx.strokeStyle = accent;
     ctx.beginPath();
     ctx.moveTo(tx, 166);
     ctx.lineTo(tx + 18, 190);
     ctx.lineTo(tx + 36, 166);
     ctx.stroke();
 
-    ctx.fillStyle = "#1e293b";
-    ctx.font = "bold 25px system-ui, sans-serif";
+    const chipText = side === "left" ? "INTERVIEWER" : "CANDIDATE";
+    const chipW = side === "left" ? 164 : 148;
+    ctx.fillStyle = accent;
+    ctx.beginPath();
+    ctx.roundRect(20, 18, chipW, 30, 14);
+    ctx.fill();
+
+    ctx.fillStyle = "#e2e8f0";
+    ctx.font = "bold 15px ui-sans-serif, system-ui, sans-serif";
+    ctx.fillText(chipText, 32, 38);
+
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "600 24px ui-sans-serif, system-ui, sans-serif";
     wrap(text, 460)
       .slice(0, 3)
-      .forEach((line, i) => ctx.fillText(line, 24, 44 + i * 34));
+      .forEach((line, i) => ctx.fillText(line, 24, 84 + i * 34));
 
     tex.needsUpdate = true;
   }
@@ -319,9 +341,10 @@ export default function InterviewArtifactScene() {
     blinkTimer: 0,
     blinkState: 0,
     renderedTurn: -1,
+    speechDriven: false,
   });
 
-  const ttsRef = useRef<TtsState>({ currentTurn: -1, utterance: null });
+  const ttsRef = useRef<TtsState>({ currentTurn: -1, utterance: null, runId: 0, nextTimer: null });
   const sceneRef = useRef<SceneRig | null>(null);
 
   const [playing, setPlaying] = useState(false);
@@ -511,7 +534,7 @@ export default function InterviewArtifactScene() {
       const dt = st.lastT ? ts - st.lastT : 0;
       st.lastT = ts;
 
-      if (st.playing) {
+      if (st.playing && !st.speechDriven) {
         st.elapsed += dt;
         if (st.elapsed >= TOTAL_DURATION) {
           st.elapsed = TOTAL_DURATION;
@@ -552,7 +575,7 @@ export default function InterviewArtifactScene() {
       setProgress((st.elapsed / TOTAL_DURATION) * 100);
       setTimeStr(`${fmt(st.elapsed)} / ${fmt(TOTAL_DURATION)}`);
       setSpeakerInfo({
-        label: isIV ? "Interviewer" : "Candidate",
+        label: st.playing ? (isIV ? "Interviewer speaking" : "Candidate speaking") : "Paused",
         color: isIV ? "#6366f1" : "#10b981",
       });
 
@@ -625,9 +648,15 @@ export default function InterviewArtifactScene() {
   }, []);
 
   const stopSpeech = () => {
+    if (ttsRef.current.nextTimer) {
+      clearTimeout(ttsRef.current.nextTimer);
+      ttsRef.current.nextTimer = null;
+    }
+    ttsRef.current.runId += 1;
     window.speechSynthesis?.cancel();
     ttsRef.current.currentTurn = -1;
     ttsRef.current.utterance = null;
+    stateRef.current.speechDriven = false;
   };
 
   const pickVoice = (voices: SpeechSynthesisVoice[], prefs: string[]): SpeechSynthesisVoice | null => {
@@ -639,9 +668,13 @@ export default function InterviewArtifactScene() {
   };
 
   const speakTurn = (turnIdx: number) => {
-    if (!window.speechSynthesis) return;
+    if (!window.speechSynthesis) {
+      stateRef.current.speechDriven = false;
+      return;
+    }
 
     const st = stateRef.current;
+    const runId = ttsRef.current.runId;
     window.speechSynthesis.cancel();
 
     const turn = SCRIPT[turnIdx];
@@ -667,8 +700,10 @@ export default function InterviewArtifactScene() {
 
     ttsRef.current.currentTurn = turnIdx;
     ttsRef.current.utterance = utter;
+    st.speechDriven = true;
 
     utter.onboundary = (e: SpeechSynthesisEvent) => {
+      if (runId !== ttsRef.current.runId) return;
       if (e.name !== "word") return;
       const spokenSoFar = turn.text.substring(0, e.charIndex + e.charLength).trim();
       const wi = spokenSoFar.split(/\s+/).length - 1;
@@ -678,12 +713,17 @@ export default function InterviewArtifactScene() {
     };
 
     utter.onend = () => {
+      if (runId !== ttsRef.current.runId) return;
       if (!st.playing) return;
       const next = turnIdx + 1;
       if (next < SCRIPT.length) {
-        setTimeout(() => {
+        ttsRef.current.nextTimer = setTimeout(() => {
           if (st.playing) speakTurn(next);
         }, 400);
+      } else {
+        st.playing = false;
+        st.speechDriven = false;
+        setPlaying(false);
       }
     };
 
@@ -753,13 +793,15 @@ export default function InterviewArtifactScene() {
           transform: "translateX(-50%)",
           background: "rgba(0,0,0,0.72)",
           borderRadius: 999,
-          padding: "6px 20px",
+          padding: "8px 22px",
           color: speakerInfo.color,
-          fontSize: 13,
+          fontSize: 12,
           fontWeight: 700,
-          letterSpacing: 0.5,
-          border: `1px solid ${speakerInfo.color}55`,
-          backdropFilter: "blur(8px)",
+          letterSpacing: 1.1,
+          border: `1px solid ${speakerInfo.color}66`,
+          backdropFilter: "blur(10px)",
+          textTransform: "uppercase",
+          boxShadow: `0 10px 26px ${speakerInfo.color}22`,
         }}
       >
         {speakerInfo.label}
@@ -773,16 +815,17 @@ export default function InterviewArtifactScene() {
           transform: "translateX(-50%)",
           width: "82%",
           maxWidth: 700,
-          background: "rgba(0,0,0,0.78)",
-          borderRadius: 12,
-          padding: "10px 18px",
+          background: "linear-gradient(160deg, rgba(2,6,23,0.88), rgba(15,23,42,0.9))",
+          borderRadius: 16,
+          padding: "12px 20px",
           minHeight: 46,
           display: "flex",
           flexWrap: "wrap",
           alignItems: "center",
           gap: 4,
-          border: "1px solid rgba(255,255,255,0.1)",
-          backdropFilter: "blur(8px)",
+          border: "1px solid rgba(148,163,184,0.22)",
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 20px 48px rgba(2,6,23,0.42)",
         }}
       >
         {words.list.map((w, i) => (
@@ -793,9 +836,9 @@ export default function InterviewArtifactScene() {
               borderRadius: 4,
               padding: "1px 3px",
               transition: "all 0.12s",
-              color: i === words.activeWord ? "#fff" : i < words.activeWord ? "#94a3b8" : "#475569",
+              color: i === words.activeWord ? "#f8fafc" : i < words.activeWord ? "#94a3b8" : "#475569",
               fontWeight: i === words.activeWord ? 700 : 400,
-              background: i === words.activeWord ? "rgba(99,102,241,0.55)" : "transparent",
+              background: i === words.activeWord ? "rgba(56,189,248,0.35)" : "transparent",
               transform: i === words.activeWord ? "scale(1.12)" : "scale(1)",
               display: "inline-block",
             }}
@@ -813,14 +856,15 @@ export default function InterviewArtifactScene() {
           transform: "translateX(-50%)",
           width: "82%",
           maxWidth: 700,
-          background: "rgba(15,12,41,0.92)",
-          borderRadius: 16,
-          padding: "13px 20px",
-          border: "1px solid rgba(255,255,255,0.1)",
+          background: "linear-gradient(170deg, rgba(15,12,41,0.92), rgba(17,24,39,0.94))",
+          borderRadius: 18,
+          padding: "14px 20px",
+          border: "1px solid rgba(148,163,184,0.2)",
           backdropFilter: "blur(10px)",
           display: "flex",
           alignItems: "center",
           gap: 14,
+          boxShadow: "0 18px 40px rgba(2,6,23,0.45)",
         }}
       >
         <button
@@ -831,11 +875,16 @@ export default function InterviewArtifactScene() {
             borderRadius: "50%",
             border: "none",
             cursor: "pointer",
-            background: "linear-gradient(135deg,#6366f1,#a855f7)",
+            background: playing
+              ? "linear-gradient(135deg,#ef4444,#f97316)"
+              : "linear-gradient(135deg,#6366f1,#a855f7)",
             color: "white",
-            fontSize: 18,
+            fontSize: 14,
+            fontWeight: 700,
             flexShrink: 0,
-            boxShadow: "0 4px 16px rgba(99,102,241,0.5)",
+            boxShadow: playing
+              ? "0 6px 18px rgba(239,68,68,0.5)"
+              : "0 6px 18px rgba(99,102,241,0.5)",
           }}
         >
           {playing ? "Pause" : "Play"}
