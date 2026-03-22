@@ -47,44 +47,12 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!loading && !user) { router.push("/login"); return; }
+    // Wait until auth is confirmed before fetching
+    if (loading) return;
 
-    // Fetch full user data from DB (includes background, skills, etc.)
-    const fetchFullUser = async () => {
-      try {
-        const res = await fetch("/api/auth/me");
-        if (res.ok) {
-          const data = await res.json();
-          const u = data.user;
-          if (u) {
-            setProfile({
-              name: u.name || "",
-              background: u.background || "",
-              targetRole: u.target_role || "Software Engineer",
-              targetCompany: u.target_company || "Google",
-              experience: u.experience || "",
-              skills: u.skills || "",
-              country: u.country || "",
-            });
-            // If company is not a preset, set to "Other"
-            if (u.target_company && !COMPANY_PRESETS.includes(u.target_company)) {
-              setProfile(prev => ({ ...prev, targetCompany: "Other" }));
-              setCustomCompany(u.target_company);
-            }
-          }
-        }
-      } catch {
-        // Fallback to localStorage
-        const p = getProfile();
-        if (p.userProfile.name) {
-          setProfile(p.userProfile);
-        } else if (user) {
-          setProfile(prev => ({ ...prev, name: user.name || prev.name }));
-        }
-      }
-    };
-    fetchFullUser();
-
-    // Load session config for interview settings
+    // Load session config for interview settings (always available from localStorage)
+    let sessionCompany = "";
+    let sessionCountry = "";
     const config = localStorage.getItem("interview_session_config");
     if (config) {
       try {
@@ -92,8 +60,74 @@ export default function ProfilePage() {
         if (parsed.interviewType) setInterviewType(parsed.interviewType);
         if (parsed.roundType) setRoundType(parsed.roundType);
         if (parsed.jobDescription) setJobDescription(parsed.jobDescription);
+        sessionCompany = parsed.companyName || "";
+        sessionCountry = parsed.country || "";
       } catch { /* ignore */ }
     }
+
+    // Load localStorage profile as immediate fallback (shows data while DB fetches)
+    const localProfile = getProfile();
+    if (localProfile.userProfile?.name) {
+      setProfile(localProfile.userProfile);
+      if (localProfile.userProfile.targetCompany && !COMPANY_PRESETS.includes(localProfile.userProfile.targetCompany)) {
+        setProfile(prev => ({ ...prev, targetCompany: "Other" }));
+        setCustomCompany(localProfile.userProfile.targetCompany);
+      }
+    } else if (sessionCompany || user) {
+      // At least fill from session config / auth user
+      setProfile(prev => ({
+        ...prev,
+        name: user?.name || prev.name,
+        targetCompany: sessionCompany && COMPANY_PRESETS.includes(sessionCompany) ? sessionCompany : sessionCompany ? "Other" : prev.targetCompany,
+        country: sessionCountry || prev.country,
+      }));
+      if (sessionCompany && !COMPANY_PRESETS.includes(sessionCompany)) {
+        setCustomCompany(sessionCompany);
+      }
+    }
+
+    // Fetch full user data from DB (overrides localStorage with latest)
+    const fetchFullUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          const u = data.user;
+          if (u) {
+            const dbProfile: UserProfile = {
+              name: u.name || "",
+              background: u.background || "",
+              targetRole: u.target_role || "",
+              targetCompany: u.target_company || "",
+              experience: u.experience || "",
+              skills: u.skills || "",
+              country: u.country || "",
+            };
+
+            // Merge: prefer DB values, fall back to localStorage, then session config
+            setProfile(prev => ({
+              name: dbProfile.name || prev.name || user?.name || "",
+              background: dbProfile.background || prev.background || "",
+              targetRole: dbProfile.targetRole || prev.targetRole || "Software Engineer",
+              targetCompany: dbProfile.targetCompany || prev.targetCompany || sessionCompany || "Google",
+              experience: dbProfile.experience || prev.experience || "",
+              skills: dbProfile.skills || prev.skills || "",
+              country: dbProfile.country || prev.country || sessionCountry || "",
+            }));
+
+            // Handle "Other" company
+            const finalCompany = dbProfile.targetCompany || localProfile.userProfile?.targetCompany || sessionCompany || "Google";
+            if (finalCompany && !COMPANY_PRESETS.includes(finalCompany)) {
+              setProfile(prev => ({ ...prev, targetCompany: "Other" }));
+              setCustomCompany(finalCompany);
+            }
+          }
+        }
+      } catch {
+        // DB fetch failed — localStorage fallback already loaded above
+      }
+    };
+    fetchFullUser();
   }, [user, loading, router]);
 
   const saveAndGenerate = useCallback(async () => {

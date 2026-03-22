@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import AppNav from "@/components/AppNav";
+import { saveUserProfile } from "@/lib/store";
 
 const C = { cyan: "#22d3ee", violet: "#818cf8", success: "#34d399", warning: "#fbbf24", danger: "#f87171", text: "var(--text)", sec: "var(--text-sec)", tert: "var(--text-tert)" };
 const card = { background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 20 };
@@ -116,6 +117,8 @@ export default function OnboardingPage() {
     setLoading(true);
     try {
       await fetch("/api/auth/profile", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ name:data.name, background:data.background, target_role:data.targetRoles[0]||"Software Engineer", target_company:data.companyName, experience:data.experience, skills:data.skills, resume_text:data.resumeText, llm_context:data.llmContext, target_roles:data.targetRoles, interview_type:data.interviewType, country:data.country, onboarded:true }) });
+      // Also save to localStorage so profile page and home page can load it immediately
+      saveUserProfile({ name:data.name, background:data.background, targetRole:data.targetRoles[0]||"Software Engineer", targetCompany:data.companyName, experience:data.experience, skills:data.skills, country:data.country });
       await refreshUser();
       // Save session config (research will be populated in background)
       localStorage.setItem("interview_session_config", JSON.stringify({ companyName:data.companyName, interviewType:data.interviewType, roundType:data.roundType, jobDescription:data.jobDescription, generatedQuestions:[], researchResults:null, country:data.country }));

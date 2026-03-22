@@ -52,10 +52,38 @@ export default function Home() {
   }, [user, authLoading, router]);
 
   useEffect(() => {
+    // 1. Load from localStorage first (instant)
     const saved = getProfile();
     if (saved.userProfile?.name) { setProfile(saved.userProfile); setProfileSaved(true); } else if (user) setProfile(prev => ({ ...prev, name: user.name || prev.name }));
     const config = localStorage.getItem("interview_session_config");
     if (config) { try { const p = JSON.parse(config); if (p.generatedQuestions?.length > 0) { setSessionQuestions(p.generatedQuestions); const sid = "sess_"+Date.now(); setSessionId(sid); sessionIdRef.current = sid; } if (p.companyName) setProfile(prev => ({ ...prev, targetCompany: p.companyName, country: p.country || "" })); } catch { /* ignore */ } }
+
+    // 2. Also fetch from DB to ensure we have latest data
+    fetch("/api/auth/me").then(r => r.ok ? r.json() : null).then(data => {
+      if (data?.user) {
+        const u = data.user;
+        setProfile(prev => ({
+          name: u.name || prev.name || "",
+          background: u.background || prev.background || "",
+          targetRole: u.target_role || prev.targetRole || "Software Engineer",
+          targetCompany: u.target_company || prev.targetCompany || "Google",
+          experience: u.experience || prev.experience || "",
+          skills: u.skills || prev.skills || "",
+          country: u.country || prev.country || "",
+        }));
+        if (u.name || u.background) setProfileSaved(true);
+        // Sync to localStorage for next time
+        saveUserProfile({
+          name: u.name || saved.userProfile?.name || "",
+          background: u.background || saved.userProfile?.background || "",
+          targetRole: u.target_role || saved.userProfile?.targetRole || "Software Engineer",
+          targetCompany: u.target_company || saved.userProfile?.targetCompany || "Google",
+          experience: u.experience || saved.userProfile?.experience || "",
+          skills: u.skills || saved.userProfile?.skills || "",
+          country: u.country || saved.userProfile?.country || "",
+        });
+      }
+    }).catch(() => {});
   }, []);
 
   const startSession = useCallback(async (useAdaptive: boolean) => {
@@ -153,7 +181,9 @@ export default function Home() {
                 <div style={{ ...bentoHi, padding: "48px 40px", textAlign: "center" }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: T.cyan, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>Ready to practise</div>
                   <h2 style={{ fontSize: 34, fontWeight: 800, color: "var(--heading)", letterSpacing: "-0.03em", margin: "0 0 10px" }}>
-                    {profile.targetCompany} · {profile.targetRole}
+                    <span onClick={() => router.push("/profile")} style={{ cursor: "pointer", borderBottom: "2px dashed rgba(34,211,238,0.3)", paddingBottom: 2, transition: "border-color 0.2s" }} onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(34,211,238,0.7)")} onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(34,211,238,0.3)")}>{profile.targetCompany}</span>
+                    {" · "}
+                    <span onClick={() => router.push("/profile")} style={{ cursor: "pointer", borderBottom: "2px dashed rgba(129,140,248,0.3)", paddingBottom: 2, transition: "border-color 0.2s" }} onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(129,140,248,0.7)")} onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(129,140,248,0.3)")}>{profile.targetRole}</span>
                   </h2>
                   <p style={{ fontSize: 16, color: T.sec, margin: "0 auto 28px", lineHeight: 1.6, maxWidth: 560 }}>5 questions per session. Get scored after each answer or save all feedback for the end of the session.</p>
                   <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "center", flexWrap: "wrap" }}>
@@ -373,8 +403,8 @@ export default function Home() {
                     )}
 
                     {/* Target company */}
-                    <div style={{ ...bento, padding: "20px 24px" } as React.CSSProperties}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Targeting</div>
+                    <div onClick={() => router.push("/profile")} style={{ ...bento, padding: "20px 24px", cursor: "pointer", transition: "border-color 0.2s" } as React.CSSProperties} onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(34,211,238,0.35)")} onMouseLeave={e => (e.currentTarget.style.borderColor = "var(--border)")}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Targeting <span style={{ fontSize: 10, color: T.cyan, marginLeft: 4 }}>Edit →</span></div>
                       <div style={{ fontSize: 16, fontWeight: 700, color: "var(--heading)" }}>{profile.targetCompany}</div>
                       <div style={{ fontSize: 14, color: T.sec, marginTop: 4 }}>{profile.targetRole}</div>
                     </div>
