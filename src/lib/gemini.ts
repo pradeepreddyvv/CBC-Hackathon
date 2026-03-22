@@ -2,7 +2,7 @@
 // GEMINI API CLIENT — lightweight, no SDK needed
 // ============================================================
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
 export async function callGemini(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -16,7 +16,7 @@ export async function callGemini(prompt: string): Promise<string> {
     body: JSON.stringify({
       contents: [{ role: "user", parts: [{ text: prompt }] }],
       generationConfig: {
-        maxOutputTokens: 4096,
+        maxOutputTokens: 8192,
         temperature: 0.7,
       },
     }),
@@ -40,5 +40,13 @@ export function extractJSON(text: string): Record<string, unknown> {
   const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("No JSON found in response");
-  return JSON.parse(match[0]);
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    // Try to fix common JSON issues: trailing commas, unescaped newlines in strings
+    const fixed = match[0]
+      .replace(/,\s*([\]}])/g, "$1") // trailing commas
+      .replace(/[\x00-\x1f]/g, (ch) => ch === "\n" ? "\\n" : ch === "\t" ? "\\t" : ""); // control chars in strings
+    return JSON.parse(fixed);
+  }
 }
