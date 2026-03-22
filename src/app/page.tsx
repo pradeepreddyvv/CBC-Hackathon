@@ -12,8 +12,11 @@ import {
 } from "@/lib/store";
 import { cloudSaveSession, cloudSaveAnswer } from "@/lib/cloud-sync";
 import { useAuth } from "@/lib/auth-context";
+import dynamic from "next/dynamic";
 
-type Tab = "practice" | "progress" | "history";
+const InterviewArtifactScene = dynamic(() => import("@/components/InterviewArtifactScene"), { ssr: false });
+
+type Tab = "practice" | "progress" | "history" | "3d-interview";
 
 interface AdaptiveQuestion {
   id: string;
@@ -427,7 +430,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            {(["practice", "progress", "history"] as Tab[]).map(t => (
+            {(["practice", "3d-interview", "progress", "history"] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -435,7 +438,7 @@ export default function Home() {
                   tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
                 }`}
               >
-                {t === "practice" ? "Practice" : t === "progress" ? "Progress" : "History"}
+                {t === "practice" ? "Practice" : t === "3d-interview" ? "3D Mock" : t === "progress" ? "Progress" : "History"}
               </button>
             ))}
           </div>
@@ -782,6 +785,21 @@ export default function Home() {
                 <p className="text-sm text-muted">Claude is analyzing your full session performance...</p>
               </div>
             )}
+          </div>
+        )}
+
+        {/* ═══════ 3D MOCK INTERVIEW TAB ═══════ */}
+        {tab === "3d-interview" && (
+          <div className="fade-in" style={{ margin: "-24px -16px 0", height: "calc(100vh - 56px)" }}>
+            <InterviewArtifactScene
+              questions={sessionQuestions.length > 0 ? sessionQuestions.map(q => q.text) : undefined}
+              companyName={profile.targetCompany}
+              onAnswerRecorded={(qIdx, answerText, audioUrl) => {
+                setAnswer(answerText);
+                if (audioUrl) setAudioUrl(audioUrl);
+                setCurrentQIndex(qIdx);
+              }}
+            />
           </div>
         )}
 
