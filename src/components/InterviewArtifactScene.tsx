@@ -54,12 +54,27 @@ type TtsState = {
   utterance: SpeechSynthesisUtterance | null;
 };
 
-type InterviewMode = "intro" | "asking" | "recording" | "reviewing";
+type InterviewMode = "intro" | "asking" | "recording" | "reviewing" | "feedback";
+
+interface AnswerRecord3D {
+  questionIndex: number;
+  question: string;
+  answer: string;
+  audioUrl?: string;
+  durationSec: number;
+  analysis?: Record<string, any>;
+  humanizedFeedback?: string;
+}
 
 interface Props {
   questions?: string[];
   onAnswerRecorded?: (questionIndex: number, answer: string, audioUrl?: string) => void;
+  onSessionComplete?: (answers: AnswerRecord3D[], sessionAnalysis: Record<string, any>) => void;
   companyName?: string;
+  profile?: { name: string; background: string; targetRole: string; targetCompany: string; experience: string; skills: string; country?: string };
+  userId?: string;
+  sessionId?: string;
+  role?: string;
 }
 
 // ── Helpers ─────────────────────────────────────────────────────
@@ -289,7 +304,7 @@ const DEFAULT_QUESTIONS = [
 
 // ── Main Component ──────────────────────────────────────────────
 
-export default function InterviewArtifactScene({ questions, onAnswerRecorded, companyName }: Props) {
+export default function InterviewArtifactScene({ questions, onAnswerRecorded, onSessionComplete, companyName, profile, userId, sessionId, role }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<RuntimeState>({
     playing: false, elapsed: 0, lastT: 0,
@@ -320,6 +335,19 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
   const [bubbleText, setBubbleText] = useState("");
   const [activeSpeaker, setActiveSpeaker] = useState<"interviewer" | "candidate">("interviewer");
   const [showQuestionText, setShowQuestionText] = useState(false);
+
+  // Feedback state
+  const [allAnswers, setAllAnswers] = useState<AnswerRecord3D[]>([]);
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackData, setFeedbackData] = useState<{ analysis: Record<string, any>; humanized: Record<string, any> } | null>(null);
+  const [feedbackMode, setFeedbackMode] = useState<"single" | "session">("single");
+  const [showFeedbackMenu, setShowFeedbackMenu] = useState(false);
+  const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
+  const recordingStartRef = useRef<number>(0);
+
+  // Adaptive questions
+  const [adaptiveQs, setAdaptiveQs] = useState<string[]>([]);
+  const [allQuestions, setAllQuestions] = useState<string[]>(interviewQs);
 
   // ── Three.js setup ──────────────────────────────────────────
 
@@ -589,7 +617,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
 
   const askQuestion = useCallback((qIdx: number) => {
     if (!window.speechSynthesis) return;
-    const questionText = interviewQs[qIdx];
+    const questionText = allQuestions[qIdx];
     if (!questionText) return;
 
     setMode("asking");
@@ -630,7 +658,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
 
     ttsRef.current = { currentTurn: qIdx, utterance: utter };
     window.speechSynthesis.speak(utter);
-  }, [interviewQs]);
+  }, [allQuestions]);
 
   // ── Voice recording ───────────────────────────────────────────
 
@@ -642,6 +670,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
     fullTranscriptRef.current = "";
     setTranscript("");
     setBubbleText("");
+    recordingStartRef.current = Date.now();
 
     // Start audio recording (for replay)
     try {
@@ -757,18 +786,177 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
     }
 
     const finalText = fullTranscriptRef.current.trim();
-    if (finalText && onAnswerRecorded) {
-      // Small delay to let audio finalize
-      setTimeout(() => {
-        onAnswerRecorded(currentQIdx, finalText, audioUrl);
-      }, 200);
+    const durationSec = Math.round((Date.now() - recordingStartRef.current) / 1000);
+
+    if (finalText) {
+      // Save answer record
+      const record: AnswerRecord3D = {
+        questionIndex: currentQIdx,
+        question: allQuestions[currentQIdx],
+        answer: finalText,
+        audioUrl,
+        durationSec,
+      };
+      setAllAnswers(prev => [...prev, record]);
+
+      if (onAnswerRecorded) {
+        setTimeout(() => onAnswerRecorded(currentQIdx, finalText, audioUrl), 200);
+      }
     }
 
     setMode("reviewing");
-  }, [currentQIdx, onAnswerRecorded]);
+  }, [currentQIdx, onAnswerRecorded, allQuestions]);
+
+  // ── Feedback functions ──────────────────────────────────────────
+
+  const requestFeedback = useCallback(async (mode: "single" | "session") => {
+    setFeedbackMode(mode);
+    setFeedbackLoading(true);
+    setFeedbackData(null);
+    setMode("feedback");
+    setShowFeedbackMenu(false);
+    setActiveSpeaker("interviewer");
+    setInterviewerTalking(false);
+
+    try {
+      const basePayload = {
+        company: companyName || "General",
+        role: role || "Software Engineer",
+        profile,
+        country: profile?.country || "",
+      };
+
+      let res: Response;
+
+      if (mode === "single") {
+        // Get latest answer
+        const latest = allAnswers[allAnswers.length - 1];
+        if (!latest) { setFeedbackLoading(false); setMode("reviewing"); return; }
+
+        res = await fetch("/api/mock-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...basePayload,
+            action: "analyze_question",
+            question: latest.question,
+            answer: latest.answer,
+            questionIndex: latest.questionIndex,
+            durationSec: latest.durationSec,
+          }),
+        });
+      } else {
+        // Full session analysis
+        res = await fetch("/api/mock-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ...basePayload,
+            action: "analyze_session",
+            questionsAndAnswers: allAnswers.map(a => ({
+              question: a.question,
+              answer: a.answer,
+              durationSec: a.durationSec,
+              questionAnalysis: a.analysis,
+            })),
+          }),
+        });
+      }
+
+      if (!res.ok) throw new Error(`Feedback API ${res.status}`);
+      const data = await res.json();
+      setFeedbackData(data);
+
+      // Update answer record with analysis
+      if (mode === "single" && data.analysis) {
+        setAllAnswers(prev => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last) {
+            last.analysis = data.analysis;
+            last.humanizedFeedback = data.humanized?.spoken_feedback;
+          }
+          return updated;
+        });
+      }
+
+      // Speak the humanized feedback via TTS
+      if (data.humanized?.spoken_feedback && window.speechSynthesis) {
+        const utter = new SpeechSynthesisUtterance(data.humanized.spoken_feedback);
+        utter.rate = 0.9;
+        utter.pitch = 0.85;
+        const voices = window.speechSynthesis.getVoices();
+        const malePrefs = ["Google UK English Male", "Microsoft David", "Daniel", "Alex", "Arthur", "en-GB"];
+        for (const p of malePrefs) {
+          const v = voices.find(voice => voice.name.includes(p) || voice.lang === p);
+          if (v) { utter.voice = v; break; }
+        }
+        setInterviewerTalking(true);
+        setFeedbackSpeaking(true);
+        setBubbleText(data.humanized.spoken_feedback.substring(0, 80) + "...");
+
+        utter.onend = () => {
+          setInterviewerTalking(false);
+          setFeedbackSpeaking(false);
+        };
+        window.speechSynthesis.speak(utter);
+      }
+
+      // Fetch adaptive follow-up questions based on weak areas
+      if (data.analysis) {
+        const weakAreas = mode === "single"
+          ? (data.analysis.weak_areas || [])
+          : (data.analysis.adaptive_question_topics || data.analysis.top_3_focus_areas || []);
+
+        if (weakAreas.length > 0) {
+          try {
+            const aqRes = await fetch("/api/mock-feedback", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...basePayload,
+                action: "adaptive_questions",
+                weakAreas,
+                previousQuestions: allQuestions,
+                count: 2,
+              }),
+            });
+            if (aqRes.ok) {
+              const aqData = await aqRes.json();
+              if (aqData.questions?.length) {
+                const newQTexts = aqData.questions.map((q: any) => q.text);
+                setAdaptiveQs(prev => [...prev, ...newQTexts]);
+                setAllQuestions(prev => [...prev, ...newQTexts]);
+              }
+            }
+          } catch { /* ignore adaptive failure */ }
+        }
+      }
+    } catch (err) {
+      console.error("[3D Mock] Feedback error:", err);
+    } finally {
+      setFeedbackLoading(false);
+    }
+  }, [allAnswers, allQuestions, companyName, role, profile]);
+
+  const closeFeedback = useCallback(() => {
+    window.speechSynthesis?.cancel();
+    setFeedbackSpeaking(false);
+    setInterviewerTalking(false);
+    setMode("reviewing");
+    setFeedbackData(null);
+  }, []);
 
   const nextQuestion = useCallback(() => {
-    if (currentQIdx < interviewQs.length - 1) {
+    if (currentQIdx < allQuestions.length - 1) {
+      const next = currentQIdx + 1;
+      setCurrentQIdx(next);
+      setTranscript("");
+      setBubbleText("");
+      setMode("asking");
+      askQuestion(next);
+    } else if (adaptiveQs.length > 0) {
+      // There are adaptive questions queued
       const next = currentQIdx + 1;
       setCurrentQIdx(next);
       setTranscript("");
@@ -776,17 +964,21 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
       setMode("asking");
       askQuestion(next);
     } else {
-      setMode("intro");
-      setBubbleText("");
+      // Session complete — trigger final session analysis
+      requestFeedback("session");
     }
-  }, [currentQIdx, interviewQs.length, askQuestion]);
+  }, [currentQIdx, allQuestions.length, adaptiveQs.length, askQuestion, requestFeedback]);
 
   const startInterview = useCallback(() => {
     setCurrentQIdx(0);
     setTranscript("");
     setBubbleText("");
+    setAllAnswers([]);
+    setFeedbackData(null);
+    setAdaptiveQs([]);
+    setAllQuestions(interviewQs);
     askQuestion(0);
-  }, [askQuestion]);
+  }, [askQuestion, interviewQs]);
 
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -801,23 +993,76 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
       <div style={{
         position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)",
         background: "rgba(0,0,0,0.72)", borderRadius: 999, padding: "6px 20px",
-        color: activeSpeaker === "interviewer" ? "#6366f1" : "#10b981",
+        color: mode === "feedback" ? "#f59e0b" : activeSpeaker === "interviewer" ? "#6366f1" : "#10b981",
         fontSize: 13, fontWeight: 700, letterSpacing: 0.5,
-        border: `1px solid ${activeSpeaker === "interviewer" ? "#6366f155" : "#10b98155"}`,
+        border: `1px solid ${mode === "feedback" ? "#f59e0b55" : activeSpeaker === "interviewer" ? "#6366f155" : "#10b98155"}`,
         backdropFilter: "blur(8px)",
       }}>
         {mode === "intro" ? `${companyName || "Mock"} Interview` :
          mode === "asking" ? "Interviewer is asking..." :
          mode === "recording" ? "Your turn — speak your answer" :
+         mode === "feedback" ? (feedbackLoading ? "Analyzing..." : "Interviewer Feedback") :
          "Review your answer"}
       </div>
 
-      {/* Question counter + info button */}
+      {/* Question counter + info button + feedback button */}
       {mode !== "intro" && (
         <div style={{
           position: "absolute", top: 14, right: 20,
           display: "flex", alignItems: "center", gap: 8,
         }}>
+          {/* Feedback button (visible in reviewing mode) */}
+          {(mode === "reviewing" || mode === "recording" && !isRecording) && allAnswers.length > 0 && (
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowFeedbackMenu(v => !v)}
+                title="Get interviewer feedback"
+                style={{
+                  padding: "6px 12px", borderRadius: 8, cursor: "pointer",
+                  background: "rgba(245,158,11,0.85)", color: "#fff",
+                  fontSize: 12, fontWeight: 700, border: "1px solid #f59e0b",
+                  display: "flex", alignItems: "center", gap: 4,
+                }}
+              >
+                Feedback
+              </button>
+              {showFeedbackMenu && (
+                <div style={{
+                  position: "absolute", top: 40, right: 0, width: 200,
+                  background: "rgba(15,12,41,0.95)", borderRadius: 10,
+                  border: "1px solid rgba(255,255,255,0.15)", overflow: "hidden",
+                  boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 100,
+                }}>
+                  <button
+                    onClick={() => requestFeedback("single")}
+                    style={{
+                      width: "100%", padding: "12px 14px", border: "none", cursor: "pointer",
+                      background: "transparent", color: "#e2e8f0", fontSize: 13, textAlign: "left",
+                      borderBottom: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,158,11,0.15)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div style={{ fontWeight: 700, color: "#f59e0b" }}>This Question</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Analyze your last answer</div>
+                  </button>
+                  <button
+                    onClick={() => requestFeedback("session")}
+                    style={{
+                      width: "100%", padding: "12px 14px", border: "none", cursor: "pointer",
+                      background: "transparent", color: "#e2e8f0", fontSize: 13, textAlign: "left",
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "rgba(245,158,11,0.15)")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <div style={{ fontWeight: 700, color: "#f59e0b" }}>All Questions</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Full session analysis ({allAnswers.length} answers)</div>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* "i" button to toggle question text visibility */}
           {(mode === "asking" || mode === "recording") && (
             <button
@@ -842,18 +1087,19 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
             color: "#94a3b8", fontSize: 12, fontWeight: 600,
             border: "1px solid rgba(255,255,255,0.1)",
           }}>
-            Q{currentQIdx + 1} / {interviewQs.length}
+            Q{currentQIdx + 1} / {allQuestions.length}{adaptiveQs.length > 0 ? ` (+${adaptiveQs.length})` : ""}
           </div>
         </div>
       )}
 
-      {/* Transcript / question display */}
+      {/* Transcript / question / feedback display */}
       {mode !== "intro" && (
         <div style={{
           position: "absolute", bottom: 100, left: "50%", transform: "translateX(-50%)",
           width: "88%", maxWidth: 750,
           background: "rgba(0,0,0,0.78)", borderRadius: 12, padding: "12px 18px",
-          minHeight: 50, border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(8px)",
+          minHeight: 50, maxHeight: mode === "feedback" ? 350 : 160,
+          overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(8px)",
         }}>
           {mode === "asking" && (
             <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.5 }}>
@@ -861,7 +1107,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
               {showQuestionText ? (
                 <>
                   <br />
-                  {interviewQs[currentQIdx]}
+                  {allQuestions[currentQIdx]}
                 </>
               ) : (
                 <span style={{ color: "#64748b", fontSize: 13, marginLeft: 10 }}>Listening to interviewer... tap ⓘ to read</span>
@@ -872,7 +1118,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
             <div>
               {showQuestionText && (
                 <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 6, padding: "4px 8px", background: "rgba(99,102,241,0.1)", borderRadius: 6, borderLeft: "2px solid #6366f1" }}>
-                  <span style={{ color: "#6366f1", fontWeight: 700 }}>Q:</span> {interviewQs[currentQIdx]}
+                  <span style={{ color: "#6366f1", fontWeight: 700 }}>Q:</span> {allQuestions[currentQIdx]}
                 </div>
               )}
               <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.5 }}>
@@ -888,6 +1134,105 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
               <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.5, maxHeight: 100, overflowY: "auto" }}>
                 {transcript || "No transcript captured"}
               </div>
+            </div>
+          )}
+
+          {/* Feedback display */}
+          {mode === "feedback" && (
+            <div>
+              {feedbackLoading ? (
+                <div style={{ textAlign: "center", padding: 20 }}>
+                  <div style={{ color: "#f59e0b", fontSize: 14, fontWeight: 700, marginBottom: 8, animation: "pulse 1.5s infinite" }}>
+                    {feedbackMode === "single" ? "Analyzing your answer..." : "Analyzing full session..."}
+                  </div>
+                  <div style={{ color: "#64748b", fontSize: 12 }}>Gemini is analyzing, then Claude will humanize the feedback</div>
+                </div>
+              ) : feedbackData ? (
+                <div>
+                  {/* Humanized spoken feedback */}
+                  <div style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(245,158,11,0.1)", borderRadius: 8, borderLeft: "3px solid #f59e0b" }}>
+                    <div style={{ color: "#f59e0b", fontSize: 11, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
+                      Interviewer says{feedbackSpeaking ? " (speaking...)" : ""}:
+                    </div>
+                    <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.6, fontStyle: "italic" }}>
+                      &ldquo;{feedbackData.humanized?.spoken_feedback || "No feedback available"}&rdquo;
+                    </div>
+                  </div>
+
+                  {/* Score and analysis */}
+                  {feedbackData.analysis && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                      {/* Overall score */}
+                      <div style={{ background: "rgba(99,102,241,0.12)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
+                        <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Score</div>
+                        <div style={{ color: "#6366f1", fontSize: 22, fontWeight: 800 }}>
+                          {(feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || "—"}
+                        </div>
+                      </div>
+                      {/* Readiness (session mode) */}
+                      {(feedbackData.analysis as any).readiness_label && (
+                        <div style={{ background: "rgba(16,185,129,0.12)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
+                          <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Readiness</div>
+                          <div style={{ color: "#10b981", fontSize: 14, fontWeight: 700 }}>
+                            {(feedbackData.analysis as any).readiness_label}
+                          </div>
+                        </div>
+                      )}
+                      {/* Hiring recommendation (session mode) */}
+                      {(feedbackData.analysis as any).hiring_recommendation && (
+                        <div style={{ background: "rgba(245,158,11,0.12)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
+                          <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Recommendation</div>
+                          <div style={{ color: "#f59e0b", fontSize: 14, fontWeight: 700 }}>
+                            {(feedbackData.analysis as any).hiring_recommendation}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Dimension scores (single question mode) */}
+                  {(feedbackData.analysis as any)?.dimension_scores && (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Dimension Scores</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {Object.entries((feedbackData.analysis as any).dimension_scores).map(([key, val]) => (
+                          <div key={key} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.05)", borderRadius: 6, padding: "3px 8px" }}>
+                            <span style={{ color: "#94a3b8", fontSize: 10, textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
+                            <span style={{ color: (val as number) >= 70 ? "#10b981" : (val as number) >= 50 ? "#f59e0b" : "#ef4444", fontSize: 12, fontWeight: 700 }}>{val as number}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Strengths & improvements */}
+                  {((feedbackData.analysis as any)?.strengths || (feedbackData.analysis as any)?.strengths_to_leverage) && (
+                    <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: "#10b981", fontSize: 10, fontWeight: 700, marginBottom: 3 }}>STRENGTHS</div>
+                        {((feedbackData.analysis as any).strengths || (feedbackData.analysis as any).strengths_to_leverage || []).slice(0, 3).map((s: string, i: number) => (
+                          <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>+ {s}</div>
+                        ))}
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ color: "#ef4444", fontSize: 10, fontWeight: 700, marginBottom: 3 }}>IMPROVE</div>
+                        {((feedbackData.analysis as any).improvements || (feedbackData.analysis as any).top_3_focus_areas || []).slice(0, 3).map((s: string, i: number) => (
+                          <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>- {s}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Adaptive questions notice */}
+                  {adaptiveQs.length > 0 && (
+                    <div style={{ background: "rgba(99,102,241,0.1)", borderRadius: 6, padding: "6px 10px", marginTop: 6 }}>
+                      <div style={{ color: "#6366f1", fontSize: 11, fontWeight: 700 }}>
+                        +{adaptiveQs.length} follow-up questions added based on your weak areas
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           )}
         </div>
@@ -908,7 +1253,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
             background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "white",
             fontSize: 16, fontWeight: 700, boxShadow: "0 4px 16px rgba(99,102,241,0.5)",
           }}>
-            Start Interview ({interviewQs.length} Questions)
+            Start Interview ({allQuestions.length} Questions)
           </button>
         )}
 
@@ -962,23 +1307,40 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, co
         {/* Review controls */}
         {mode === "reviewing" && (
           <div style={{ width: "100%", display: "flex", gap: 10 }}>
-            {currentQIdx < interviewQs.length - 1 ? (
-              <button onClick={nextQuestion} style={{
+            <button onClick={nextQuestion} style={{
+              flex: 1, padding: "14px 0", borderRadius: 12, border: "none", cursor: "pointer",
+              background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "white",
+              fontSize: 16, fontWeight: 700, boxShadow: "0 4px 16px rgba(99,102,241,0.5)",
+            }}>
+              {currentQIdx < allQuestions.length - 1 ? "Next Question →" : "Finish & Get Session Feedback"}
+            </button>
+          </div>
+        )}
+
+        {/* Feedback controls */}
+        {mode === "feedback" && !feedbackLoading && feedbackData && (
+          <div style={{ width: "100%", display: "flex", gap: 10 }}>
+            {currentQIdx < allQuestions.length - 1 && (
+              <button onClick={() => { closeFeedback(); nextQuestion(); }} style={{
                 flex: 1, padding: "14px 0", borderRadius: 12, border: "none", cursor: "pointer",
                 background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "white",
                 fontSize: 16, fontWeight: 700, boxShadow: "0 4px 16px rgba(99,102,241,0.5)",
               }}>
                 Next Question →
               </button>
-            ) : (
-              <button onClick={() => { setMode("intro"); setBubbleText(""); }} style={{
-                flex: 1, padding: "14px 0", borderRadius: 12, border: "none", cursor: "pointer",
-                background: "linear-gradient(135deg,#10b981,#059669)", color: "white",
-                fontSize: 16, fontWeight: 700, boxShadow: "0 4px 16px rgba(16,185,129,0.5)",
-              }}>
-                Interview Complete!
-              </button>
             )}
+            <button onClick={() => { closeFeedback(); setMode("intro"); setBubbleText(""); }} style={{
+              flex: currentQIdx < allQuestions.length - 1 ? "none" : 1,
+              padding: "14px 20px", borderRadius: 12, border: "none", cursor: "pointer",
+              background: currentQIdx < allQuestions.length - 1
+                ? "rgba(255,255,255,0.08)"
+                : "linear-gradient(135deg,#10b981,#059669)",
+              color: "white",
+              fontSize: currentQIdx < allQuestions.length - 1 ? 13 : 16,
+              fontWeight: 700,
+            }}>
+              {currentQIdx < allQuestions.length - 1 ? "End Interview" : "Interview Complete!"}
+            </button>
           </div>
         )}
       </div>

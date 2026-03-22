@@ -794,10 +794,62 @@ export default function Home() {
             <InterviewArtifactScene
               questions={sessionQuestions.length > 0 ? sessionQuestions.map(q => q.text) : undefined}
               companyName={profile.targetCompany}
+              profile={profile}
+              userId={user?.id}
+              sessionId={sessionId}
+              role={profile.targetRole}
               onAnswerRecorded={(qIdx, answerText, audioUrl) => {
                 setAnswer(answerText);
                 if (audioUrl) setAudioUrl(audioUrl);
                 setCurrentQIndex(qIdx);
+                // Save answer to DB
+                if (user?.id && sessionId) {
+                  const q = sessionQuestions[qIdx];
+                  const answerId = `3d-${sessionId}-${qIdx}-${Date.now()}`;
+                  cloudSaveAnswer(user.id, {
+                    id: answerId,
+                    sessionId,
+                    questionId: q?.id || `q-${qIdx}`,
+                    questionText: q?.text || answerText.substring(0, 50),
+                    category: q?.category || "general",
+                    type: q?.type || "behavioral",
+                    answer: answerText,
+                    feedback: {},
+                    durationSec: 0,
+                    transcript: answerText,
+                  });
+                }
+              }}
+              onSessionComplete={(answers, sessionAnalysis) => {
+                // Save session summary to DB
+                if (user?.id && sessionId) {
+                  const avgScore = sessionAnalysis?.session_score || 0;
+                  const weakAreas = sessionAnalysis?.top_3_focus_areas || sessionAnalysis?.adaptive_question_topics || [];
+                  cloudSaveSession(user.id, {
+                    id: sessionId,
+                    company: profile.targetCompany,
+                    role: profile.targetRole,
+                    answerCount: answers.length,
+                    avgScore,
+                    weakAreas,
+                    sessionNumber: 1,
+                    sessionSummary: sessionAnalysis,
+                    generatedQuestions: sessionQuestions,
+                    interviewType: "3d-mock",
+                    roundType: "behavioral",
+                    sessionConfig: { mode: "3d-mock", company: profile.targetCompany },
+                  });
+                  // Update weak areas
+                  answers.forEach(a => {
+                    if (a.analysis?.weak_areas?.length) {
+                      fetch("/api/db", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ action: "updateWeakAreas", userId: user.id, areas: a.analysis.weak_areas, score: a.analysis.overall_score || 50 }),
+                      }).catch(() => {});
+                    }
+                  });
+                }
               }}
             />
           </div>
