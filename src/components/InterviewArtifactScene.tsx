@@ -56,53 +56,67 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number, is
   torso.position.y = 1.08;
   group.add(torso);
 
-  // Upper arms
+  // Upper arms — angled down from shoulders, slightly forward (resting on table)
   const lUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
-  lUA.position.set(-0.4, 1.18, 0);
-  lUA.rotation.z = Math.PI / 10;
+  lUA.position.set(-0.38, 1.15, 0.08);
+  lUA.rotation.z = Math.PI / 6;
+  lUA.rotation.x = -0.3;
   group.add(lUA);
 
   const rUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
-  rUA.position.set(0.4, 1.18, 0);
-  rUA.rotation.z = -Math.PI / 10;
+  rUA.position.set(0.38, 1.15, 0.08);
+  rUA.rotation.z = -Math.PI / 6;
+  rUA.rotation.x = -0.3;
   group.add(rUA);
 
-  // Lower arms (skin)
+  // Forearm groups (for gesture animation — rotate these)
+  const lForearmGrp = new THREE.Group();
+  lForearmGrp.position.set(-0.52, 0.88, 0.18);
+  group.add(lForearmGrp);
   const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
-  lLA.position.set(-0.5, 0.8, 0.1);
-  lLA.rotation.x = 0.4;
-  group.add(lLA);
-
-  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
-  rLA.position.set(0.5, 0.8, 0.1);
-  rLA.rotation.x = 0.4;
-  group.add(rLA);
-
-  // Hands
+  lLA.rotation.x = -Math.PI / 2.5;
+  lForearmGrp.add(lLA);
   const lHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
-  lHand.position.set(-0.52, 0.6, 0.25);
-  group.add(lHand);
+  lHand.position.set(0, -0.05, 0.22);
+  lForearmGrp.add(lHand);
 
+  const rForearmGrp = new THREE.Group();
+  rForearmGrp.position.set(0.52, 0.88, 0.18);
+  group.add(rForearmGrp);
+  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  rLA.rotation.x = -Math.PI / 2.5;
+  rForearmGrp.add(rLA);
   const rHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
-  rHand.position.set(0.52, 0.6, 0.25);
-  group.add(rHand);
+  rHand.position.set(0, -0.05, 0.22);
+  rForearmGrp.add(rHand);
 
-  // Legs
-  const lLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
-  lLeg.position.set(-0.15, 0.39, 0);
-  group.add(lLeg);
+  // Legs — sitting: thighs horizontal, shins vertical
+  const lThigh = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.55, 8), pants);
+  lThigh.position.set(-0.15, 0.5, 0.22);
+  lThigh.rotation.x = -Math.PI / 2;
+  group.add(lThigh);
 
-  const rLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
-  rLeg.position.set(0.15, 0.39, 0);
-  group.add(rLeg);
+  const rThigh = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.55, 8), pants);
+  rThigh.position.set(0.15, 0.5, 0.22);
+  rThigh.rotation.x = -Math.PI / 2;
+  group.add(rThigh);
 
-  // Shoes
+  // Lower legs (shins) — hanging down from knees
+  const lShin = makeMesh(new THREE.CylinderGeometry(0.1, 0.09, 0.52, 8), pants);
+  lShin.position.set(-0.15, 0.22, 0.48);
+  group.add(lShin);
+
+  const rShin = makeMesh(new THREE.CylinderGeometry(0.1, 0.09, 0.52, 8), pants);
+  rShin.position.set(0.15, 0.22, 0.48);
+  group.add(rShin);
+
+  // Shoes — at floor level under knees
   const lShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
-  lShoe.position.set(-0.15, 0.05, 0.06);
+  lShoe.position.set(-0.15, 0.0, 0.52);
   group.add(lShoe);
 
   const rShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
-  rShoe.position.set(0.15, 0.05, 0.06);
+  rShoe.position.set(0.15, 0.0, 0.52);
   group.add(rShoe);
 
   // Neck
@@ -203,7 +217,7 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number, is
     group.add(tie);
   }
 
-  return { group, head, mouth };
+  return { group, head, mouth, lForearm: lForearmGrp, rForearm: rForearmGrp };
 }
 
 function buildChair() {
@@ -440,6 +454,10 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const cdHeadRef = useRef<THREE.Mesh | null>(null);
   const ivMouthRef = useRef<THREE.Mesh | null>(null);
   const cdMouthRef = useRef<THREE.Mesh | null>(null);
+  const ivLArmRef = useRef<THREE.Group | null>(null);
+  const ivRArmRef = useRef<THREE.Group | null>(null);
+  const cdLArmRef = useRef<THREE.Group | null>(null);
+  const cdRArmRef = useRef<THREE.Group | null>(null);
   const glowRef = useRef<THREE.PointLight | null>(null);
   const activeSpeakerRef = useRef(0); // 0=none 1=interviewer 2=candidate
   const clockRef = useRef<THREE.Clock | null>(null);
@@ -580,12 +598,14 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     ivChair.rotation.y = 0.55;
     scene.add(ivChair);
 
-    const { group: ivGroup, head: ivHead, mouth: ivMouth } = buildPerson(0xc68642, 0x1e1b4b, 0x555566, true);
+    const { group: ivGroup, head: ivHead, mouth: ivMouth, lForearm: ivLArm, rForearm: ivRArm } = buildPerson(0xc68642, 0x1e1b4b, 0x555566, true);
     ivGroup.position.set(-2.0, 0, 0.6);
     ivGroup.rotation.y = 0.55;
     scene.add(ivGroup);
     ivHeadRef.current = ivHead as any;
     ivMouthRef.current = ivMouth as any;
+    ivLArmRef.current = ivLArm;
+    ivRArmRef.current = ivRArm;
 
     // ── Candidate (right) ───────────────────────────────────────
     const cdChair = buildChair();
@@ -593,12 +613,14 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     cdChair.rotation.y = -0.55;
     scene.add(cdChair);
 
-    const { group: cdGroup, head: cdHead, mouth: cdMouth } = buildPerson(0xfcd9b0, 0x1d4ed8, 0x3b2000, false);
+    const { group: cdGroup, head: cdHead, mouth: cdMouth, lForearm: cdLArm, rForearm: cdRArm } = buildPerson(0xfcd9b0, 0x1d4ed8, 0x3b2000, false);
     cdGroup.position.set(2.0, 0, 0.6);
     cdGroup.rotation.y = -0.55;
     scene.add(cdGroup);
     cdHeadRef.current = cdHead as any;
     cdMouthRef.current = cdMouth as any;
+    cdLArmRef.current = cdLArm;
+    cdRArmRef.current = cdRArm;
 
     clockRef.current = new THREE.Clock();
 
@@ -665,6 +687,54 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         const s = spk === 2 ? Math.abs(Math.sin(t * 9.8 + 0.4)) * 0.9 + 0.1 : 0;
         cdMouthRef.current.scale.y = 1 + s * 2.5;
         cdMouthRef.current.position.y = mouthY - s * 0.025;
+      }
+
+      // Hand gestures — idle breathing + periodic speaking gestures
+      // Interviewer arms
+      if (ivLArmRef.current && ivRArmRef.current) {
+        const idleL = Math.sin(t * 0.6) * 0.02;
+        const idleR = Math.sin(t * 0.5 + 1) * 0.02;
+        if (spk === 1) {
+          // Speaking: periodic small raise on right hand (every ~4s, lasts ~1.5s)
+          const gesture = Math.max(0, Math.sin(t * 1.6)) * 0.15;
+          // Left hand: subtle inward tilt
+          ivLArmRef.current.rotation.x = idleL + Math.sin(t * 2.1) * 0.04;
+          ivLArmRef.current.rotation.z = Math.sin(t * 1.3) * 0.03;
+          // Right hand: periodic raise gesture
+          ivRArmRef.current.rotation.x = idleR - gesture;
+          ivRArmRef.current.rotation.z = -gesture * 0.3;
+          ivRArmRef.current.position.y = 0.88 + gesture * 0.08;
+        } else {
+          // Idle: very subtle breathing
+          ivLArmRef.current.rotation.x = idleL;
+          ivLArmRef.current.rotation.z = 0;
+          ivRArmRef.current.rotation.x = idleR;
+          ivRArmRef.current.rotation.z = 0;
+          ivRArmRef.current.position.y = 0.88;
+        }
+      }
+      // Candidate arms
+      if (cdLArmRef.current && cdRArmRef.current) {
+        const idleL = Math.sin(t * 0.55 + 2) * 0.02;
+        const idleR = Math.sin(t * 0.65 + 3) * 0.02;
+        if (spk === 2) {
+          // Speaking: periodic left hand gesture (different frequency from interviewer)
+          const gesture = Math.max(0, Math.sin(t * 1.2 + 0.5)) * 0.12;
+          // Left hand: periodic raise
+          cdLArmRef.current.rotation.x = idleL - gesture;
+          cdLArmRef.current.rotation.z = gesture * 0.25;
+          cdLArmRef.current.position.y = 0.88 + gesture * 0.06;
+          // Right hand: subtle emphasis
+          cdRArmRef.current.rotation.x = idleR + Math.sin(t * 1.8) * 0.03;
+          cdRArmRef.current.rotation.z = 0;
+        } else {
+          // Idle
+          cdLArmRef.current.rotation.x = idleL;
+          cdLArmRef.current.rotation.z = 0;
+          cdLArmRef.current.position.y = 0.88;
+          cdRArmRef.current.rotation.x = idleR;
+          cdRArmRef.current.rotation.z = 0;
+        }
       }
 
       // Speaker glow
