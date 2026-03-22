@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGemini, extractJSON } from "@/lib/gemini";
 
+// Allow up to 5 minutes for TinyFish scraping + Gemini analysis
+export const maxDuration = 300;
+
 const TINYFISH_API_URL = "https://agent.tinyfish.ai/v1/automation/run-sse";
 const TINYFISH_API_KEY = process.env.TINYFISH_API_KEY || "";
 const TINYFISH_RUN_URL = "https://agent.tinyfish.ai/v1/runs";

@@ -60,10 +60,10 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number) {
   // Head
   const head = add(new THREE.SphereGeometry(0.185, 24, 24), skin, 0, 1.08, 0);
 
-  // Mouth
+  // Mouth — super big for visible animation
   const mouthMat = new THREE.MeshLambertMaterial({ color: 0x331111 });
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.025, 0.04), mouthMat);
-  mouth.position.set(0, 1.005, 0.17);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.05, 0.06), mouthMat);
+  mouth.position.set(0, 0.99, 0.16);
   mouth.name = "mouth";
   group.add(mouth);
 
@@ -379,6 +379,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [feedbackMode, setFeedbackMode] = useState<"single" | "session">("single");
   const [showFeedbackMenu, setShowFeedbackMenu] = useState(false);
   const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
+  const [feedbackFullText, setFeedbackFullText] = useState("");
+  const feedbackBoxRef = useRef<HTMLDivElement | null>(null);
   const recordingStartRef = useRef<number>(0);
 
   // Alternating question flow: Normal→FollowUp→Normal→FollowUp→Normal
@@ -537,20 +539,20 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       if (ivHeadRef.current) ivHeadRef.current.position.y = 1.08 + (spk === 1 ? Math.sin(t * 4.2) * 0.013 : Math.sin(t * 0.9) * 0.004);
       if (cdHeadRef.current) cdHeadRef.current.position.y = 1.08 + (spk === 2 ? Math.sin(t * 4.0 + 0.6) * 0.013 : Math.sin(t * 0.85 + 1.2) * 0.004);
 
-      // Mouth animation — open/close when speaking
+      // Mouth animation — dramatic open/close when speaking
       if (ivMouthRef.current) {
         const openAmt = spk === 1
-          ? 0.025 + Math.abs(Math.sin(t * 12.5)) * 0.06 + Math.abs(Math.sin(t * 7.3)) * 0.03
-          : 0.025;
-        ivMouthRef.current.scale.y = openAmt / 0.025;
-        ivMouthRef.current.position.y = 1.005 - (openAmt - 0.025) * 0.6;
+          ? 0.05 + Math.abs(Math.sin(t * 10.5)) * 0.12 + Math.abs(Math.sin(t * 6.3)) * 0.06
+          : 0.05;
+        ivMouthRef.current.scale.y = openAmt / 0.05;
+        ivMouthRef.current.position.y = 0.99 - (openAmt - 0.05) * 0.5;
       }
       if (cdMouthRef.current) {
         const openAmt = spk === 2
-          ? 0.025 + Math.abs(Math.sin(t * 11.8 + 0.4)) * 0.06 + Math.abs(Math.sin(t * 6.9 + 0.7)) * 0.03
-          : 0.025;
-        cdMouthRef.current.scale.y = openAmt / 0.025;
-        cdMouthRef.current.position.y = 1.005 - (openAmt - 0.025) * 0.6;
+          ? 0.05 + Math.abs(Math.sin(t * 9.8 + 0.4)) * 0.12 + Math.abs(Math.sin(t * 5.9 + 0.7)) * 0.06
+          : 0.05;
+        cdMouthRef.current.scale.y = openAmt / 0.05;
+        cdMouthRef.current.position.y = 0.99 - (openAmt - 0.05) * 0.5;
       }
 
       // Speaker glow
@@ -873,6 +875,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
 
       if (data.humanized?.spoken_feedback && window.speechSynthesis) {
         const feedbackText = data.humanized.spoken_feedback;
+        setFeedbackFullText(feedbackText);
         const utter = new SpeechSynthesisUtterance(feedbackText);
         utter.rate = 0.9;
         utter.pitch = 0.85;
@@ -895,6 +898,14 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           const wordIdx = spokenSoFar.split(/\s+/).length - 1;
           // Show a sliding window of recent words in the bubble
           setBubbleText(feedbackWords.slice(Math.max(0, wordIdx - 6), wordIdx + 1).join(" "));
+          setSpokenWordIdx(wordIdx);
+          // Auto-scroll the feedback box
+          if (feedbackBoxRef.current) {
+            const lineHeight = 22;
+            const wordsPerLine = 10;
+            const currentLine = Math.floor(wordIdx / wordsPerLine);
+            feedbackBoxRef.current.scrollTop = Math.max(0, (currentLine - 1) * lineHeight);
+          }
         };
 
         utter.onend = () => {
@@ -918,6 +929,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setInterviewerTalking(false);
     setMode("reviewing");
     setFeedbackData(null);
+    setFeedbackFullText("");
+    setSpokenWordIdx(-1);
   }, []);
 
   // ── Follow-up generation ──────────────────────────────────────
@@ -1072,6 +1085,51 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             isQuestion={false}
           />
         </div>
+
+        {/* Fixed feedback text box — shown during feedback mode above characters */}
+        {mode === "feedback" && feedbackFullText && (
+          <div style={{
+            position: "absolute",
+            top: 70,
+            left: "50%",
+            transform: "translateX(-50%)",
+            width: "80%",
+            maxWidth: 520,
+            zIndex: 15,
+          }}>
+            <div
+              ref={feedbackBoxRef}
+              style={{
+                background: "rgba(6,12,22,0.92)",
+                border: "1px solid rgba(250,204,21,0.25)",
+                borderRadius: 14,
+                padding: "14px 18px",
+                maxHeight: 88,
+                overflowY: "auto",
+                scrollBehavior: "smooth",
+                backdropFilter: "blur(12px)",
+                boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+              }}
+            >
+              <p style={{
+                color: "#e2e8f0",
+                fontSize: 14,
+                lineHeight: "22px",
+                margin: 0,
+                fontStyle: "italic",
+              }}>
+                {feedbackFullText.split(" ").map((word, i) => (
+                  <span key={i} style={{
+                    color: i <= spokenWordIdx ? "#facc15" : "#94a3b8",
+                    transition: "color 0.15s",
+                  }}>
+                    {word}{" "}
+                  </span>
+                ))}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Progress dots — always 5 total (Normal→FollowUp→Normal→FollowUp→Normal) */}
         {mode !== "intro" && (

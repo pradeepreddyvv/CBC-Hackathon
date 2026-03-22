@@ -1,225 +1,145 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { FeedbackResult } from "@/lib/store";
 
-interface FeedbackCardProps {
-  feedback: FeedbackResult;
-  questionText: string;
-}
+interface FeedbackCardProps { feedback: FeedbackResult; questionText: string; }
 
-function ScoreRing({ score, size = 80 }: { score: number; size?: number }) {
-  const radius = (size - 8) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score >= 85 ? "#22c55e" : score >= 70 ? "#6c63ff" : score >= 50 ? "#f59e0b" : "#ef4444";
+const T = { cyan: "#22d3ee", violet: "#818cf8", success: "#34d399", warning: "#fbbf24", danger: "#f87171", text: "rgba(255,255,255,0.88)", sec: "rgba(255,255,255,0.50)", tert: "rgba(255,255,255,0.26)" };
 
+function sc(s: number) { return s >= 85 ? T.success : s >= 70 ? T.cyan : s >= 50 ? T.warning : T.danger; }
+
+function ScoreRing({ score, size = 84 }: { score: number; size?: number }) {
+  const r = (size - 10) / 2, circ = 2 * Math.PI * r, offset = circ - (score / 100) * circ, color = sc(score);
   return (
-    <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
-      <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#2e3350" strokeWidth={4} />
-        <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={4}
-          strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round"
-          className="score-ring transition-all duration-1000"
-        />
+    <div style={{ position: "relative", width: size, height: size, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+      <svg width={size} height={size} style={{ transform: "rotate(-90deg)" }}>
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={5} />
+        <circle cx={size/2} cy={size/2} r={r} fill="none" stroke={color} strokeWidth={5} strokeDasharray={circ} strokeDashoffset={offset} strokeLinecap="round" className="score-ring" />
       </svg>
-      <span className="absolute text-xl font-bold" style={{ color }}>{score}</span>
+      <span style={{ position: "absolute", fontSize: 22, fontWeight: 800, color, letterSpacing: "-0.03em" }}>{score}</span>
     </div>
   );
 }
 
-function StarBar({ label, score, color }: { label: string; score: number; color: string }) {
+const bento = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 16, padding: 18 };
+
+export default function FeedbackCard({ feedback: f }: FeedbackCardProps) {
+  const recColor = f.recommendation === "Strong" ? T.success : f.recommendation === "Good" ? T.cyan : f.recommendation === "Needs Work" ? T.warning : T.danger;
   return (
-    <div className="mb-2">
-      <div className="flex justify-between text-xs text-muted mb-1">
-        <span>{label}</span>
-        <span>{score}</span>
-      </div>
-      <div className="h-1.5 bg-border rounded-full overflow-hidden">
-        <div className="h-full rounded-full bar-animate" style={{ width: `${score}%`, background: color }} />
-      </div>
-    </div>
-  );
-}
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }} className="slide-up">
 
-export default function FeedbackCard({ feedback, questionText }: FeedbackCardProps) {
-  const f = feedback;
-
-  return (
-    <div className="bg-card border border-border rounded-xl p-5 space-y-5">
-      {/* Header: Score + Recommendation */}
-      <div className="flex items-start gap-5">
-        <ScoreRing score={f.overall_score} />
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className={`px-3 py-0.5 rounded-full text-xs font-bold ${
-              f.recommendation === "Strong" ? "bg-green-900 text-green-400" :
-              f.recommendation === "Good" ? "bg-blue-900 text-blue-400" :
-              f.recommendation === "Needs Work" ? "bg-yellow-900 text-yellow-400" :
-              "bg-red-900 text-red-400"
-            }`}>
-              {f.recommendation}
-            </span>
-            <span className={`px-2 py-0.5 rounded text-xs ${
-              f.delivery_analysis?.pacing === "good" ? "bg-green-900/50 text-green-400" :
-              f.delivery_analysis?.pacing === "too_short" ? "bg-yellow-900/50 text-yellow-400" :
-              "bg-red-900/50 text-red-400"
-            }`}>
-              {f.delivery_analysis?.pacing === "good" ? "Good timing" :
-               f.delivery_analysis?.pacing === "too_short" ? "Too short" : "Too long"}
-            </span>
-          </div>
-          <p className="text-xs text-muted line-clamp-2">{questionText}</p>
-          {f.encouragement && (
-            <p className="text-xs text-accent2 mt-2 italic">{f.encouragement}</p>
-          )}
+      {/* Score hero -- bento row */}
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12 }}>
+        <div style={{ ...bento, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 24px", background: "rgba(34,211,238,0.05)", borderColor: "rgba(34,211,238,0.15)" }}>
+          <ScoreRing score={f.overall_score} />
+          <span style={{ marginTop: 8, padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 600, background: `${recColor}18`, color: recColor }}>{f.recommendation}</span>
+        </div>
+        <div style={{ ...bento, display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Encouragement</div>
+          <p style={{ fontSize: 14, color: T.text, lineHeight: 1.6, margin: 0 }}>{f.encouragement}</p>
         </div>
       </div>
 
-      {/* STAR Scores */}
-      <div>
-        <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">STAR Framework</h4>
-        <div className="grid grid-cols-2 gap-x-4">
-          <StarBar label="Situation" score={f.star_scores?.situation || 0} color="#60a5fa" />
-          <StarBar label="Task" score={f.star_scores?.task || 0} color="#a78bfa" />
-          <StarBar label="Action" score={f.star_scores?.action || 0} color="#4ade80" />
-          <StarBar label="Result" score={f.star_scores?.result || 0} color="#f59e0b" />
-        </div>
-      </div>
-
-      {/* Communication Dimensions */}
-      <div>
-        <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">Communication</h4>
-        <div className="grid grid-cols-5 gap-2">
-          {Object.entries(f.dimension_scores || {}).map(([key, val]) => (
-            <div key={key} className="text-center">
-              <div className={`text-lg font-bold ${(val as number) >= 70 ? "text-green-400" : (val as number) >= 50 ? "text-yellow-400" : "text-red-400"}`}>
-                {val as number}
-              </div>
-              <div className="text-[10px] text-muted capitalize">{key.replace(/_/g, " ")}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Sentence-Level Analysis */}
-      {f.sentence_analysis?.length > 0 && (
-        <div>
-          <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">Sentence-by-Sentence</h4>
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {f.sentence_analysis.map((s, i) => (
-              <div key={i} className={`p-3 rounded-lg border-l-3 text-xs ${
-                s.rating === "strong" ? "bg-green-950/30 border-l-green-500" :
-                s.rating === "okay" ? "bg-yellow-950/30 border-l-yellow-500" :
-                "bg-red-950/30 border-l-red-500"
-              }`} style={{ borderLeftWidth: "3px" }}>
-                <p className="text-slate-300 mb-1">&ldquo;{s.sentence}&rdquo;</p>
-                <p className="text-muted">{s.reason}</p>
-                {s.rewrite && (
-                  <p className="text-accent2 mt-1">Better: &ldquo;{s.rewrite}&rdquo;</p>
-                )}
-                {s.tags?.length > 0 && (
-                  <div className="flex gap-1 mt-1 flex-wrap">
-                    {s.tags.map(tag => (
-                      <span key={tag} className="px-1.5 py-0.5 bg-surface rounded text-[10px] text-muted">{tag}</span>
-                    ))}
-                  </div>
-                )}
+      {/* STAR bento */}
+      {f.star_scores && (
+        <div style={{ ...bento }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>STAR Framework</div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 10 }}>
+            {Object.entries(f.star_scores).map(([k, v]) => (
+              <div key={k} style={{ textAlign: "center", padding: "12px 0", background: `${sc(v as number)}0D`, borderRadius: 12 }}>
+                <div style={{ fontSize: 26, fontWeight: 800, color: sc(v as number), letterSpacing: "-0.03em" }}>{v as number}</div>
+                <div style={{ fontSize: 11, color: T.tert, textTransform: "capitalize", marginTop: 4 }}>{k}</div>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* Delivery Analysis */}
-      {f.delivery_analysis && (
-        <div>
-          <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-3">Delivery Analysis</h4>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-surface rounded-lg p-3">
-              <div className="text-[10px] text-red-400 font-bold mb-1">Filler Words</div>
-              <p className="text-xs text-slate-300">
-                {f.delivery_analysis.filler_words?.length > 0
-                  ? f.delivery_analysis.filler_words.join(", ")
-                  : "None detected!"}
-              </p>
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <div className="text-[10px] text-yellow-400 font-bold mb-1">Hedging Language</div>
-              <p className="text-xs text-slate-300">
-                {f.delivery_analysis.hedging_phrases?.length > 0
-                  ? f.delivery_analysis.hedging_phrases.join(", ")
-                  : "None — confident language!"}
-              </p>
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <div className="text-[10px] text-green-400 font-bold mb-1">Power Words</div>
-              <p className="text-xs text-slate-300">
-                {f.delivery_analysis.power_words?.length > 0
-                  ? f.delivery_analysis.power_words.join(", ")
-                  : "Try using: built, designed, led, shipped"}
-              </p>
-            </div>
-            <div className="bg-surface rounded-lg p-3">
-              <div className="text-[10px] text-blue-400 font-bold mb-1">Active Voice</div>
-              <p className="text-xs text-slate-300">{f.delivery_analysis.active_voice_pct || 0}% active voice</p>
-            </div>
+      {/* Dimensions bento */}
+      {f.dimension_scores && (
+        <div style={{ ...bento }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 14 }}>Dimensions</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {Object.entries(f.dimension_scores).map(([k, v]) => (
+              <div key={k} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <span style={{ fontSize: 12, color: T.sec, width: 130, textTransform: "capitalize", flexShrink: 0 }}>{k.replace(/_/g, " ")}</span>
+                <div style={{ flex: 1, height: 4, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                  <div className="bar-animate" style={{ height: "100%", width: `${v}%`, background: `linear-gradient(90deg, ${sc(v as number)}, ${sc(v as number)}99)`, borderRadius: 2 }} />
+                </div>
+                <span style={{ fontSize: 12, fontWeight: 700, color: sc(v as number), width: 26, textAlign: "right" }}>{v as number}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Strengths & Improvements */}
-      <div className="grid grid-cols-2 gap-4">
-        <div>
-          <h4 className="text-xs font-bold text-green-400 mb-2">Strengths</h4>
-          <ul className="space-y-1">
-            {f.strengths?.map((s, i) => (
-              <li key={i} className="text-xs text-slate-300 pl-3 relative before:absolute before:left-0 before:content-['✓'] before:text-green-400">{s}</li>
-            ))}
-          </ul>
-        </div>
-        <div>
-          <h4 className="text-xs font-bold text-yellow-400 mb-2">Improvements</h4>
-          <ul className="space-y-1">
-            {f.improvements?.map((s, i) => (
-              <li key={i} className="text-xs text-slate-300 pl-3 relative before:absolute before:left-0 before:content-['→'] before:text-yellow-400">{s}</li>
-            ))}
-          </ul>
-        </div>
+      {/* Strengths + Improvements bento row */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {f.strengths?.length > 0 && (
+          <div style={{ ...bento, background: "rgba(52,211,153,0.05)", borderColor: "rgba(52,211,153,0.15)" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.success, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Strengths</div>
+            {f.strengths.map((s: string, i: number) => <div key={i} style={{ fontSize: 13, color: T.text, marginBottom: 6, display: "flex", gap: 6, lineHeight: 1.45 }}><span style={{ color: T.success, flexShrink: 0 }}>+</span>{s}</div>)}
+          </div>
+        )}
+        {f.improvements?.length > 0 && (
+          <div style={{ ...bento, background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }}>
+            <div style={{ fontSize: 11, fontWeight: 600, color: T.danger, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Improve</div>
+            {f.improvements.map((s: string, i: number) => <div key={i} style={{ fontSize: 13, color: T.text, marginBottom: 6, display: "flex", gap: 6, lineHeight: 1.45 }}><span style={{ color: T.danger, flexShrink: 0 }}>--</span>{s}</div>)}
+          </div>
+        )}
       </div>
 
-      {/* Coaching Tip */}
+      {/* Coaching tip bento */}
       {f.coaching_tip && (
-        <div className="bg-blue-950/30 border-l-[3px] border-accent p-3 rounded-r-lg">
-          <div className="text-[10px] text-accent font-bold mb-1">TOP COACHING TIP</div>
-          <p className="text-xs text-slate-300">{f.coaching_tip}</p>
+        <div style={{ ...bento, background: "rgba(34,211,238,0.05)", borderColor: "rgba(34,211,238,0.15)" }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.cyan, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Coaching Tip</div>
+          <p style={{ fontSize: 14, color: T.text, lineHeight: 1.6, margin: 0 }}>{f.coaching_tip}</p>
         </div>
       )}
 
-      {/* Weakest Sentence Rewrite */}
-      {f.weakest_sentence_rewrite?.original && (
-        <div className="bg-surface rounded-lg p-3">
-          <div className="text-[10px] text-muted font-bold mb-2">BEST SINGLE IMPROVEMENT</div>
-          <div className="text-xs">
-            <p className="text-red-400 line-through mb-1">{f.weakest_sentence_rewrite.original}</p>
-            <p className="text-green-400">{f.weakest_sentence_rewrite.improved}</p>
+      {/* Ideal structure */}
+      {f.ideal_90sec_structure && (
+        <div style={{ ...bento }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Ideal 90s Structure</div>
+          <p style={{ fontSize: 13, color: T.sec, lineHeight: 1.6, margin: 0 }}>{f.ideal_90sec_structure}</p>
+        </div>
+      )}
+
+      {/* Sentence analysis */}
+      {f.sentence_analysis?.length > 0 && (
+        <div style={{ ...bento }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>Sentence Analysis</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {f.sentence_analysis.map((s: any, i: number) => (
+              <div key={i} style={{ padding: 12, borderRadius: 10, borderLeft: `3px solid ${s.rating === "strong" ? T.success : s.rating === "okay" ? T.warning : T.danger}`, background: s.rating === "strong" ? "rgba(52,211,153,0.05)" : s.rating === "okay" ? "rgba(251,191,36,0.05)" : "rgba(248,113,113,0.05)" }}>
+                <p style={{ fontSize: 13, color: T.text, margin: "0 0 4px" }}>&ldquo;{s.sentence}&rdquo;</p>
+                <p style={{ fontSize: 12, color: T.sec, margin: 0 }}>{s.reason}</p>
+                {s.rewrite && <p style={{ fontSize: 12, color: T.cyan, marginTop: 4, margin: "4px 0 0" }}>Better: &ldquo;{s.rewrite}&rdquo;</p>}
+              </div>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Follow-up Question */}
-      {f.follow_up_question && (
-        <div className="bg-surface rounded-lg p-3">
-          <div className="text-[10px] text-warn font-bold mb-1">LIKELY FOLLOW-UP QUESTION</div>
-          <p className="text-xs text-slate-300 italic">{f.follow_up_question}</p>
+      {/* Delivery bento */}
+      {f.delivery_analysis && (
+        <div style={{ ...bento }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>Delivery</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {f.delivery_analysis.filler_words?.length > 0 && <div style={{ padding: 10, background: "rgba(248,113,113,0.06)", borderRadius: 10 }}><div style={{ fontSize: 10, color: T.danger, fontWeight: 600, marginBottom: 4 }}>FILLER WORDS</div><p style={{ fontSize: 12, color: T.text, margin: 0 }}>{f.delivery_analysis.filler_words.join(", ")}</p></div>}
+            {f.delivery_analysis.hedging_phrases?.length > 0 && <div style={{ padding: 10, background: "rgba(251,191,36,0.06)", borderRadius: 10 }}><div style={{ fontSize: 10, color: T.warning, fontWeight: 600, marginBottom: 4 }}>HEDGING</div><p style={{ fontSize: 12, color: T.text, margin: 0 }}>{f.delivery_analysis.hedging_phrases.join(", ")}</p></div>}
+            {f.delivery_analysis.power_words?.length > 0 && <div style={{ padding: 10, background: "rgba(52,211,153,0.06)", borderRadius: 10 }}><div style={{ fontSize: 10, color: T.success, fontWeight: 600, marginBottom: 4 }}>POWER WORDS</div><p style={{ fontSize: 12, color: T.text, margin: 0 }}>{f.delivery_analysis.power_words.join(", ")}</p></div>}
+            <div style={{ padding: 10, background: "rgba(34,211,238,0.06)", borderRadius: 10 }}><div style={{ fontSize: 10, color: T.cyan, fontWeight: 600, marginBottom: 4 }}>ACTIVE VOICE</div><p style={{ fontSize: 12, color: T.text, margin: 0 }}>{f.delivery_analysis.active_voice_pct}%</p></div>
+          </div>
+          {f.delivery_analysis.pacing_note && <p style={{ fontSize: 12, color: T.sec, marginTop: 10, margin: "10px 0 0" }}>Pacing: {f.delivery_analysis.pacing_note}</p>}
         </div>
       )}
 
-      {/* 90-second Structure */}
-      {f.ideal_90sec_structure && (
-        <details className="bg-surface rounded-lg p-3 cursor-pointer">
-          <summary className="text-[10px] text-accent2 font-bold">IDEAL 90-SECOND ANSWER STRUCTURE</summary>
-          <p className="text-xs text-slate-300 mt-2 whitespace-pre-wrap">{f.ideal_90sec_structure}</p>
-        </details>
+      {/* Weak areas */}
+      {f.weak_areas?.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {f.weak_areas.map((w: string, i: number) => <span key={i} style={{ padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 500, color: T.danger, background: "rgba(248,113,113,0.12)" }}>{w}</span>)}
+        </div>
       )}
     </div>
   );

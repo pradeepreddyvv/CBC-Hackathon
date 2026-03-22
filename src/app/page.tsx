@@ -12,6 +12,7 @@ import {
 } from "@/lib/store";
 import { cloudSaveSession, cloudSaveAnswer } from "@/lib/cloud-sync";
 import { useAuth } from "@/lib/auth-context";
+import { useTheme } from "@/lib/theme-context";
 import dynamic from "next/dynamic";
 
 const InterviewArtifactScene = dynamic(() => import("@/components/InterviewArtifactScene"), { ssr: false });
@@ -83,19 +84,8 @@ export default function Home() {
   // Generating session
   const [generatingSession, setGeneratingSession] = useState(false);
 
-  // Theme
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
-  useEffect(() => {
-    const saved = localStorage.getItem("theme") as "dark" | "light" | null;
-    if (saved) { setTheme(saved); document.documentElement.setAttribute("data-theme", saved === "light" ? "light" : ""); }
-  }, []);
-  const toggleTheme = useCallback(() => {
-    const next = theme === "dark" ? "light" : "dark";
-    setTheme(next);
-    localStorage.setItem("theme", next);
-    if (next === "light") document.documentElement.setAttribute("data-theme", "light");
-    else document.documentElement.removeAttribute("data-theme");
-  }, [theme]);
+  // Theme (from context)
+  const { theme, toggleTheme } = useTheme();
 
   // Auth guard
   useEffect(() => {
@@ -430,8 +420,8 @@ export default function Home() {
   // Auth loading state
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="inline-block w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
+      <div style={{ minHeight: "100vh", background: "var(--bg)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ width: 32, height: 32, border: "2px solid var(--border)", borderTopColor: "#22d3ee", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} />
       </div>
     );
   }
@@ -439,61 +429,43 @@ export default function Home() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-bg">
+    <div style={{ minHeight: "100vh", background: "var(--bg)", fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif" }}>
       {/* Top Nav */}
-      <nav className="bg-surface border-b border-border px-4 py-3 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-3">
-          <span className="text-lg font-bold text-accent">InterviewCoach</span>
-          <span className="text-xs text-muted bg-card px-2 py-0.5 rounded">AI-Powered</span>
+      <nav style={{ position: "sticky", top: 0, zIndex: 50, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 24px", background: "var(--nav-bg)", borderBottom: "1px solid var(--border)", backdropFilter: "blur(16px)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 32, height: 32, borderRadius: 10, background: "linear-gradient(135deg, #22d3ee, #818cf8)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+          </div>
+          <span style={{ fontSize: 17, fontWeight: 700, color: "var(--heading)", letterSpacing: "-0.01em" }}>InterviewCoach</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            {(["interview", "3d-interview", "progress", "history"] as Tab[]).map(t => (
-              <button
-                key={t}
-                onClick={() => setTab(t)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
-                }`}
-              >
-                {t === "interview" ? "Interview" : t === "3d-interview" ? "3D Mock" : t === "progress" ? "Progress" : "History"}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
-            <span className="text-xs text-muted">{user.name}</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {(["interview", "3d-interview", "progress", "history"] as Tab[]).map(t => (
             <button
-              onClick={toggleTheme}
-              className="text-xs text-muted hover:text-accent transition-colors px-2 py-1 rounded-lg hover:bg-card"
-              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+              key={t}
+              onClick={() => setTab(t)}
+              style={{
+                padding: "8px 16px", borderRadius: 999, fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s",
+                background: tab === t ? "linear-gradient(135deg, #22d3ee, #818cf8)" : "transparent",
+                color: tab === t ? "white" : "var(--text-sec)",
+              }}
             >
-              {theme === "dark" ? "☀️" : "🌙"}
+              {t === "interview" ? "Interview" : t === "3d-interview" ? "3D Mock" : t === "progress" ? "Progress" : "History"}
             </button>
-            <button
-              onClick={() => { router.push("/profile"); }}
-              className="text-xs text-muted hover:text-accent transition-colors"
-              title="Profile & settings"
-            >
-              Profile
-            </button>
-            <button
-              onClick={() => { router.push("/onboarding"); }}
-              className="text-xs text-muted hover:text-accent transition-colors"
-              title="New session setup"
-            >
-              Setup
-            </button>
-            <button
-              onClick={() => { logout(); router.push("/login"); }}
-              className="text-xs text-muted hover:text-red-400 transition-colors"
-            >
-              Logout
-            </button>
-          </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: 13, color: "var(--text-sec)", fontWeight: 500 }}>{user.name}</span>
+          <button onClick={toggleTheme} style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 10px", cursor: "pointer", fontSize: 13, color: "var(--text-sec)", fontFamily: "inherit" }} title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}>
+            {theme === "dark" ? "Light" : "Dark"}
+          </button>
+          <button onClick={() => router.push("/profile")} style={{ background: "none", border: "none", color: "var(--text-tert)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Profile</button>
+          <button onClick={() => router.push("/onboarding")} style={{ background: "none", border: "none", color: "var(--text-tert)", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Setup</button>
+          <button onClick={() => { logout(); router.push("/login"); }} style={{ background: "none", border: "none", color: "#f87171", fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>Logout</button>
         </div>
       </nav>
 
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main style={{ maxWidth: 900, margin: "0 auto", padding: "24px 20px" }}>
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         {/* ═══════ PRACTICE TAB ═══════ */}
         {tab === "interview" && (
           <div className="space-y-4">
