@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import FeedbackCard from "@/components/FeedbackCard";
 import ProgressDashboard from "@/components/ProgressDashboard";
@@ -9,11 +10,10 @@ import {
   getProfile, saveUserProfile, recordAnswer, recordSession, getWeakAreas, getSessionCount,
   FeedbackResult, AnswerRecord, SessionRecord, UserProfile,
 } from "@/lib/store";
-import {
-  cloudGetOrCreateUser, cloudSaveProfile, cloudSaveSession, cloudSaveAnswer,
-} from "@/lib/cloud-sync";
+import { cloudSaveSession, cloudSaveAnswer } from "@/lib/cloud-sync";
+import { useAuth } from "@/lib/auth-context";
 
-type Tab = "setup" | "practice" | "progress" | "history";
+type Tab = "practice" | "progress" | "history";
 
 interface AdaptiveQuestion {
   id: string;
@@ -39,19 +39,14 @@ interface SessionPlan {
 }
 
 export default function Home() {
-  const [tab, setTab] = useState<Tab>("setup");
+  const { user, loading: authLoading, logout } = useAuth();
+  const router = useRouter();
+  const [tab, setTab] = useState<Tab>("practice");
   const [profile, setProfile] = useState<UserProfile>({
     name: "", background: "", targetRole: "Software Engineer",
     targetCompany: "Google", experience: "", skills: "",
   });
   const [profileSaved, setProfileSaved] = useState(false);
-  const [resumeText, setResumeText] = useState("");
-  const [userContext, setUserContext] = useState("");
-  const [parsing, setParsing] = useState(false);
-  const [showContextPrompt, setShowContextPrompt] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [resumeHighlights, setResumeHighlights] = useState<any>(null);
-  const [cloudUserId, setCloudUserId] = useState<string | null>(null);
 
   // Session state
   const [sessionId, setSessionId] = useState("");
@@ -68,6 +63,10 @@ export default function Home() {
   const [sessionAnswers, setSessionAnswers] = useState<AnswerRecord[]>([]);
   const [showFeedbackPerQ, setShowFeedbackPerQ] = useState(true);
 
+  // Follow-up question
+  const [followUpQ, setFollowUpQ] = useState<string | null>(null);
+  const [isFollowUp, setIsFollowUp] = useState(false);
+
   // Session summary
   const [sessionSummary, setSessionSummary] = useState<Record<string, unknown> | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -75,17 +74,38 @@ export default function Home() {
   // Generating session
   const [generatingSession, setGeneratingSession] = useState(false);
 
-  // Load saved profile on mount + sync to cloud
+  // Auth guard
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push("/login");
+    } else if (!authLoading && user && !user.onboarded) {
+      router.push("/onboarding");
+    }
+  }, [user, authLoading, router]);
+
+  // Load saved profile on mount
   useEffect(() => {
     const saved = getProfile();
     if (saved.userProfile?.name) {
       setProfile(saved.userProfile);
       setProfileSaved(true);
-      if (saved.answers.length > 0) setTab("practice");
-      // Connect to InsForge cloud
-      cloudGetOrCreateUser(saved.userProfile.name).then(uid => {
-        if (uid) setCloudUserId(uid);
-      });
+    } else if (user) {
+      // Populate from auth user
+      setProfile(prev => ({ ...prev, name: user.name || prev.name }));
+    }
+    // Load session config from onboarding
+    const config = localStorage.getItem("interview_session_config");
+    if (config) {
+      try {
+        const parsed = JSON.parse(config);
+        if (parsed.generatedQuestions?.length > 0) {
+          setSessionQuestions(parsed.generatedQuestions);
+          setSessionId("sess_" + Date.now());
+        }
+        if (parsed.companyName) {
+          setProfile(prev => ({ ...prev, targetCompany: parsed.companyName }));
+        }
+      } catch { /* ignore */ }
     }
   }, []);
 
@@ -93,46 +113,7 @@ export default function Home() {
     saveUserProfile(profile);
     setProfileSaved(true);
     setTab("practice");
-    // Sync to InsForge cloud
-    if (profile.name) {
-      cloudGetOrCreateUser(profile.name).then(uid => {
-        if (uid) {
-          setCloudUserId(uid);
-          cloudSaveProfile(uid, profile);
-        }
-      });
-    }
   }, [profile]);
-
-  const autoFillFromResumeOrContext = useCallback(async () => {
-    if (!resumeText && !userContext) return;
-    setParsing(true);
-    try {
-      const res = await fetch("/api/parse-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume: resumeText, context: userContext }),
-      });
-      const data = await res.json();
-      if (data.profile) {
-        const p = data.profile;
-        setProfile(prev => ({
-          ...prev,
-          name: p.name || prev.name,
-          background: p.background || prev.background,
-          targetRole: p.targetRole || prev.targetRole,
-          targetCompany: p.targetCompany || prev.targetCompany,
-          experience: p.experience || prev.experience,
-          skills: p.skills || prev.skills,
-        }));
-        if (p.resumeHighlights) setResumeHighlights(p.resumeHighlights);
-      }
-    } catch (e) {
-      console.error("Auto-fill error:", e);
-    } finally {
-      setParsing(false);
-    }
-  }, [resumeText, userContext]);
 
   // Start a new session — either with default Qs or adaptive AI-generated Qs
   const startSession = useCallback(async (useAdaptive: boolean) => {
@@ -219,22 +200,23 @@ export default function Home() {
 
   // Get feedback for current answer
   const getFeedback = useCallback(async () => {
-    if (!answer || !currentQuestion) return;
+    if (!answer || (!currentQuestion && !followUpQ)) return;
     setLoading(true);
     try {
       const q = currentQuestion;
+      const questionText = isFollowUp && followUpQ ? followUpQ : q?.text || "";
       const prevAttempts = getProfile().answers
-        .filter(a => a.questionText === q.text)
+        .filter(a => a.questionText === questionText)
         .map(a => ({ score: a.feedback.overall_score, weakAreas: a.feedback.weak_areas }));
 
       const res = await fetch("/api/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          question: q.text,
+          question: questionText,
           answer,
-          category: q.category,
-          questionType: q.type,
+          category: q?.category || "follow_up",
+          questionType: q?.type || "behavioral",
           company: profile.targetCompany,
           role: profile.targetRole,
           profile,
@@ -251,10 +233,10 @@ export default function Home() {
         const record: AnswerRecord = {
           id: "ans_" + Date.now(),
           sessionId,
-          questionId: q.id,
-          questionText: q.text,
-          category: q.category,
-          type: q.type,
+          questionId: isFollowUp ? "followup_" + (q?.id || Date.now()) : (q?.id || ""),
+          questionText: questionText,
+          category: q?.category || "follow_up",
+          type: q?.type || "behavioral",
           answer,
           feedback: data.feedback,
           durationSec: answerDuration || 60,
@@ -279,16 +261,16 @@ export default function Home() {
         recordSession(sessionData);
 
         // Sync to InsForge cloud + vector embedding
-        if (cloudUserId) {
-          cloudSaveAnswer(cloudUserId, { ...record, feedback: record.feedback as unknown as Record<string, unknown> });
-          cloudSaveSession(cloudUserId, sessionData);
+        if (user?.id) {
+          cloudSaveAnswer(user?.id, { ...record, feedback: record.feedback as unknown as Record<string, unknown> });
+          cloudSaveSession(user?.id, sessionData);
           // Embed answer for vector similarity search (fire-and-forget)
           fetch("/api/vector", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               action: "embed_answer",
-              userId: cloudUserId,
+              userId: user?.id,
               answerId: record.id,
               questionText: record.questionText,
               answerText: record.answer,
@@ -296,13 +278,19 @@ export default function Home() {
             }),
           }).catch(() => {});
         }
+
+        // Reset follow-up state after recording
+        if (isFollowUp) {
+          setIsFollowUp(false);
+          setFollowUpQ(null);
+        }
       }
     } catch (e) {
       console.error("Feedback error:", e);
     } finally {
       setLoading(false);
     }
-  }, [answer, currentQuestion, profile, answerDuration, sessionId, sessionAnswers]);
+  }, [answer, currentQuestion, profile, answerDuration, sessionId, sessionAnswers, isFollowUp, followUpQ]);
 
   // Skip feedback and go to next question
   const nextQuestion = useCallback(() => {
@@ -311,6 +299,8 @@ export default function Home() {
       setAnswer("");
       setFeedback(null);
       setAnswerStartTime(null);
+      setFollowUpQ(null);
+      setIsFollowUp(false);
     }
   }, [currentQIndex, sessionQuestions.length]);
 
@@ -355,6 +345,17 @@ export default function Home() {
 
   const companyPattern = getCompanyPattern(profile.targetCompany);
 
+  // Auth loading state
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-bg flex items-center justify-center">
+        <div className="inline-block w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) return null;
+
   return (
     <div className="min-h-screen bg-bg">
       {/* Top Nav */}
@@ -365,7 +366,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            {(["setup", "practice", "progress", "history"] as Tab[]).map(t => (
+            {(["practice", "progress", "history"] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -373,157 +374,30 @@ export default function Home() {
                   tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
                 }`}
               >
-                {t === "setup" ? "Profile" : t === "practice" ? "Practice" : t === "progress" ? "Progress" : "History"}
+                {t === "practice" ? "Practice" : t === "progress" ? "Progress" : "History"}
               </button>
             ))}
+          </div>
+          <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
+            <span className="text-xs text-muted">{user.name}</span>
+            <button
+              onClick={() => { router.push("/onboarding"); }}
+              className="text-xs text-muted hover:text-accent transition-colors"
+              title="New session setup"
+            >
+              Setup
+            </button>
+            <button
+              onClick={() => { logout(); router.push("/login"); }}
+              className="text-xs text-muted hover:text-red-400 transition-colors"
+            >
+              Logout
+            </button>
           </div>
         </div>
       </nav>
 
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* ═══════ SETUP TAB ═══════ */}
-        {tab === "setup" && (
-          <div className="max-w-2xl mx-auto space-y-5">
-            <h2 className="text-xl font-bold text-slate-200">Your Profile</h2>
-            <p className="text-sm text-muted">Paste your resume or LLM-generated context to auto-fill, or fill manually.</p>
-
-            {/* ── Quick Fill Section ── */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-accent2">Quick Fill (Optional)</h3>
-              <p className="text-xs text-muted">Paste your resume text and/or an LLM-generated context summary. We&apos;ll auto-fill everything.</p>
-
-              {/* Resume */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-1">Resume (paste text)</label>
-                <textarea
-                  value={resumeText}
-                  onChange={e => setResumeText(e.target.value)}
-                  placeholder="Paste your resume text here... (copy from your PDF/DOCX)"
-                  rows={4}
-                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
-                />
-              </div>
-
-              {/* Context */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-muted font-semibold">LLM-Generated Context (paste output)</label>
-                  <button
-                    onClick={() => setShowContextPrompt(!showContextPrompt)}
-                    className="text-[10px] text-accent hover:underline"
-                  >
-                    {showContextPrompt ? "Hide prompt" : "Get the prompt to generate this"}
-                  </button>
-                </div>
-
-                {showContextPrompt && (
-                  <div className="bg-bg border border-accent/30 rounded-lg p-3 mb-2">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-[10px] text-accent font-bold uppercase tracking-wider">Copy this prompt → paste into ChatGPT / Claude / Gemini</span>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(CONTEXT_GENERATION_PROMPT);
-                        }}
-                        className="text-[10px] bg-accent/20 text-accent px-2 py-1 rounded hover:bg-accent/30 transition-colors"
-                      >
-                        Copy Prompt
-                      </button>
-                    </div>
-                    <pre className="text-xs text-slate-400 whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">{CONTEXT_GENERATION_PROMPT}</pre>
-                  </div>
-                )}
-
-                <textarea
-                  value={userContext}
-                  onChange={e => setUserContext(e.target.value)}
-                  placeholder="Paste the LLM-generated context here..."
-                  rows={4}
-                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
-                />
-              </div>
-
-              <button
-                onClick={autoFillFromResumeOrContext}
-                disabled={parsing || (!resumeText && !userContext)}
-                className="w-full py-2.5 bg-accent2 text-bg rounded-lg text-sm font-semibold hover:bg-accent2/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {parsing ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="inline-block w-4 h-4 border-2 border-bg/30 border-t-bg rounded-full animate-spin" />
-                    Analyzing & auto-filling...
-                  </span>
-                ) : "Auto-Fill Profile from Resume / Context"}
-              </button>
-            </div>
-
-            {/* ── Resume Highlights (shown after auto-fill) ── */}
-            {resumeHighlights && (
-              <div className="bg-accent/10 border border-accent/30 rounded-xl p-4">
-                <h4 className="text-xs font-bold text-accent uppercase tracking-wider mb-2">Resume Analysis</h4>
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  {resumeHighlights.years_of_experience > 0 && (
-                    <div><span className="text-muted">Experience:</span> <span className="text-slate-200">{resumeHighlights.years_of_experience} years</span></div>
-                  )}
-                  {resumeHighlights.education && (
-                    <div><span className="text-muted">Education:</span> <span className="text-slate-200">{resumeHighlights.education}</span></div>
-                  )}
-                </div>
-                {resumeHighlights.key_metrics?.length > 0 && (
-                  <div className="mt-2">
-                    <span className="text-[10px] text-green-400 font-bold">KEY METRICS</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {resumeHighlights.key_metrics.map((m: string, i: number) => (
-                        <span key={i} className="text-[10px] bg-green-900/30 text-green-400 px-2 py-0.5 rounded">{m}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {resumeHighlights.gaps_to_address?.length > 0 && (
-                  <div className="mt-2">
-                    <span className="text-[10px] text-yellow-400 font-bold">AREAS TO PREP</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {resumeHighlights.gaps_to_address.map((g: string, i: number) => (
-                        <span key={i} className="text-[10px] bg-yellow-900/30 text-yellow-400 px-2 py-0.5 rounded">{g}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── Manual Fields ── */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-              <h3 className="text-sm font-bold text-slate-200">Profile Details {resumeHighlights ? "(auto-filled — edit as needed)" : ""}</h3>
-              <Field label="Name" value={profile.name} onChange={v => setProfile(p => ({ ...p, name: v }))} placeholder="Your name" />
-              <Field label="Background" value={profile.background} onChange={v => setProfile(p => ({ ...p, background: v }))} placeholder="e.g., CS student, 3 years as backend engineer" />
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs text-muted font-semibold block mb-1">Target Company</label>
-                  <select
-                    value={profile.targetCompany}
-                    onChange={e => setProfile(p => ({ ...p, targetCompany: e.target.value }))}
-                    className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none"
-                  >
-                    {["Google", "Amazon", "Meta", "Microsoft", "Apple", "Netflix", "Startup", "General"].map(c => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </div>
-                <Field label="Target Role" value={profile.targetRole} onChange={v => setProfile(p => ({ ...p, targetRole: v }))} placeholder="SWE Intern, Senior SDE, etc." />
-              </div>
-              <Field label="Experience Summary" value={profile.experience} onChange={v => setProfile(p => ({ ...p, experience: v }))} placeholder="Key projects, companies, achievements with metrics." multiline />
-              <Field label="Key Skills" value={profile.skills} onChange={v => setProfile(p => ({ ...p, skills: v }))} placeholder="Python, React, AWS, System Design, ML, etc." />
-              <button
-                onClick={saveProfile}
-                disabled={!profile.name}
-                className="w-full py-3 bg-accent text-white rounded-lg font-semibold hover:bg-accent/80 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {profileSaved ? "Update & Continue" : "Save & Start Practicing"}
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* ═══════ PRACTICE TAB ═══════ */}
         {tab === "practice" && (
           <div className="space-y-4">
@@ -625,8 +499,18 @@ export default function Home() {
                   </button>
                 </div>
 
+                {/* Follow-up question display */}
+                {isFollowUp && followUpQ && (
+                  <div className="bg-surface border-2 border-accent2 rounded-xl p-5">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-[10px] bg-accent2/20 text-accent2 px-1.5 py-0.5 rounded">follow-up</span>
+                    </div>
+                    <p className="text-base font-semibold text-slate-200 leading-relaxed">{followUpQ}</p>
+                  </div>
+                )}
+
                 {/* Current question */}
-                {currentQuestion && (
+                {currentQuestion && !isFollowUp && (
                   <div className="bg-surface border-2 border-accent rounded-xl p-5">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-[10px] text-muted uppercase tracking-wider">{currentQuestion.category}</span>
@@ -769,6 +653,26 @@ export default function Home() {
                       </button>
                     </div>
                     <FeedbackCard feedback={feedback} questionText={currentQuestion?.text || ""} />
+
+                    {/* Follow-up question from AI */}
+                    {feedback.follow_up_question && !isFollowUp && (
+                      <div className="bg-accent2/10 border border-accent2/30 rounded-xl p-4 mt-3">
+                        <div className="text-[10px] text-accent2 font-bold uppercase tracking-wider mb-2">Follow-Up Question</div>
+                        <p className="text-sm text-slate-200 mb-3">{feedback.follow_up_question}</p>
+                        <button
+                          onClick={() => {
+                            setFollowUpQ(feedback.follow_up_question);
+                            setIsFollowUp(true);
+                            setAnswer("");
+                            setFeedback(null);
+                            setAnswerStartTime(null);
+                          }}
+                          className="px-4 py-2 bg-accent2 text-bg rounded-lg text-xs font-semibold hover:bg-accent2/80 transition-colors"
+                        >
+                          Answer Follow-Up
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
@@ -805,52 +709,7 @@ export default function Home() {
   );
 }
 
-// ═══════ CONSTANTS ═══════
-
-const CONTEXT_GENERATION_PROMPT = `I'm preparing for technical interviews. Please analyze my background and generate a structured context summary I can paste into an interview prep tool.
-
-Please ask me about (or I'll provide):
-1. My current role/education and career stage
-2. My work experience (companies, roles, key projects, metrics/achievements)
-3. My technical skills and technologies I've used
-4. Notable projects (personal, academic, or open source)
-5. My target companies and roles
-6. Any specific areas I want to improve in interviews
-
-Then generate a structured summary in this EXACT format:
-
----
-NAME: [Full name]
-BACKGROUND: [1-2 sentence career summary]
-TARGET: [Target role] at [Target company type]
-EXPERIENCE: [Concise work history with metrics — e.g., "Built X that handled Y TPS, reduced Z by N%"]
-SKILLS: [Comma-separated technical skills]
-KEY ACHIEVEMENTS: [Bullet list of quantified accomplishments]
-PROJECTS: [Notable projects with 1-line descriptions and tech stacks]
-INTERVIEW STRENGTHS: [Areas you'd be strong in]
-INTERVIEW GAPS: [Areas to prepare more for]
-STAR STORIES: [2-3 brief situation summaries you could use for behavioral questions]
----
-
-Be specific and include real metrics wherever possible. This will be used to generate personalized interview questions and evaluate my answers.`;
-
 // ═══════ SUB-COMPONENTS ═══════
-
-function Field({ label, value, onChange, placeholder, multiline }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string; multiline?: boolean;
-}) {
-  const cls = "w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none";
-  return (
-    <div>
-      <label className="text-xs text-muted font-semibold block mb-1">{label}</label>
-      {multiline ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls + " resize-y"} />
-      ) : (
-        <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={cls} />
-      )}
-    </div>
-  );
-}
 
 function SessionSummaryCard({ summary, answers, onNewSession }: {
   summary: Record<string, unknown>;
