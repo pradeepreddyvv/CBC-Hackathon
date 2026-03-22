@@ -47,223 +47,300 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number, is
   const group = new THREE.Group();
   const skin = skinColor;
   const shirt = suitColor;
-  const pants = isInterviewer ? 0x111827 : 0x1e3a5f;
+  const pants = isInterviewer ? 0x1a1a2e : 0x1e3a5f;
   const hair = hairColor;
-  const lipColor = isInterviewer ? 0x7a3028 : 0x9b4a42;
-  const S = 0.62; // overall scale factor — smaller characters
+  const lipColor = isInterviewer ? 0xb05050 : 0xc06060;
+  const S = 0.62;
 
-  // Torso
-  const torso = makeMesh(new THREE.CylinderGeometry(0.27 * S, 0.31 * S, 0.82 * S, 10), shirt);
+  const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.55 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.7 });
+
+  // ── Torso (shirt/blazer) ──
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * S, 0.3 * S, 0.78 * S, 12), new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
   torso.position.y = 1.08 * S;
   group.add(torso);
 
-  // Upper arms
-  const lUA = makeMesh(new THREE.CylinderGeometry(0.09 * S, 0.08 * S, 0.52 * S, 8), shirt);
-  lUA.position.set(-0.4 * S, 1.18 * S, 0);
-  lUA.rotation.z = Math.PI / 10;
-  group.add(lUA);
+  // Shoulders (rounded)
+  const shoulderGeo = new THREE.SphereGeometry(0.12 * S, 10, 8);
+  const lShoulder = new THREE.Mesh(shoulderGeo, new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
+  lShoulder.position.set(-0.32 * S, 1.42 * S, 0);
+  lShoulder.scale.set(1.1, 0.7, 0.9);
+  group.add(lShoulder);
+  const rShoulder = lShoulder.clone();
+  rShoulder.position.set(0.32 * S, 1.42 * S, 0);
+  group.add(rShoulder);
 
-  const rUA = makeMesh(new THREE.CylinderGeometry(0.09 * S, 0.08 * S, 0.52 * S, 8), shirt);
-  rUA.position.set(0.4 * S, 1.18 * S, 0);
-  rUA.rotation.z = -Math.PI / 10;
+  // Upper arms
+  const armGeo = new THREE.CylinderGeometry(0.08 * S, 0.07 * S, 0.48 * S, 8);
+  const lUA = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
+  lUA.position.set(-0.38 * S, 1.14 * S, 0);
+  lUA.rotation.z = Math.PI / 9;
+  group.add(lUA);
+  const rUA = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
+  rUA.position.set(0.38 * S, 1.14 * S, 0);
+  rUA.rotation.z = -Math.PI / 9;
   group.add(rUA);
 
-  // Lower arms
-  const lLA = makeMesh(new THREE.CylinderGeometry(0.07 * S, 0.065 * S, 0.42 * S, 8), skin);
-  lLA.position.set(-0.5 * S, 0.8 * S, 0.1 * S);
-  lLA.rotation.x = 0.4;
-  group.add(lLA);
-
-  const rLA = makeMesh(new THREE.CylinderGeometry(0.07 * S, 0.065 * S, 0.42 * S, 8), skin);
-  rLA.position.set(0.5 * S, 0.8 * S, 0.1 * S);
-  rLA.rotation.x = 0.4;
-  group.add(rLA);
+  // Forearms (skin)
+  const forearmGeo = new THREE.CylinderGeometry(0.065 * S, 0.055 * S, 0.4 * S, 8);
+  const lFA = new THREE.Mesh(forearmGeo, skinMat);
+  lFA.position.set(-0.46 * S, 0.78 * S, 0.12 * S);
+  lFA.rotation.x = 0.45;
+  group.add(lFA);
+  const rFA = new THREE.Mesh(forearmGeo, skinMat.clone());
+  rFA.position.set(0.46 * S, 0.78 * S, 0.12 * S);
+  rFA.rotation.x = 0.45;
+  group.add(rFA);
 
   // Hands
-  const lHand = makeMesh(new THREE.SphereGeometry(0.07 * S, 8, 6), skin);
-  lHand.position.set(-0.52 * S, 0.6 * S, 0.25 * S);
+  const handGeo = new THREE.SphereGeometry(0.06 * S, 8, 6);
+  const lHand = new THREE.Mesh(handGeo, skinMat);
+  lHand.position.set(-0.48 * S, 0.58 * S, 0.28 * S);
   group.add(lHand);
-
-  const rHand = makeMesh(new THREE.SphereGeometry(0.07 * S, 8, 6), skin);
-  rHand.position.set(0.52 * S, 0.6 * S, 0.25 * S);
+  const rHand = new THREE.Mesh(handGeo, skinMat.clone());
+  rHand.position.set(0.48 * S, 0.58 * S, 0.28 * S);
   group.add(rHand);
 
   // Legs
-  const lLeg = makeMesh(new THREE.CylinderGeometry(0.12 * S, 0.11 * S, 0.78 * S, 8), pants);
-  lLeg.position.set(-0.15 * S, 0.39 * S, 0);
+  const legGeo = new THREE.CylinderGeometry(0.11 * S, 0.1 * S, 0.74 * S, 8);
+  const pantsMat = new THREE.MeshStandardMaterial({ color: pants, roughness: 0.6 });
+  const lLeg = new THREE.Mesh(legGeo, pantsMat);
+  lLeg.position.set(-0.14 * S, 0.37 * S, 0);
   group.add(lLeg);
-
-  const rLeg = makeMesh(new THREE.CylinderGeometry(0.12 * S, 0.11 * S, 0.78 * S, 8), pants);
-  rLeg.position.set(0.15 * S, 0.39 * S, 0);
+  const rLeg = new THREE.Mesh(legGeo, pantsMat.clone());
+  rLeg.position.set(0.14 * S, 0.37 * S, 0);
   group.add(rLeg);
 
   // Shoes
-  const lShoe = makeMesh(new THREE.BoxGeometry(0.18 * S, 0.1 * S, 0.3 * S), 0x111111);
-  lShoe.position.set(-0.15 * S, 0.05 * S, 0.06 * S);
+  const shoeGeo = new THREE.BoxGeometry(0.16 * S, 0.08 * S, 0.28 * S);
+  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.4 });
+  const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
+  lShoe.position.set(-0.14 * S, 0.04 * S, 0.05 * S);
   group.add(lShoe);
-
-  const rShoe = makeMesh(new THREE.BoxGeometry(0.18 * S, 0.1 * S, 0.3 * S), 0x111111);
-  rShoe.position.set(0.15 * S, 0.05 * S, 0.06 * S);
+  const rShoe = new THREE.Mesh(shoeGeo, shoeMat.clone());
+  rShoe.position.set(0.14 * S, 0.04 * S, 0.05 * S);
   group.add(rShoe);
 
   // Neck
-  const neck = makeMesh(new THREE.CylinderGeometry(0.08 * S, 0.1 * S, 0.18 * S, 8), skin);
-  neck.position.y = 1.55 * S;
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * S, 0.1 * S, 0.16 * S, 10), skinMat);
+  neck.position.y = 1.54 * S;
   group.add(neck);
 
-  // Head group (for head animation)
+  // ── Head Group ──
   const headGrp = new THREE.Group();
   headGrp.position.y = 1.76 * S;
   group.add(headGrp);
 
-  // Skull — slightly elongated oval
-  const skull = makeMesh(new THREE.SphereGeometry(0.24 * S, 20, 16), skin);
-  skull.scale.set(1, 1.18, 0.95);
+  // Skull — oval head shape
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.23 * S, 24, 18), skinMat.clone());
+  skull.scale.set(1, 1.15, 0.92);
   headGrp.add(skull);
 
-  // Hair — fuller, wraps top and sides
-  const hairTop = makeMesh(new THREE.SphereGeometry(0.25 * S, 14, 10), hair);
-  hairTop.position.y = 0.1 * S;
-  hairTop.scale.set(1.05, 0.55, 1.05);
-  headGrp.add(hairTop);
+  // ── Full Hair (covers top, sides, and back like a real person) ──
+  // Main hair volume — top
+  const hairMain = new THREE.Mesh(new THREE.SphereGeometry(0.245 * S, 16, 12), hairMat);
+  hairMain.position.set(0, 0.08 * S, -0.02 * S);
+  hairMain.scale.set(1.08, 0.65, 1.1);
+  headGrp.add(hairMain);
 
-  // Side hair (ears area)
-  const hairL = makeMesh(new THREE.SphereGeometry(0.12 * S, 8, 6), hair);
-  hairL.position.set(-0.18 * S, 0.06 * S, -0.04 * S);
-  hairL.scale.set(0.5, 0.9, 0.8);
-  headGrp.add(hairL);
+  // Hair front fringe
+  const hairFringe = new THREE.Mesh(new THREE.SphereGeometry(0.22 * S, 12, 8), hairMat.clone());
+  hairFringe.position.set(0, 0.14 * S, 0.08 * S);
+  hairFringe.scale.set(1.1, 0.35, 0.6);
+  headGrp.add(hairFringe);
 
-  const hairR = makeMesh(new THREE.SphereGeometry(0.12 * S, 8, 6), hair);
-  hairR.position.set(0.18 * S, 0.06 * S, -0.04 * S);
-  hairR.scale.set(0.5, 0.9, 0.8);
-  headGrp.add(hairR);
+  // Left side hair — covers above ear
+  const hairSideL = new THREE.Mesh(new THREE.SphereGeometry(0.14 * S, 10, 8), hairMat.clone());
+  hairSideL.position.set(-0.19 * S, 0.04 * S, -0.02 * S);
+  hairSideL.scale.set(0.55, 0.85, 0.9);
+  headGrp.add(hairSideL);
 
-  // Back hair
-  const hairBack = makeMesh(new THREE.SphereGeometry(0.22 * S, 10, 8), hair);
-  hairBack.position.set(0, 0.04 * S, -0.1 * S);
-  hairBack.scale.set(1, 0.6, 0.7);
+  // Right side hair
+  const hairSideR = new THREE.Mesh(new THREE.SphereGeometry(0.14 * S, 10, 8), hairMat.clone());
+  hairSideR.position.set(0.19 * S, 0.04 * S, -0.02 * S);
+  hairSideR.scale.set(0.55, 0.85, 0.9);
+  headGrp.add(hairSideR);
+
+  // Back hair — nape area
+  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.23 * S, 12, 10), hairMat.clone());
+  hairBack.position.set(0, 0.0, -0.1 * S);
+  hairBack.scale.set(1.02, 0.7, 0.75);
   headGrp.add(hairBack);
 
-  // Ears
-  const lEar = makeMesh(new THREE.SphereGeometry(0.05 * S, 8, 6), skin);
-  lEar.position.set(-0.22 * S, -0.01 * S, 0);
-  lEar.scale.set(0.5, 0.8, 0.6);
-  headGrp.add(lEar);
+  // Hair crown
+  const hairCrown = new THREE.Mesh(new THREE.SphereGeometry(0.2 * S, 10, 8), hairMat.clone());
+  hairCrown.position.set(0, 0.16 * S, -0.04 * S);
+  hairCrown.scale.set(0.9, 0.3, 0.8);
+  headGrp.add(hairCrown);
 
-  const rEar = makeMesh(new THREE.SphereGeometry(0.05 * S, 8, 6), skin);
-  rEar.position.set(0.22 * S, -0.01 * S, 0);
-  rEar.scale.set(0.5, 0.8, 0.6);
+  // ── Ears (partially behind side hair) ──
+  const earGeo = new THREE.SphereGeometry(0.045 * S, 8, 6);
+  const lEar = new THREE.Mesh(earGeo, skinMat.clone());
+  lEar.position.set(-0.22 * S, -0.02 * S, 0.02 * S);
+  lEar.scale.set(0.45, 0.75, 0.55);
+  headGrp.add(lEar);
+  const rEar = new THREE.Mesh(earGeo, skinMat.clone());
+  rEar.position.set(0.22 * S, -0.02 * S, 0.02 * S);
+  rEar.scale.set(0.45, 0.75, 0.55);
   headGrp.add(rEar);
 
-  // Eyebrows
+  // ── Eyebrows ──
   const browMat = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.8 });
-  const lBrow = new THREE.Mesh(new THREE.BoxGeometry(0.08 * S, 0.015 * S, 0.02 * S), browMat);
-  lBrow.position.set(-0.08 * S, 0.1 * S, 0.21 * S);
-  lBrow.rotation.z = 0.08;
+  const browGeo = new THREE.BoxGeometry(0.085 * S, 0.018 * S, 0.02 * S);
+  const lBrow = new THREE.Mesh(browGeo, browMat);
+  lBrow.position.set(-0.075 * S, 0.1 * S, 0.2 * S);
+  lBrow.rotation.z = 0.06;
   headGrp.add(lBrow);
-
-  const rBrow = new THREE.Mesh(new THREE.BoxGeometry(0.08 * S, 0.015 * S, 0.02 * S), browMat);
-  rBrow.position.set(0.08 * S, 0.1 * S, 0.21 * S);
-  rBrow.rotation.z = -0.08;
+  const rBrow = new THREE.Mesh(browGeo, browMat.clone());
+  rBrow.position.set(0.075 * S, 0.1 * S, 0.2 * S);
+  rBrow.rotation.z = -0.06;
   headGrp.add(rBrow);
 
-  // Eyes — white sclera + dark pupil
-  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf5f5f0, roughness: 0.3 });
-  const lSclera = new THREE.Mesh(new THREE.SphereGeometry(0.04 * S, 10, 8), scleraMat);
-  lSclera.position.set(-0.08 * S, 0.045 * S, 0.2 * S);
-  lSclera.scale.set(1.1, 0.85, 0.5);
-  headGrp.add(lSclera);
+  // ── Eyes (white sclera + iris + pupil) ──
+  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf8f8f4, roughness: 0.2 });
+  const eyeGeo = new THREE.SphereGeometry(0.038 * S, 12, 10);
 
-  const rSclera = new THREE.Mesh(new THREE.SphereGeometry(0.04 * S, 10, 8), scleraMat);
-  rSclera.position.set(0.08 * S, 0.045 * S, 0.2 * S);
-  rSclera.scale.set(1.1, 0.85, 0.5);
+  const lSclera = new THREE.Mesh(eyeGeo, scleraMat);
+  lSclera.position.set(-0.075 * S, 0.05 * S, 0.19 * S);
+  lSclera.scale.set(1.15, 0.82, 0.5);
+  headGrp.add(lSclera);
+  const rSclera = new THREE.Mesh(eyeGeo, scleraMat.clone());
+  rSclera.position.set(0.075 * S, 0.05 * S, 0.19 * S);
+  rSclera.scale.set(1.15, 0.82, 0.5);
   headGrp.add(rSclera);
 
-  const lPupil = makeMesh(new THREE.SphereGeometry(0.022 * S, 8, 6), 0x1a1a1a);
-  lPupil.position.set(-0.08 * S, 0.042 * S, 0.225 * S);
-  headGrp.add(lPupil);
+  // Iris (colored)
+  const irisColor = isInterviewer ? 0x3a5a2a : 0x2a3a5a;
+  const irisMat = new THREE.MeshStandardMaterial({ color: irisColor, roughness: 0.3 });
+  const irisGeo = new THREE.SphereGeometry(0.025 * S, 8, 6);
+  const lIris = new THREE.Mesh(irisGeo, irisMat);
+  lIris.position.set(-0.075 * S, 0.048 * S, 0.215 * S);
+  headGrp.add(lIris);
+  const rIris = new THREE.Mesh(irisGeo, irisMat.clone());
+  rIris.position.set(0.075 * S, 0.048 * S, 0.215 * S);
+  headGrp.add(rIris);
 
-  const rPupil = makeMesh(new THREE.SphereGeometry(0.022 * S, 8, 6), 0x1a1a1a);
-  rPupil.position.set(0.08 * S, 0.042 * S, 0.225 * S);
+  // Pupil (black center)
+  const pupilGeo = new THREE.SphereGeometry(0.014 * S, 8, 6);
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.2 });
+  const lPupil = new THREE.Mesh(pupilGeo, pupilMat);
+  lPupil.position.set(-0.075 * S, 0.048 * S, 0.225 * S);
+  headGrp.add(lPupil);
+  const rPupil = new THREE.Mesh(pupilGeo, pupilMat.clone());
+  rPupil.position.set(0.075 * S, 0.048 * S, 0.225 * S);
   headGrp.add(rPupil);
 
-  // Nose — triangular/pointed shape using cone
-  const nose = makeMesh(new THREE.ConeGeometry(0.03 * S, 0.08 * S, 6), skin);
-  nose.position.set(0, -0.02 * S, 0.24 * S);
+  // ── Eyelids (subtle skin-colored arc above each eye) ──
+  const lidGeo = new THREE.BoxGeometry(0.09 * S, 0.012 * S, 0.02 * S);
+  const lLid = new THREE.Mesh(lidGeo, skinMat.clone());
+  lLid.position.set(-0.075 * S, 0.078 * S, 0.2 * S);
+  headGrp.add(lLid);
+  const rLid = new THREE.Mesh(lidGeo, skinMat.clone());
+  rLid.position.set(0.075 * S, 0.078 * S, 0.2 * S);
+  headGrp.add(rLid);
+
+  // ── Nose ──
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.028 * S, 0.075 * S, 8), skinMat.clone());
+  nose.position.set(0, -0.015 * S, 0.23 * S);
   nose.rotation.x = -Math.PI / 2;
   headGrp.add(nose);
 
-  // Nose bridge
-  const noseBridge = makeMesh(new THREE.BoxGeometry(0.025 * S, 0.07 * S, 0.03 * S), skin);
-  noseBridge.position.set(0, 0.02 * S, 0.22 * S);
+  const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(0.022 * S, 0.065 * S, 0.025 * S), skinMat.clone());
+  noseBridge.position.set(0, 0.025 * S, 0.21 * S);
   headGrp.add(noseBridge);
 
   // Nostrils
-  const lNostril = makeMesh(new THREE.SphereGeometry(0.013 * S, 6, 4), 0x8b6b50);
-  lNostril.position.set(-0.018 * S, -0.05 * S, 0.24 * S);
+  const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x8a6a50, roughness: 0.8 });
+  const nostrilGeo = new THREE.SphereGeometry(0.012 * S, 6, 4);
+  const lNostril = new THREE.Mesh(nostrilGeo, nostrilMat);
+  lNostril.position.set(-0.016 * S, -0.048 * S, 0.235 * S);
   headGrp.add(lNostril);
-
-  const rNostril = makeMesh(new THREE.SphereGeometry(0.013 * S, 6, 4), 0x8b6b50);
-  rNostril.position.set(0.018 * S, -0.05 * S, 0.24 * S);
+  const rNostril = new THREE.Mesh(nostrilGeo, nostrilMat.clone());
+  rNostril.position.set(0.016 * S, -0.048 * S, 0.235 * S);
   headGrp.add(rNostril);
 
-  // Mouth group (for mouth animation)
+  // ── Mouth Group (animates open/close) ──
   const mouth = new THREE.Group();
-  mouth.position.set(0, -0.1 * S, 0.21 * S);
+  mouth.position.set(0, -0.1 * S, 0.2 * S);
   headGrp.add(mouth);
 
-  // Upper lip
-  const upperLip = makeMesh(new THREE.BoxGeometry(0.1 * S, 0.025 * S, 0.025 * S), lipColor);
+  const lipMat = new THREE.MeshStandardMaterial({ color: lipColor, roughness: 0.5 });
+  // Upper lip — slight bow shape
+  const upperLip = new THREE.Mesh(new THREE.BoxGeometry(0.09 * S, 0.022 * S, 0.022 * S), lipMat);
   upperLip.position.y = 0.01 * S;
-  upperLip.scale.set(1, 1, 1);
   mouth.add(upperLip);
 
   // Lower lip (slightly fuller)
-  const lowerLip = makeMesh(new THREE.BoxGeometry(0.09 * S, 0.03 * S, 0.028 * S), lipColor);
-  lowerLip.position.y = -0.015 * S;
+  const lowerLip = new THREE.Mesh(new THREE.BoxGeometry(0.08 * S, 0.026 * S, 0.024 * S), lipMat.clone());
+  lowerLip.position.y = -0.012 * S;
   mouth.add(lowerLip);
 
-  // Mouth interior (visible when speaking)
-  const inner = makeMesh(new THREE.BoxGeometry(0.06 * S, 0.001, 0.02 * S), 0x2d0000);
-  inner.position.y = -0.005 * S;
+  // Mouth interior
+  const inner = new THREE.Mesh(new THREE.BoxGeometry(0.055 * S, 0.001, 0.018 * S), new THREE.MeshStandardMaterial({ color: 0x2a0000 }));
+  inner.position.y = -0.003 * S;
   mouth.add(inner);
 
-  // Chin
-  const chin = makeMesh(new THREE.SphereGeometry(0.08 * S, 8, 6), skin);
-  chin.position.set(0, -0.18 * S, 0.14 * S);
-  chin.scale.set(1, 0.5, 0.7);
+  // ── Chin ──
+  const chin = new THREE.Mesh(new THREE.SphereGeometry(0.075 * S, 10, 8), skinMat.clone());
+  chin.position.set(0, -0.17 * S, 0.13 * S);
+  chin.scale.set(1, 0.45, 0.65);
   headGrp.add(chin);
 
-  // Interviewer extras: glasses + tie
+  // ── Jawline (subtle definition) ──
+  const jawGeo = new THREE.BoxGeometry(0.2 * S, 0.03 * S, 0.08 * S);
+  const jaw = new THREE.Mesh(jawGeo, skinMat.clone());
+  jaw.position.set(0, -0.14 * S, 0.1 * S);
+  headGrp.add(jaw);
+
+  // ── Interviewer extras: glasses + tie ──
   if (isInterviewer) {
-    const gM = new THREE.MeshStandardMaterial({ color: 0x222222 });
-    const geoT = new THREE.TorusGeometry(0.06 * S, 0.008 * S, 6, 20);
+    const gM = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.3 });
+    const geoT = new THREE.TorusGeometry(0.055 * S, 0.007 * S, 8, 24);
 
     const gl = new THREE.Mesh(geoT, gM);
-    gl.position.set(-0.08 * S, 0.05 * S, 0.22 * S);
-    gl.rotation.y = 0.1;
+    gl.position.set(-0.075 * S, 0.05 * S, 0.22 * S);
+    gl.rotation.y = 0.08;
     headGrp.add(gl);
-
     const gr = new THREE.Mesh(geoT, gM);
-    gr.position.set(0.08 * S, 0.05 * S, 0.22 * S);
-    gr.rotation.y = -0.1;
+    gr.position.set(0.075 * S, 0.05 * S, 0.22 * S);
+    gr.rotation.y = -0.08;
     headGrp.add(gr);
 
-    const br = new THREE.Mesh(new THREE.BoxGeometry(0.04 * S, 0.008 * S, 0.008 * S), gM);
-    br.position.set(0, 0.05 * S, 0.24 * S);
-    headGrp.add(br);
+    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.035 * S, 0.006 * S, 0.006 * S), gM);
+    bridge.position.set(0, 0.055 * S, 0.24 * S);
+    headGrp.add(bridge);
 
     // Temple arms
-    const lArm = new THREE.Mesh(new THREE.BoxGeometry(0.16 * S, 0.006 * S, 0.006 * S), gM);
-    lArm.position.set(-0.16 * S, 0.05 * S, 0.12 * S);
-    headGrp.add(lArm);
-    const rArm = new THREE.Mesh(new THREE.BoxGeometry(0.16 * S, 0.006 * S, 0.006 * S), gM);
-    rArm.position.set(0.16 * S, 0.05 * S, 0.12 * S);
-    headGrp.add(rArm);
+    const tArmGeo = new THREE.BoxGeometry(0.15 * S, 0.005 * S, 0.005 * S);
+    const lTArm = new THREE.Mesh(tArmGeo, gM);
+    lTArm.position.set(-0.15 * S, 0.05 * S, 0.12 * S);
+    headGrp.add(lTArm);
+    const rTArm = new THREE.Mesh(tArmGeo, gM);
+    rTArm.position.set(0.15 * S, 0.05 * S, 0.12 * S);
+    headGrp.add(rTArm);
 
-    const tie = makeMesh(new THREE.BoxGeometry(0.06 * S, 0.32 * S, 0.03 * S), 0x7c3aed);
-    tie.position.set(0, 1.08 * S, 0.22 * S);
+    // Tie
+    const tie = new THREE.Mesh(new THREE.BoxGeometry(0.055 * S, 0.3 * S, 0.025 * S), new THREE.MeshStandardMaterial({ color: 0x7c3aed, roughness: 0.5 }));
+    tie.position.set(0, 1.06 * S, 0.22 * S);
     group.add(tie);
+
+    // Tie knot
+    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.02 * S, 6, 6), new THREE.MeshStandardMaterial({ color: 0x6d28d9, roughness: 0.5 }));
+    knot.position.set(0, 1.42 * S, 0.24 * S);
+    knot.scale.set(1.2, 0.8, 0.8);
+    group.add(knot);
+  } else {
+    // Candidate: collar detail
+    const collarGeo = new THREE.BoxGeometry(0.12 * S, 0.05 * S, 0.04 * S);
+    const collarMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.5 });
+    const lCollar = new THREE.Mesh(collarGeo, collarMat);
+    lCollar.position.set(-0.1 * S, 1.48 * S, 0.15 * S);
+    lCollar.rotation.z = 0.3;
+    group.add(lCollar);
+    const rCollar = new THREE.Mesh(collarGeo, collarMat.clone());
+    rCollar.position.set(0.1 * S, 1.48 * S, 0.15 * S);
+    rCollar.rotation.z = -0.3;
+    group.add(rCollar);
   }
 
   return { group, head: headGrp, mouth };
@@ -425,22 +502,19 @@ function buildOffice(scene: THREE.Scene) {
 
 // ── Speech Bubble Component ─────────────────────────────────────
 
-function SpeechBubble({ text, side, visible, isQuestion, feedbackMode, fullText, spokenWordIdx, scrollRef }: {
+function SpeechBubble({ text, side, visible, isQuestion }: {
   text: string; side: "left" | "right"; visible: boolean; isQuestion: boolean;
-  feedbackMode?: boolean; fullText?: string; spokenWordIdx?: number; scrollRef?: React.RefObject<HTMLDivElement | null>;
 }) {
   const isLeft = side === "left";
-  const isFeedback = feedbackMode && fullText;
   return (
     <div style={{
-      width: isFeedback ? 380 : undefined,
-      maxWidth: isFeedback ? 380 : 300,
-      minWidth: isFeedback ? 300 : 120,
+      maxWidth: 320,
+      minWidth: 100,
       background: "linear-gradient(160deg, rgba(15,23,42,0.96), rgba(30,41,59,0.94))",
       border: `1px solid ${isQuestion ? "rgba(96,165,250,0.35)" : "rgba(192,132,252,0.35)"}`,
       borderRadius: isLeft ? "16px 16px 16px 4px" : "16px 16px 4px 16px",
-      padding: isFeedback ? "10px 14px" : "9px 13px", position: "relative",
-      boxShadow: `0 10px 26px rgba(2,6,23,0.55)`,
+      padding: "9px 13px", position: "relative",
+      boxShadow: "0 10px 26px rgba(2,6,23,0.55)",
       backdropFilter: "blur(10px)",
       opacity: visible ? 1 : 0,
       transform: visible ? "translateY(0) scale(1)" : "translateY(8px) scale(0.94)",
@@ -455,32 +529,7 @@ function SpeechBubble({ text, side, visible, isQuestion, feedbackMode, fullText,
       }}>
         {isQuestion ? "Interviewer" : "Candidate"}
       </div>
-      {isFeedback ? (
-        <div ref={scrollRef} style={{
-          fontSize: 14, lineHeight: 1.7,
-          maxHeight: 96, overflowY: "auto", scrollBehavior: "smooth",
-        }}>
-          {fullText.split(" ").map((word, i) => (
-            <span key={i} style={{
-              display: "inline-block",
-              fontSize: 14,
-              borderRadius: 3,
-              padding: "0 2px",
-              transition: "all 0.12s",
-              color: spokenWordIdx !== undefined && i === spokenWordIdx ? "#f8fafc"
-                : spokenWordIdx !== undefined && i < spokenWordIdx ? "#facc15"
-                : "#475569",
-              fontWeight: spokenWordIdx !== undefined && i === spokenWordIdx ? 700 : 400,
-              background: spokenWordIdx !== undefined && i === spokenWordIdx ? "rgba(56,189,248,0.35)" : "transparent",
-              transform: spokenWordIdx !== undefined && i === spokenWordIdx ? "scale(1.08)" : "scale(1)",
-            }}>
-              {word}{" "}
-            </span>
-          ))}
-        </div>
-      ) : (
-        <div style={{ fontSize: 13, color: "#f8fafc", lineHeight: 1.55, fontWeight: 600 }}>{text}</div>
-      )}
+      <div style={{ fontSize: 13, color: "#f8fafc", lineHeight: 1.55, fontWeight: 600 }}>{text}</div>
       <div style={{
         position: "absolute", bottom: -8,
         ...(isLeft ? { left: 14 } : { right: 14 }),
@@ -573,10 +622,11 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
   const [feedbackFullText, setFeedbackFullText] = useState("");
   const [coachingData, setCoachingData] = useState<{ coaching_plan?: string; priority_skill?: string; example_rewrite?: string; encouragement?: string } | null>(null);
-  const feedbackBoxRef = useRef<HTMLDivElement | null>(null);
   const [feedbackQA, setFeedbackQA] = useState<{ q: string; a: string; tip?: string }[]>([]);
   const [feedbackQuestion, setFeedbackQuestion] = useState("");
   const [askingFeedback, setAskingFeedback] = useState(false);
+  const [feedbackVoiceRecording, setFeedbackVoiceRecording] = useState(false);
+  const feedbackRecognitionRef = useRef<any>(null);
   const recordingStartRef = useRef<number>(0);
 
   // Alternating question flow: Normal→FollowUp→Normal→FollowUp→Normal
@@ -1113,30 +1163,26 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         setInterviewerTalking(true);
         setFeedbackSpeaking(true);
 
-        // Track word-by-word for the speech bubble above interviewer's head
+        // Show fixed-length chunks — simpler and more reliable than word tracking
         const feedbackWords = feedbackText.split(" ");
-        setBubbleText(feedbackWords.slice(0, 7).join(" ") + "...");
+        const chunkSize = 8;
+        let chunkIdx = 0;
+        setBubbleText(feedbackWords.slice(0, chunkSize).join(" "));
 
-        utter.onboundary = (e: SpeechSynthesisEvent) => {
-          if (e.name !== "word") return;
-          const spokenSoFar = feedbackText.substring(0, e.charIndex + e.charLength).trim();
-          const wordIdx = spokenSoFar.split(/\s+/).length - 1;
-          // Show a sliding window of recent words in the bubble
-          setBubbleText(feedbackWords.slice(Math.max(0, wordIdx - 6), wordIdx + 1).join(" "));
-          setSpokenWordIdx(wordIdx);
-          // Auto-scroll the feedback box
-          if (feedbackBoxRef.current) {
-            const lineHeight = 22;
-            const wordsPerLine = 10;
-            const currentLine = Math.floor(wordIdx / wordsPerLine);
-            feedbackBoxRef.current.scrollTop = Math.max(0, (currentLine - 1) * lineHeight);
+        // Advance bubble text every ~2.5s
+        const bubbleTimer = setInterval(() => {
+          chunkIdx++;
+          const start = chunkIdx * chunkSize;
+          if (start < feedbackWords.length) {
+            setBubbleText(feedbackWords.slice(start, start + chunkSize).join(" "));
           }
-        };
+        }, 2500);
 
         utter.onend = () => {
+          clearInterval(bubbleTimer);
           setInterviewerTalking(false);
           setFeedbackSpeaking(false);
-          setBubbleText(feedbackWords.slice(-7).join(" "));
+          setBubbleText(feedbackWords.slice(-chunkSize).join(" "));
         };
         window.speechSynthesis.speak(utter);
       }
@@ -1199,28 +1245,25 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         setInterviewerTalking(true);
         setFeedbackSpeaking(true);
         setFeedbackFullText(data.response);
-        setSpokenWordIdx(-1);
 
         const words = data.response.split(" ");
-        setBubbleText(words.slice(0, 7).join(" ") + "...");
+        const chunkSize = 8;
+        let chunkIdx = 0;
+        setBubbleText(words.slice(0, chunkSize).join(" "));
 
-        utter.onboundary = (e: SpeechSynthesisEvent) => {
-          if (e.name !== "word") return;
-          const spokenSoFar = data.response.substring(0, e.charIndex + e.charLength).trim();
-          const wordIdx = spokenSoFar.split(/\s+/).length - 1;
-          setBubbleText(words.slice(Math.max(0, wordIdx - 6), wordIdx + 1).join(" "));
-          setSpokenWordIdx(wordIdx);
-          if (feedbackBoxRef.current) {
-            const lineHeight = 22;
-            const wordsPerLine = 10;
-            const currentLine = Math.floor(wordIdx / wordsPerLine);
-            feedbackBoxRef.current.scrollTop = Math.max(0, (currentLine - 1) * lineHeight);
+        const bubbleTimer = setInterval(() => {
+          chunkIdx++;
+          const start = chunkIdx * chunkSize;
+          if (start < words.length) {
+            setBubbleText(words.slice(start, start + chunkSize).join(" "));
           }
-        };
+        }, 2500);
+
         utter.onend = () => {
+          clearInterval(bubbleTimer);
           setInterviewerTalking(false);
           setFeedbackSpeaking(false);
-          setBubbleText(words.slice(-7).join(" "));
+          setBubbleText(words.slice(-chunkSize).join(" "));
         };
         window.speechSynthesis.speak(utter);
       }
@@ -1231,6 +1274,40 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       setAskingFeedback(false);
     }
   }, [feedbackQuestion, feedbackData, allAnswers, companyName, role]);
+
+  const toggleFeedbackVoice = useCallback(() => {
+    if (feedbackVoiceRecording) {
+      // Stop
+      if (feedbackRecognitionRef.current) {
+        feedbackRecognitionRef.current.onend = null;
+        feedbackRecognitionRef.current.stop();
+        feedbackRecognitionRef.current = null;
+      }
+      setFeedbackVoiceRecording(false);
+    } else {
+      // Start
+      const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SpeechRecognitionAPI) return;
+      const rec = new SpeechRecognitionAPI();
+      rec.continuous = false;
+      rec.interimResults = true;
+      rec.lang = "en-US";
+      rec.onresult = (event: any) => {
+        let text = "";
+        for (let i = 0; i < event.results.length; i++) {
+          text += event.results[i][0].transcript;
+        }
+        setFeedbackQuestion(text);
+      };
+      rec.onend = () => {
+        setFeedbackVoiceRecording(false);
+        feedbackRecognitionRef.current = null;
+      };
+      feedbackRecognitionRef.current = rec;
+      setFeedbackVoiceRecording(true);
+      rec.start();
+    }
+  }, [feedbackVoiceRecording]);
 
   // ── Follow-up generation ──────────────────────────────────────
   const generateFollowUp = useCallback(async (): Promise<string> => {
@@ -1372,10 +1449,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             side="left"
             visible={!!bubbleText && activeSpeaker === "interviewer" && mode !== "intro"}
             isQuestion={true}
-            feedbackMode={mode === "feedback" && !!feedbackFullText}
-            fullText={mode === "feedback" ? feedbackFullText : undefined}
-            spokenWordIdx={mode === "feedback" ? spokenWordIdx : undefined}
-            scrollRef={feedbackBoxRef}
           />
         </div>
 
@@ -1875,14 +1948,29 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                       value={feedbackQuestion}
                       onChange={e => setFeedbackQuestion(e.target.value)}
                       onKeyDown={e => { if (e.key === "Enter" && !askingFeedback) askAboutFeedback(); }}
-                      placeholder="e.g. How can I improve my STAR structure?"
-                      disabled={askingFeedback}
+                      placeholder={feedbackVoiceRecording ? "Listening..." : "e.g. How can I improve my STAR structure?"}
+                      disabled={askingFeedback || feedbackVoiceRecording}
                       style={{
                         flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 12,
-                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
+                        background: feedbackVoiceRecording ? "rgba(248,113,113,0.08)" : "rgba(255,255,255,0.05)",
+                        border: `1px solid ${feedbackVoiceRecording ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.12)"}`,
                         color: "#e2e8f0", outline: "none", fontFamily: "inherit",
                       }}
                     />
+                    <button
+                      onClick={toggleFeedbackVoice}
+                      disabled={askingFeedback}
+                      title={feedbackVoiceRecording ? "Stop recording" : "Ask with voice"}
+                      style={{
+                        padding: "8px 10px", borderRadius: 8, border: "none", cursor: "pointer",
+                        background: feedbackVoiceRecording ? "rgba(248,113,113,0.3)" : "rgba(255,255,255,0.08)",
+                        color: feedbackVoiceRecording ? "#f87171" : "#94a3b8", fontSize: 14,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        animation: feedbackVoiceRecording ? "pulse 1s infinite" : "none",
+                      }}
+                    >
+                      {feedbackVoiceRecording ? "⏹" : "🎤"}
+                    </button>
                     <button
                       onClick={askAboutFeedback}
                       disabled={askingFeedback || !feedbackQuestion.trim()}

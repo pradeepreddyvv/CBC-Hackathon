@@ -51,6 +51,9 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [autoFillLoading, setAutoFillLoading] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleted, setDeleted] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) { router.push("/login"); return; }
@@ -343,6 +346,46 @@ export default function ProfilePage() {
         <p style={{ fontSize: 13, color: C.tert, textAlign: "center", marginTop: 16 }}>
           Saving will generate new interview questions tailored to your updated company and role.
         </p>
+
+        {/* Delete My Data */}
+        <div style={{ ...card, padding: "24px 32px", marginTop: 40, borderColor: "rgba(248,113,113,0.2)" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: C.danger, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Data & Privacy</div>
+          <p style={{ fontSize: 14, color: C.sec, lineHeight: 1.6, margin: "0 0 16px" }}>
+            Delete all your interview data — transcripts, answers, scores, and session history. Your profile info will be cleared. This action cannot be undone.
+          </p>
+          {deleted ? (
+            <div style={{ padding: "14px", borderRadius: 12, background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.3)", color: C.success, fontSize: 14, fontWeight: 600, textAlign: "center" }}>
+              All data deleted successfully.
+            </div>
+          ) : !deleteConfirm ? (
+            <button onClick={() => setDeleteConfirm(true)} style={{ padding: "12px 24px", borderRadius: 12, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.3)", color: C.danger, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+              Delete My Data
+            </button>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 14, color: C.danger, fontWeight: 600 }}>Are you sure?</span>
+              <button onClick={async () => {
+                setDeleting(true);
+                try {
+                  await fetch("/api/delete-data", { method: "POST" });
+                  localStorage.removeItem("interview_coach_profile");
+                  localStorage.removeItem("interview_questions");
+                  localStorage.removeItem("interview_history");
+                  setDeleted(true);
+                  setProfile({ name: "", background: "", targetRole: "Software Engineer", targetCompany: "Google", experience: "", skills: "", country: "" });
+                  setJobDescription("");
+                  setTimeout(() => router.push("/login"), 2000);
+                } catch { /* ignore */ }
+                setDeleting(false);
+              }} disabled={deleting} style={{ padding: "10px 20px", borderRadius: 10, background: C.danger, border: "none", color: "white", fontSize: 13, fontWeight: 700, cursor: deleting ? "not-allowed" : "pointer", fontFamily: "inherit", opacity: deleting ? 0.6 : 1 }}>
+                {deleting ? "Deleting..." : "Yes, Delete Everything"}
+              </button>
+              <button onClick={() => setDeleteConfirm(false)} style={{ padding: "10px 20px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: C.sec, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
       <style>{`input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.22)}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
