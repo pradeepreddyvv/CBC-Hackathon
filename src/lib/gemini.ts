@@ -1,38 +1,40 @@
 // ============================================================
-// GEMINI API CLIENT — lightweight, no SDK needed
+// AI CLIENT — Uses InsForge Model Gateway
 // ============================================================
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.0-flash";
+const INSFORGE_URL = process.env.INSFORGE_PROJECT_URL || "";
+const INSFORGE_KEY = process.env.INSFORGE_API_KEY || "";
+const AI_MODEL = process.env.AI_MODEL || "google/gemini-2.5-flash-lite";
 
 export async function callGemini(prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY;
-  if (!apiKey) throw new Error("Set GEMINI_API_KEY (or GEMINI_KEY) in .env.local");
+  if (!INSFORGE_URL || !INSFORGE_KEY) {
+    throw new Error("INSFORGE_PROJECT_URL or INSFORGE_API_KEY not set in .env.local");
+  }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `${INSFORGE_URL}/api/ai/chat/completion`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${INSFORGE_KEY}`,
+    },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: 4096,
-        temperature: 0.7,
-      },
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 8192,
+      temperature: 0.7,
     }),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${err}`);
+    throw new Error(`InsForge AI ${res.status}: ${err}`);
   }
 
   const data = await res.json();
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  // Skip thinking parts, get the text
-  const text = parts.find((p: { text?: string; thought?: boolean }) => p.text && !p.thought)?.text
-    || parts[parts.length - 1]?.text || "";
-  return text;
+  // InsForge returns { text: "...", metadata: { model, usage } }
+  return data.text || "";
 }
 
 export function extractJSON(text: string): Record<string, unknown> {
@@ -40,5 +42,13 @@ export function extractJSON(text: string): Record<string, unknown> {
   const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "");
   const match = cleaned.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("No JSON found in response");
-  return JSON.parse(match[0]);
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    // Try to fix common JSON issues: trailing commas, unescaped newlines in strings
+    const fixed = match[0]
+      .replace(/,\s*([\]}])/g, "$1") // trailing commas
+      .replace(/[\x00-\x1f]/g, (ch) => ch === "\n" ? "\\n" : ch === "\t" ? "\\t" : ""); // control chars in strings
+    return JSON.parse(fixed);
+  }
 }

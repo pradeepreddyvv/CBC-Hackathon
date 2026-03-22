@@ -1,0 +1,32 @@
+{
+  "role": "Software Engineer Intern",
+  "tips": [
+    "Ask clarifying questions before diving into the code to ensure you understand the problem constraints.",
+    "Communicate your thought process out loud while solving problems to show how you handle ambiguity.",
+    "Start with a brute-force solution to ensure you have something working, then iterate to optimize for time and space complexity.",
+    "Practice coding in Google Docs or on a whiteboard, as you may not have access to an IDE with syntax highlighting during the interview.",
+    "Tailor your behavioral answers to align with Google's mission and 'Googleyness' values (e.g., leadership, comfort with ambiguity).",
+    "Be honest about what you don't know and demonstrate a strong motivation and ability to learn quickly."
+  ],
+  "source": "igotanoffer",
+  "company": "google",
+  "questions": [
+    "Coding: Implement Trie for prefix matching",
+    "Coding: Write a function to merge two sorted arrays without using extra space",
+    "Coding: Given an array of integers, return all unique triplets [a, b, c] where a + b + c = 0",
+    "Coding: Implement a Snapshot Array that supports pre-defined interfaces",
+    "Coding: Implement a cleaning algorithm for a robot vacuum cleaner",
+    "Coding: Find the lowest common ancestor of two nodes in a binary tree",
+    "Coding: Given two strings, return the length of their longest common subsequence",
+    "Coding: Find the minimum number of coins needed for change",
+    "Coding: Solve the 'Generate All Possible Balanced Parentheses' problem recursively",
+    "Coding: Evaluate reverse polish notation and return the result",
+    "Behavioral: Tell me about yourself",
+    "Behavioral: Why Google?",
+    "Behavioral: Tell me about a recent / interesting project you worked on",
+    "Behavioral: Tell me about a time you had to resolve a conflict in a team",
+    "Behavioral: What is your favorite Google product?"
+  ],
+  "round_type": "technical",
+  "interview_overview": "The Google Software Engineer interview process typically takes more than eight weeks and consists of several stages: 1. Resume Screening (tailoring the resume is critical as ~90% of candidates are filtered here). 2. Online Assessments (including a workstyle hiring assessment and a coding assessment). 3. Technical Phone Screen (1 to 2 interviews, 45-60 minutes each, solving data structure and algorithm questions on a shared Google Doc). 4. Interview Loop (traditionally 4 to 6 interviews covering coding and 'Googleyness' / leadership; system design is generally reserved for more senior roles). Note: For interns, the onsite loop typically focuses heavily on coding and behavioral questions rather than system design."
+}

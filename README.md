@@ -1,208 +1,380 @@
-# CareerHub AI
+# InterviewCoach AI
 
-**AI-Powered Career Intelligence Platform for Students**
+**AI-Powered Mock Interview Platform with Structured STAR Feedback**
 
-> HackASU 2026 | Track 3: Economic Empowerment & Education
+> HackASU 2026 — Claude Builder Club | Track 3: Economic Empowerment & Education
 
-## The Problem
+---
 
-Students spend **40+ hours per application cycle** manually tailoring resumes, writing cover letters, and researching companies. Career centers at most universities are understaffed and appointment-limited. Students at non-target schools often lack access to the same quality career guidance available at elite institutions.
+## What It Does
 
-The result: talented students miss opportunities not because they lack skills, but because the application process is a full-time job in itself.
+InterviewCoach helps job seekers practice interviews with AI and get deeply structured feedback. Upload your resume, pick a target company, and the system generates personalized questions based on real interview data scraped from Reddit, LeetCode, Glassdoor, and GeeksForGeeks. Answer via voice or text, and get scored on STAR framework, delivery quality, and sentence-level analysis.
 
-## Our Solution
+### Key Features
 
-CareerHub AI is an open-source, AI-powered career intelligence platform that automates the most time-consuming parts of the job search:
+- **Resume Upload & Auto-Fill** — Upload PDF/DOCX/TXT, AI extracts and fills your profile
+- **Internet Research** — Searches Reddit, LeetCode, Glassdoor, GFG for real interview experiences at your target company
+- **Personalized Question Generation** — AI generates questions based on your profile, company, and research data
+- **Voice & Text Input** — Answer using Web Speech API voice recording or type
+- **STAR Framework Scoring** — Situation, Task, Action, Result scored individually (0-100)
+- **Sentence-Level Analysis** — Every sentence rated as strong/okay/weak with rewrites
+- **Delivery Analysis** — Filler words, hedging phrases, power words, active voice %, pacing
+- **Follow-Up Questions** — AI generates contextual follow-ups based on your answers
+- **Adaptive Sessions** — Targets your weak areas with progressively harder questions
+- **Company-Specific Intelligence** — Built-in profiles for Amazon (LPs), Google, Meta, Microsoft, Apple, Netflix
+- **Progress Tracking** — Score trends, weak area tracking with improving/stable/declining trends
+- **Cloud Persistence** — All data synced to InsForge PostgreSQL
 
-- **Job Discovery** — Aggregates listings from 7 open-source GitHub internship repos + manual JD input
-- **AI Scoring** — Claude analyzes each job against your profile and scores match quality (0-100)
-- **Tailored Resumes** — Generates ATS-optimized resumes using ONLY your real experience
-- **Cover Letters** — Creates personalized cover letters with company-specific hooks
-- **Interview Prep** — Behavioral + technical questions mapped to your actual STAR stories
-- **Outreach Messages** — LinkedIn DMs, cold emails, and referral asks ready to send
-- **AI Career Advisor** — Chat with Claude about any job, strategy, or career question
+---
 
 ## Architecture
 
 ```
-┌─────────────────────┐     ┌──────────────────────┐
-│   Job Sources        │     │   CareerHub UI        │
-│  GitHub Intern Repos │────▶│  Single-Page App      │
-│  (7 open-source      │     │  Dark Theme           │
-│   repositories)      │     │  6 Tabs + AI Chat     │
-│  + Manual JD Input   │     │                       │
-└─────────────────────┘     └──────────┬───────────┘
-                                       │
-                            ┌──────────▼───────────┐
-                            │   Claude API Proxy    │
-                            │   (n8n Webhook)       │
-                            │                       │
-                            │  /webhook/claude-proxy│
-                            └──────────┬───────────┘
-                                       │
-                            ┌──────────▼───────────┐
-                            │   Claude (Anthropic)  │
-                            │   Scoring, Resume Gen │
-                            │   Cover Letters, Chat │
-                            │   Interview Prep      │
-                            └───────────────────────┘
+                         +------------------+
+                         |   Next.js App    |
+                         |   (Frontend)     |
+                         +--------+---------+
+                                  |
+                    +-------------+-------------+
+                    |                           |
+              +-----v-----+            +-------v-------+
+              | Auth Flow  |            | Practice Flow |
+              +-----+-----+            +-------+-------+
+                    |                           |
+          +---------+---------+       +---------+---------+
+          |                   |       |                   |
+    +-----v-----+   +--------v--+  +-v--------+   +-----v------+
+    | Email/Pass|   | Google    |  | Voice/    |   | Feedback   |
+    | JWT Auth  |   | OAuth 2.0 |  | Text Input|   | Engine     |
+    +-----------+   +-----------+  +----------+   +-----+------+
+                                                        |
+                                              +---------v---------+
+                                              | InsForge Model    |
+                                              | Gateway           |
+                                              | (Gemini 2.5 Flash)|
+                                              +-------------------+
+                                                        |
+              +--------------------+--------------------+
+              |                    |                    |
+        +-----v-----+     +------v------+     +-------v-------+
+        | STAR       |     | Sentence    |     | Delivery      |
+        | Scoring    |     | Analysis    |     | Analysis      |
+        +------------+     +-------------+     +---------------+
+
+    +----------------------------------------------------------+
+    |                   InsForge PostgreSQL                     |
+    |  users | sessions | answers | weak_areas | embeddings     |
+    +----------------------------------------------------------+
 ```
 
-## Features
+### Data Flow
 
-| Feature | Description |
-|---------|-------------|
-| **Command Center** | Dashboard with metrics, priority jobs, workflow controls |
-| **Apply Tab** | Job details, AI analysis, multi-score breakdown, skill match |
-| **Resume Builder** | ATS-optimized text resume + LaTeX generation |
-| **Cover Letter** | Personalized 250-320 word cover letters |
-| **Outreach** | LinkedIn DM, cold email, referral ask + tracker |
-| **Pipeline** | Kanban board (New → Applied → Interview → Offer) |
-| **AI Chat** | Per-job context-aware career advisor |
-| **Generate Docs** | Paste any JD, instantly get tailored resume + cover letter + ATS audit |
-| **Paste JD** | Paste raw job page content, AI extracts structured JD |
-| **Filters** | Score ranges, role types, No Analysis, No JD, Has Docs |
+```
+User registers/logs in
+        |
+        v
+Onboarding Wizard (5 steps)
+  1. Profile (name, resume upload, skills, target roles)
+  2. Interview Type (behavioral / technical / system design / mixed)
+  3. Company & Role (company, years exp, round type, JD)
+  4. Internet Research (AI searches Reddit/LeetCode/Glassdoor/GFG)
+  5. Question Generation (5 personalized questions)
+        |
+        v
+Practice Session
+  - Display question
+  - Record answer (voice/text)
+  - AI generates structured feedback
+  - Optional: answer follow-up question
+  - Repeat for all questions
+  - Session summary with readiness score
+        |
+        v
+Progress Dashboard
+  - Score trends over time
+  - Weak area tracking (15 competencies)
+  - Communication habits analysis
+  - Cross-session AI analysis
+```
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Vanilla HTML/CSS/JS (single-file SPA, no build step)
-- **AI**: Claude API (Anthropic) via server-side proxy
-- **Backend**: n8n (workflow automation) on DigitalOcean
-- **Pipeline**: Python 3.9+ with concurrent document generation
-- **Data**: localStorage (client) + JSON file store (server)
+| Layer | Technology | Purpose |
+|-------|-----------|---------|
+| **Frontend** | Next.js 14 (App Router) | React framework with SSR |
+| **Styling** | Tailwind CSS v3 | Dark theme UI with custom animations |
+| **Language** | TypeScript | Type safety |
+| **AI Gateway** | InsForge Model Gateway | Unified AI model routing |
+| **AI Model** | Gemini 2.5 Flash Lite | Question generation, feedback, research |
+| **Database** | InsForge PostgreSQL 15 | Users, sessions, answers, weak areas |
+| **Vector DB** | pgvector on PostgreSQL | Semantic question search (3072d embeddings) |
+| **Auth** | JWT (jose) + bcryptjs | Email/password + Google OAuth |
+| **Voice** | Web Speech API | Browser-native speech-to-text |
+| **PDF Parsing** | pdf-parse | Resume text extraction |
+| **DOCX Parsing** | jszip | Resume DOCX extraction |
 
-## Live Demo
+### Hackathon Sponsor Integrations
 
-**[CareerHub AI Live](http://146.190.138.113:5678/webhook/career-hub)** — Try it now (no login required)
+- **InsForge** — PostgreSQL database, AI Model Gateway, vector database (pgvector)
+- **Gemini** — AI model via InsForge gateway (gemini-2.5-flash-lite)
 
-## Quick Start
+---
 
-### Run the Next.js Interview Coach (current frontend)
+## Project Structure
 
-This repo includes a full Next.js frontend under `src/app`.
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── auth/           # Auth endpoints (login, register, Google OAuth, me, logout, profile)
+│   │   ├── adaptive/       # AI session generation & progress analysis
+│   │   ├── db/             # PostgreSQL database operations
+│   │   ├── feedback/       # Per-question STAR feedback + session summary
+│   │   ├── parse-profile/  # AI profile extraction from resume/context
+│   │   ├── parse-resume/   # PDF/DOCX/TXT file parsing
+│   │   ├── research/       # Company interview research via AI
+│   │   └── vector/         # Vector similarity search (pgvector)
+│   ├── login/              # Login/register page
+│   ├── onboarding/         # 5-step setup wizard
+│   ├── page.tsx            # Main practice dashboard
+│   ├── layout.tsx          # Root layout with AuthProvider
+│   └── globals.css         # Tailwind + custom animations
+├── components/
+│   ├── VoiceRecorder.tsx   # Voice input with Web Speech API
+│   ├── FeedbackCard.tsx    # Rich feedback visualization
+│   └── ProgressDashboard.tsx # Stats, trends, weak areas
+└── lib/
+    ├── auth.ts             # JWT, password hashing, DB auth functions
+    ├── auth-context.tsx    # React Context for client-side auth state
+    ├── db.ts               # PostgreSQL queries (users, sessions, answers, weak_areas)
+    ├── store.ts            # localStorage persistence layer
+    ├── gemini.ts           # InsForge AI gateway client
+    ├── prompts.ts          # All prompt templates (feedback, summary, adaptive, progress)
+    ├── questions.ts        # 15-question bank + weak area taxonomy
+    ├── company-patterns.ts # Company-specific interview intelligence (8 companies)
+    └── cloud-sync.ts       # Client-side cloud sync wrapper
+```
 
-1. Install dependencies
+---
+
+## Database Schema
+
+### users
+| Column | Type | Description |
+|--------|------|-------------|
+| id | text (UUID) | Primary key |
+| email | text | Unique, lowercase |
+| password_hash | text | bcrypt hash |
+| google_id | text | Google OAuth ID |
+| name | text | Display name |
+| avatar_url | text | Profile picture |
+| background | text | Career summary |
+| target_role | text | Primary target role |
+| target_company | text | Target company |
+| experience | text | Work history |
+| skills | text | Comma-separated skills |
+| resume_text | text | Full resume content |
+| llm_context | text | AI-generated context |
+| target_roles | text[] | Multiple target roles |
+| interview_type | text | behavioral/technical/system_design/mixed |
+| onboarded | boolean | Completed setup |
+
+### sessions
+| Column | Type | Description |
+|--------|------|-------------|
+| id | text | Session ID |
+| user_id | text | Foreign key to users |
+| company | text | Company practiced for |
+| role | text | Role practiced for |
+| answer_count | int | Questions answered |
+| avg_score | int | Average score |
+| weak_areas | text[] | Areas identified |
+| session_number | int | Sequential number |
+| session_summary | jsonb | AI-generated summary |
+
+### answers
+| Column | Type | Description |
+|--------|------|-------------|
+| id | text | Answer ID |
+| session_id | text | Foreign key to sessions |
+| user_id | text | Foreign key to users |
+| question_text | text | The question asked |
+| answer_text | text | User's full answer |
+| feedback | jsonb | Complete FeedbackResult |
+| duration_sec | int | Answer duration |
+
+### weak_areas
+| Column | Type | Description |
+|--------|------|-------------|
+| user_id | text | Foreign key to users |
+| area | text | Competency area |
+| total_occurrences | int | Times flagged |
+| score_history | int[] | Score progression |
+| avg_score | int | Current average |
+| trend | text | improving/stable/declining |
+
+---
+
+## AI Feedback Structure
+
+Each answer receives a deeply structured `FeedbackResult`:
+
+```json
+{
+  "overall_score": 78,
+  "star_scores": { "situation": 70, "task": 80, "action": 85, "result": 60 },
+  "dimension_scores": { "clarity": 80, "confidence": 75, "conciseness": 70, "storytelling": 85, "technical_accuracy": 90 },
+  "sentence_analysis": [
+    { "sentence": "...", "rating": "strong", "reason": "...", "tags": ["quantified", "ownership"] }
+  ],
+  "delivery_analysis": {
+    "filler_words": ["um", "like"],
+    "hedging_phrases": ["I think"],
+    "power_words": ["spearheaded", "delivered"],
+    "active_voice_pct": 85,
+    "pacing": "good"
+  },
+  "strengths": ["Clear ownership language", "Quantified results"],
+  "improvements": ["Add more context to the Situation"],
+  "coaching_tip": "Lead with the business impact before the technical details",
+  "follow_up_question": "Can you elaborate on the technical challenges you faced?",
+  "weak_areas": ["situation_context", "result_quantification"]
+}
+```
+
+### 15 Tracked Competencies
+
+| Area | Description |
+|------|-------------|
+| situation_context | Setting clear context |
+| task_clarity | Defining your specific task |
+| action_specificity | Detailing what YOU did |
+| result_quantification | Quantifying outcomes |
+| technical_depth | Technical knowledge depth |
+| system_design | Architecture thinking |
+| trade_offs | Analyzing trade-offs |
+| communication_clarity | Clear communication |
+| conciseness | Being concise |
+| confidence | Speaking with confidence |
+| leadership_signals | Leadership evidence |
+| customer_focus | Customer-centric thinking |
+| data_driven | Using data to decide |
+| ownership | Taking ownership |
+| bias_for_action | Showing initiative |
+
+---
+
+## Company Intelligence
+
+Built-in interview profiles for 8 companies:
+
+| Company | Focus | Behavioral Weight |
+|---------|-------|-------------------|
+| Amazon | 16 Leadership Principles, ownership, metrics | 50% |
+| Google | Googliness, cognitive ability, structured | 30% |
+| Meta | Impact, scale, move fast, builder mindset | 35% |
+| Microsoft | Growth mindset, collaboration, inclusivity | 40% |
+| Apple | Craftsmanship, attention to detail | 35% |
+| Netflix | Freedom & responsibility, candid feedback | 40% |
+| Startup | Ship fast, full-stack, resourcefulness | 30% |
+| General | STAR framework, problem-solving | 40% |
+
+---
+
+## Setup & Run
+
+### Prerequisites
+- Node.js 18+
+- InsForge account with PostgreSQL + Model Gateway enabled
+
+### Installation
+
 ```bash
+git clone https://github.com/metalgenesis123321/CBC-Hackathon.git
+cd interview-coach
 npm install
 ```
 
-2. Create `.env.local` in the project root
-```bash
-GEMINI_API_KEY=your_gemini_key
-SPEECHMATICS_API_KEY=your_speechmatics_key
-# Optional fallback (supported too)
-# GEMINI_KEY=your_gemini_key
-# Optional model override
-# GEMINI_MODEL=gemini-2.0-flash
+### Environment Variables
+
+Create `.env.local`:
+
+```env
+# AI Model (via InsForge Gateway)
+AI_MODEL=google/gemini-2.5-flash-lite
+
+# Gemini API Key (for vector embeddings only)
+GEMINI_API_KEY=your_gemini_api_key
+
+# InsForge Backend
+INSFORGE_PROJECT_URL=https://your-project.us-east.insforge.app
+INSFORGE_API_KEY=your_insforge_api_key
+INSFORGE_ANON_KEY=your_anon_key
+INSFORGE_DB_URL=postgresql://postgres:password@your-project.us-east.database.insforge.app:5432/insforge?sslmode=require
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+
+# Auth
+JWT_SECRET=your_jwt_secret
 ```
 
-3. Start the app
+### Run Locally
+
 ```bash
 npm run dev
+# Open http://localhost:3000
 ```
 
-4. Open local URL shown in terminal (usually `http://localhost:3000`, or `3001` if 3000 is occupied)
+### Build
 
-5. Verify production build
 ```bash
 npm run build
+npm start
 ```
 
-### Interview Mode (new)
+---
 
-- Open the app and go to **Interview Mode**.
-- Click **Start Recording** to capture interviewer + candidate conversation.
-- Click **Transcribe Conversation** to run Speechmatics diarization (speaker labels).
-- Click **Generate Interview Feedback** to get coaching from the full transcript.
+## API Endpoints
 
-### Run the Pipeline Scripts (Python + n8n)
+### Authentication
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/auth/register` | Register with email/password |
+| POST | `/api/auth/login` | Login with email/password |
+| GET | `/api/auth/google` | Initiate Google OAuth |
+| GET | `/api/auth/google/callback` | Google OAuth callback |
+| GET | `/api/auth/me` | Get current authenticated user |
+| POST | `/api/auth/profile` | Update user profile |
+| POST | `/api/auth/logout` | Clear auth cookie |
 
-1. Create and activate a Python environment
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install requests fastapi uvicorn httpx
-```
+### AI & Practice
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/feedback` | Get STAR feedback for an answer |
+| POST | `/api/adaptive` | Generate adaptive session or analyze progress |
+| POST | `/api/research` | Search interview experiences online |
+| POST | `/api/parse-resume` | Extract text from PDF/DOCX/TXT |
+| POST | `/api/parse-profile` | AI-extract profile from resume text |
 
-2. Export environment variables (script stack uses `GEMINI_KEY`)
-```bash
-export GEMINI_KEY=your_gemini_key
-export N8N_BASE=http://localhost:5678
-export N8N_API_KEY=your_n8n_api_key
-```
+### Data
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/api/db` | Database operations (sessions, answers, stats) |
+| POST | `/api/vector` | Vector similarity search operations |
 
-3. Common commands
-```bash
-# Analyze jobs
-python3 scripts/batch_analyze_jobs.py --days 7
-
-# Generate docs
-python3 scripts/generate_job_docs.py --days 7 --min-score 30
-
-# Upload generated docs to n8n
-python3 scripts/upload_docs_to_n8n.py
-```
-
-4. Optional JD service
-```bash
-python3 scripts/jd_service.py
-# health check: http://localhost:8765/health
-```
-
-### 1. Clone & Configure
-```bash
-git clone https://github.com/metalgenesis123321/CBC-Hackathon.git
-cd CBC-Hackathon
-cp .env.example .env
-# Edit .env with your API keys
-```
-
-### 2. Set Up the Claude Proxy
-The app needs a server-side proxy to call the Claude API (browser CORS restriction).
-
-**Option A: n8n (recommended)**
-- Import the proxy workflow into your n8n instance
-- Set your Anthropic API key in the workflow
-
-**Option B: Simple Express proxy**
-```bash
-npm install express cors anthropic
-node proxy.js  # Starts on port 3001
-```
-
-### 3. Open the App
-- Serve `career_hub.html` via any static server or n8n webhook
-- On first visit, complete the setup wizard (name, school, resume)
-- Start browsing jobs and generating tailored applications!
-
-### 4. Run the Pipeline (Optional)
-```bash
-pip install requests
-export ANTHROPIC_KEY=your_key_here
-python scripts/generate_job_docs.py --manual
-```
-
-## Ethical Design
-
-See [ETHICAL_CONSIDERATIONS.md](docs/ETHICAL_CONSIDERATIONS.md) for our full ethical framework.
-
-Key principles:
-- **Truthfulness**: Every AI prompt includes "NEVER fabricate data." ATS audits verify content against real experience.
-- **Transparency**: All AI-generated content is labeled. Users always review before submitting.
-- **Privacy**: All personal data stays in the user's browser (localStorage). No central database.
-- **Equity**: Free and open-source. Any student gets the same quality career intelligence.
-- **Human Agency**: The tool assists, never replaces. Users make all final decisions.
-
-## Impact
-
-- Reduces application preparation time from **4-6 hours to 15 minutes** per job
-- Generates ATS-optimized resumes with **85%+ keyword coverage**
-- Levels the playing field for students at non-target schools
-- Open-source — any university career center can deploy it
+---
 
 ## Team
 
-Built at HackASU 2026 (Claude Builder Club Hackathon)
+Built for HackASU 2026 Claude Builder Club Hackathon
+
+**Track:** Economic Empowerment & Education
+
+---
 
 ## License
 
