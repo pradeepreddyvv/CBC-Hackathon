@@ -1,0 +1,33 @@
+{
+  "role": "Software Engineer Intern",
+  "source": "leetcode_discuss",
+  "company": "google",
+  "top_posts": [
+    {
+      "url": "https://leetcode.com/discuss/post/6828725/google-india-6-month-software-developer-e40ox/",
+      "title": "Google India | 6-month Software Developer Intern | Round 1",
+      "snippet": "Hi everyone! I recently had my Round 1 Google interview for a Software Engineer role, and I wanted to share my experience\u2014especially for those preparing and unsure what to expect. The Problem I was asked one core question related to trees. Although it..."
+    },
+    {
+      "url": "https://leetcode.com/discuss/post/5933748/google-application-engineer-intern-sept-ggmbl/",
+      "title": "Google | Application Engineer Intern | Sept 2024 [Reject]",
+      "snippet": "Resume shortlisting Interview - Started with my introduction followed by 2 dsa questions, 1. Flatten n-ary tree, 2. Preorder traversal of a tree with point..."
+    },
+    {
+      "url": "https://leetcode.com/discuss/post/6709758/google-summer-intern-interview-experienc-qunp/",
+      "title": "Google Summer Intern Interview Experience \u2014 2025",
+      "snippet": "\ud83d\udcdd The Application Proc..."
+    },
+    {
+      "url": "https://leetcode.com/discuss/post/5699807/google-interview-experience-by-ampercent-hd2u/",
+      "title": "google interview experience",
+      "snippet": "hello everyone, i got email from Google recruiter..."
+    },
+    {
+      "url": "https://leetcode.com/discuss/post/6469509/google-latest-interview-experiences-coll-r4zm/",
+      "title": "\ud83d\udccc\ud83d\udccc Google latest Interview Experiences : Collection - Curated and organised",
+      "snippet": "Google Interview Experiences: A Curated Collection This collection organizes Google interview experiences shared by candidates on LeetCode into distinct categori..."
+    }
+  ],
+  "round_type": "technical"
+}
