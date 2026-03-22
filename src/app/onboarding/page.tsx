@@ -28,6 +28,7 @@ const COMPANY_PRESETS = [
 
 interface OnboardingData {
   name: string;
+  country: string;
   resumeText: string;
   llmContext: string;
   targetRoles: string[];
@@ -53,6 +54,7 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<OnboardingData>({
     name: user?.name || "",
+    country: "",
     resumeText: "",
     llmContext: "",
     targetRoles: [],
@@ -69,6 +71,7 @@ export default function OnboardingPage() {
     generatedQuestions: [],
   });
 
+  const [isOtherCompany, setIsOtherCompany] = useState(false);
   const update = (fields: Partial<OnboardingData>) => setData(prev => ({ ...prev, ...fields }));
 
   const toggleRole = (role: string) => {
@@ -121,6 +124,7 @@ export default function OnboardingPage() {
           roundType: data.roundType,
           skills: data.targetSkills || data.skills,
           yearsExperience: data.yearsExperience,
+          country: data.country,
         }),
       });
       const result = await res.json();
@@ -143,6 +147,7 @@ export default function OnboardingPage() {
           action: "generate_session",
           company: data.companyName,
           role: data.targetRoles[0] || "Software Engineer",
+          country: data.country,
           profile: {
             name: data.name,
             background: data.background,
@@ -150,6 +155,7 @@ export default function OnboardingPage() {
             targetCompany: data.companyName,
             experience: data.experience,
             skills: data.skills,
+            country: data.country,
           },
           weakAreas: [],
           completedQuestions: [],
@@ -191,6 +197,7 @@ export default function OnboardingPage() {
           llm_context: data.llmContext,
           target_roles: data.targetRoles,
           interview_type: data.interviewType,
+          country: data.country,
           onboarded: true,
         }),
       });
@@ -203,6 +210,7 @@ export default function OnboardingPage() {
         jobDescription: data.jobDescription,
         generatedQuestions: data.generatedQuestions,
         researchResults: data.researchResults,
+        country: data.country,
       }));
       router.push("/");
     } catch (e) {
@@ -328,6 +336,7 @@ export default function OnboardingPage() {
             {/* Manual fields */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-3">
               <InputField label="Name" value={data.name} onChange={v => update({ name: v })} placeholder="Your name" />
+              <InputField label="Country" value={data.country} onChange={v => update({ country: v })} placeholder="e.g., United States, India, Germany" />
               <InputField label="Background" value={data.background} onChange={v => update({ background: v })} placeholder="e.g., CS student, 3 years backend engineer" />
               <InputField label="Experience" value={data.experience} onChange={v => update({ experience: v })} placeholder="Key projects, achievements with metrics" multiline />
               <InputField label="Skills" value={data.skills} onChange={v => update({ skills: v })} placeholder="Python, React, AWS, System Design, etc." />
@@ -398,9 +407,17 @@ export default function OnboardingPage() {
                   {COMPANY_PRESETS.map(c => (
                     <button
                       key={c}
-                      onClick={() => update({ companyName: c })}
+                      onClick={() => {
+                        if (c === "Other") {
+                          setIsOtherCompany(true);
+                          update({ companyName: "" });
+                        } else {
+                          setIsOtherCompany(false);
+                          update({ companyName: c });
+                        }
+                      }}
                       className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        data.companyName === c
+                        (c === "Other" && isOtherCompany) || (!isOtherCompany && data.companyName === c)
                           ? "bg-accent text-white"
                           : "bg-surface border border-border text-muted hover:border-accent"
                       }`}
@@ -409,12 +426,14 @@ export default function OnboardingPage() {
                     </button>
                   ))}
                 </div>
-                {data.companyName === "Other" && (
+                {isOtherCompany && (
                   <input
                     type="text"
-                    placeholder="Company name"
-                    onChange={e => update({ companyName: e.target.value || "Other" })}
+                    value={data.companyName}
+                    placeholder="Enter company name"
+                    onChange={e => update({ companyName: e.target.value })}
                     className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none mt-2"
+                    autoFocus
                   />
                 )}
               </div>

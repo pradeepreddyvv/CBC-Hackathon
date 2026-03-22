@@ -6,8 +6,9 @@ import { getCompanyPromptContext } from "@/lib/company-patterns";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, company, role, profile, weakAreas, completedQuestions, sessionNumber, sessions, overallWeakAreas, communicationHabits } = body;
+    const { action, company, role, profile, weakAreas, completedQuestions, sessionNumber, sessions, overallWeakAreas, communicationHabits, country } = body;
     const co = company || "General";
+    const candidateCountry = country || profile?.country || "";
 
     const candidateContext = buildCandidateContext({
       name: profile?.name || "Candidate",
@@ -18,7 +19,11 @@ export async function POST(req: NextRequest) {
       skills: profile?.skills || "Not provided",
     });
 
-    const fullContext = candidateContext + "\n" + getCompanyPromptContext(co);
+    const countryContext = candidateCountry
+      ? `\nCandidate Location: ${candidateCountry}. Tailor questions to be relevant to ${candidateCountry}-based interviews at ${co}. Consider regional interview practices, local office culture, and country-specific behavioral expectations.`
+      : "";
+
+    const fullContext = candidateContext + "\n" + getCompanyPromptContext(co) + countryContext;
 
     if (action === "generate_session") {
       const prompt = buildAdaptiveQuestionPrompt({

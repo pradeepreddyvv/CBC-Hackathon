@@ -41,6 +41,11 @@ export async function cloudSaveSession(userId: string, session: {
   id: string; company: string; role: string; answerCount: number;
   avgScore: number; weakAreas: string[]; sessionNumber: number;
   sessionSummary?: Record<string, unknown>;
+  generatedQuestions?: unknown[];
+  interviewType?: string;
+  roundType?: string;
+  researchContext?: Record<string, unknown>;
+  sessionConfig?: Record<string, unknown>;
 }) {
   return dbCall("save_session", { userId, session });
 }
@@ -50,6 +55,7 @@ export async function cloudSaveAnswer(userId: string, answer: {
   id: string; sessionId: string; questionId: string; questionText: string;
   category: string; type: string; answer: string;
   feedback: Record<string, unknown>; durationSec: number;
+  transcript?: string;
 }) {
   return dbCall("save_answer", { userId, answer });
 }

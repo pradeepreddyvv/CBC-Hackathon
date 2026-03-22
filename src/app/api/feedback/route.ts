@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action } = body;
     const company = body.company || "General";
+    const candidateCountry = body.country || body.profile?.country || "";
 
     const candidateContext = buildCandidateContext({
       name: body.profile?.name || "Candidate",
@@ -18,8 +19,12 @@ export async function POST(req: NextRequest) {
       skills: body.profile?.skills || "Not provided",
     });
 
+    const countryContext = candidateCountry
+      ? `\nCandidate is based in ${candidateCountry}. Consider ${candidateCountry}-specific interview norms, communication styles, and cultural expectations when providing feedback.`
+      : "";
+
     // Append company-specific interview intelligence
-    const fullContext = candidateContext + "\n" + getCompanyPromptContext(company);
+    const fullContext = candidateContext + "\n" + getCompanyPromptContext(company) + countryContext;
 
     if (action === "session_summary") {
       const prompt = buildSessionSummaryPrompt({

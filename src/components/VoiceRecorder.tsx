@@ -5,10 +5,11 @@ import { useState, useRef, useCallback, useEffect } from "react";
 interface VoiceRecorderProps {
   onTranscript: (text: string) => void;
   onRecordingChange?: (isRecording: boolean) => void;
+  onAudioReady?: (audioUrl: string) => void;
   disabled?: boolean;
 }
 
-export default function VoiceRecorder({ onTranscript, onRecordingChange, disabled }: VoiceRecorderProps) {
+export default function VoiceRecorder({ onTranscript, onRecordingChange, onAudioReady, disabled }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [transcript, setTranscript] = useState("");
@@ -17,16 +18,44 @@ export default function VoiceRecorder({ onTranscript, onRecordingChange, disable
   const recognitionRef = useRef<any>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fullTranscriptRef = useRef("");
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
   // Check for Web Speech API support
   const hasSpeechAPI = typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window) as boolean;
 
-  const startRecording = useCallback(() => {
+  const startRecording = useCallback(async () => {
     if (!hasSpeechAPI) {
       setUseManualInput(true);
       return;
     }
 
+    // Start audio recording via MediaRecorder
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) audioChunksRef.current.push(e.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        onAudioReady?.(audioUrl);
+        // Stop all tracks
+        stream.getTracks().forEach(t => t.stop());
+      };
+
+      mediaRecorder.start();
+      mediaRecorderRef.current = mediaRecorder;
+    } catch {
+      // If mic access fails for MediaRecorder, still continue with speech recognition
+      console.warn("MediaRecorder not available — replay won't work");
+    }
+
+    // Start speech recognition
     const SpeechRecognitionAPI = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognitionAPI();
     recognition.continuous = true;
@@ -75,13 +104,17 @@ export default function VoiceRecorder({ onTranscript, onRecordingChange, disable
     timerRef.current = setInterval(() => {
       setSeconds(s => s + 1);
     }, 1000);
-  }, [hasSpeechAPI, isRecording, onRecordingChange]);
+  }, [hasSpeechAPI, isRecording, onRecordingChange, onAudioReady]);
 
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
       recognitionRef.current.onend = null; // Prevent auto-restart
       recognitionRef.current.stop();
       recognitionRef.current = null;
+    }
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
     }
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -102,6 +135,9 @@ export default function VoiceRecorder({ onTranscript, onRecordingChange, disable
       if (recognitionRef.current) {
         recognitionRef.current.onend = null;
         recognitionRef.current.stop();
+      }
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.stop();
       }
       if (timerRef.current) clearInterval(timerRef.current);
     };

@@ -123,7 +123,7 @@ export async function updateUserProfile(userId: string, data: Record<string, unk
 
   const allowed = [
     "name", "background", "target_role", "target_company", "experience",
-    "skills", "resume_text", "llm_context", "target_roles", "interview_type", "onboarded"
+    "skills", "resume_text", "llm_context", "target_roles", "interview_type", "onboarded", "country"
   ];
 
   for (const key of allowed) {

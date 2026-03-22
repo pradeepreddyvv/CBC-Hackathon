@@ -93,6 +93,7 @@ export interface UserProfile {
   targetCompany: string;
   experience: string;
   skills: string;
+  country?: string;
 }
 
 export interface LearningProfile {

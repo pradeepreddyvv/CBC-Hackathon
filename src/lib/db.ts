@@ -66,16 +66,30 @@ export async function dbSaveSession(userId: string, session: {
   id: string; company: string; role: string; answerCount: number;
   avgScore: number; weakAreas: string[]; sessionNumber: number;
   sessionSummary?: Record<string, unknown>;
+  generatedQuestions?: unknown[];
+  interviewType?: string;
+  roundType?: string;
+  researchContext?: Record<string, unknown>;
+  sessionConfig?: Record<string, unknown>;
 }) {
   const p = getPool();
   await p.query(
-    `INSERT INTO sessions (id, user_id, company, role, answer_count, avg_score, weak_areas, session_number, session_summary)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    `INSERT INTO sessions (id, user_id, company, role, answer_count, avg_score, weak_areas, session_number, session_summary, generated_questions, interview_type, round_type, research_context, session_config)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
      ON CONFLICT (id) DO UPDATE SET
-       answer_count=$5, avg_score=$6, weak_areas=$7, session_summary=$9, completed_at=NOW()`,
+       answer_count=$5, avg_score=$6, weak_areas=$7, session_summary=$9,
+       generated_questions=COALESCE($10, sessions.generated_questions),
+       session_config=COALESCE($14, sessions.session_config),
+       completed_at=NOW()`,
     [session.id, userId, session.company, session.role,
      session.answerCount, session.avgScore, session.weakAreas,
-     session.sessionNumber, session.sessionSummary ? JSON.stringify(session.sessionSummary) : null]
+     session.sessionNumber,
+     session.sessionSummary ? JSON.stringify(session.sessionSummary) : null,
+     session.generatedQuestions ? JSON.stringify(session.generatedQuestions) : null,
+     session.interviewType || '',
+     session.roundType || '',
+     session.researchContext ? JSON.stringify(session.researchContext) : null,
+     session.sessionConfig ? JSON.stringify(session.sessionConfig) : null]
   );
 }
 
@@ -96,6 +110,11 @@ export async function dbGetSessions(userId: string) {
     weakAreas: r.weak_areas || [],
     sessionNumber: r.session_number,
     sessionSummary: r.session_summary,
+    generatedQuestions: r.generated_questions || [],
+    interviewType: r.interview_type,
+    roundType: r.round_type,
+    researchContext: r.research_context,
+    sessionConfig: r.session_config,
   }));
 }
 
@@ -104,14 +123,16 @@ export async function dbSaveAnswer(userId: string, answer: {
   id: string; sessionId: string; questionId: string; questionText: string;
   category: string; type: string; answer: string;
   feedback: Record<string, unknown>; durationSec: number;
+  transcript?: string;
 }) {
   const p = getPool();
   await p.query(
-    `INSERT INTO answers (id, session_id, user_id, question_id, question_text, category, type, answer_text, feedback, duration_sec)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+    `INSERT INTO answers (id, session_id, user_id, question_id, question_text, category, type, answer_text, feedback, duration_sec, transcript)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
      ON CONFLICT (id) DO NOTHING`,
     [answer.id, answer.sessionId, userId, answer.questionId, answer.questionText,
-     answer.category, answer.type, answer.answer, JSON.stringify(answer.feedback), answer.durationSec]
+     answer.category, answer.type, answer.answer, JSON.stringify(answer.feedback), answer.durationSec,
+     answer.transcript || answer.answer]
   );
 }
 
@@ -129,6 +150,7 @@ export async function dbGetAnswers(userId: string, limit = 100) {
     category: r.category,
     type: r.type,
     answer: r.answer_text,
+    transcript: r.transcript || r.answer_text,
     feedback: r.feedback,
     durationSec: r.duration_sec,
     timestamp: r.created_at,
@@ -138,22 +160,23 @@ export async function dbGetAnswers(userId: string, limit = 100) {
 // ── Weak Areas ──────────────────────────────────────────────
 export async function dbUpdateWeakAreas(userId: string, areas: string[], score: number) {
   const p = getPool();
+  const scoreInt = Math.round(Number(score) || 0);
   for (const area of areas) {
     await p.query(
       `INSERT INTO weak_areas (user_id, area, total_occurrences, score_history, avg_score, last_seen)
-       VALUES ($1, $2, 1, ARRAY[$3], $3, NOW())
+       VALUES ($1, $2, 1, ARRAY[$3::int], $3::int, NOW())
        ON CONFLICT (user_id, area) DO UPDATE SET
          total_occurrences = weak_areas.total_occurrences + 1,
-         score_history = array_append(weak_areas.score_history, $3),
-         avg_score = (SELECT ROUND(AVG(v)) FROM unnest(array_append(weak_areas.score_history, $3)) AS v),
+         score_history = array_append(weak_areas.score_history, $3::int),
+         avg_score = (SELECT ROUND(AVG(v))::int FROM unnest(array_append(weak_areas.score_history, $3::int)) AS v),
          last_seen = NOW(),
          trend = CASE
            WHEN array_length(weak_areas.score_history, 1) >= 3 THEN
-             CASE WHEN $3 > weak_areas.avg_score + 5 THEN 'improving'
-                  WHEN $3 < weak_areas.avg_score - 5 THEN 'declining'
+             CASE WHEN $3::int > weak_areas.avg_score + 5 THEN 'improving'
+                  WHEN $3::int < weak_areas.avg_score - 5 THEN 'declining'
                   ELSE 'stable' END
            ELSE 'stable' END`,
-      [userId, area, score]
+      [userId, area, scoreInt]
     );
   }
 }

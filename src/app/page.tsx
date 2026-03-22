@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import FeedbackCard from "@/components/FeedbackCard";
@@ -44,7 +44,7 @@ export default function Home() {
   const [tab, setTab] = useState<Tab>("practice");
   const [profile, setProfile] = useState<UserProfile>({
     name: "", background: "", targetRole: "Software Engineer",
-    targetCompany: "Google", experience: "", skills: "",
+    targetCompany: "Google", experience: "", skills: "", country: "",
   });
   const [profileSaved, setProfileSaved] = useState(false);
 
@@ -62,6 +62,11 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [sessionAnswers, setSessionAnswers] = useState<AnswerRecord[]>([]);
   const [showFeedbackPerQ, setShowFeedbackPerQ] = useState(true);
+
+  // Audio replay
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Follow-up question
   const [followUpQ, setFollowUpQ] = useState<string | null>(null);
@@ -103,7 +108,7 @@ export default function Home() {
           setSessionId("sess_" + Date.now());
         }
         if (parsed.companyName) {
-          setProfile(prev => ({ ...prev, targetCompany: parsed.companyName }));
+          setProfile(prev => ({ ...prev, targetCompany: parsed.companyName, country: parsed.country || "" }));
         }
       } catch { /* ignore */ }
     }
@@ -139,6 +144,7 @@ export default function Home() {
             action: "generate_session",
             company: profile.targetCompany,
             role: profile.targetRole,
+            country: profile.country,
             profile,
             weakAreas,
             completedQuestions: savedProfile.completedQuestionTexts,
@@ -168,7 +174,7 @@ export default function Home() {
       setSessionQuestions(QUESTION_BANK.slice(0, 5));
     }
 
-    // Record session
+    // Record session locally
     const session: SessionRecord = {
       id: sid,
       company: profile.targetCompany,
@@ -180,7 +186,28 @@ export default function Home() {
       sessionNumber: getSessionCount() + 1,
     };
     recordSession(session);
-  }, [profile]);
+
+    // Save full session data to cloud (generated questions, config, etc.)
+    if (user?.id) {
+      const config = localStorage.getItem("interview_session_config");
+      const parsedConfig = config ? JSON.parse(config) : {};
+      cloudSaveSession(user.id, {
+        ...session,
+        generatedQuestions: sessionQuestions,
+        interviewType: parsedConfig.interviewType || "",
+        roundType: parsedConfig.roundType || "",
+        researchContext: parsedConfig.researchResults || null,
+        sessionConfig: {
+          company: profile.targetCompany,
+          role: profile.targetRole,
+          country: profile.country,
+          interviewType: parsedConfig.interviewType,
+          roundType: parsedConfig.roundType,
+          jobDescription: parsedConfig.jobDescription,
+        },
+      });
+    }
+  }, [profile, user]);
 
   const currentQuestion = sessionQuestions[currentQIndex] || null;
 
@@ -195,8 +222,30 @@ export default function Home() {
     if (isRecording) {
       setAnswerStartTime(Date.now());
       setFeedback(null);
+      setAudioUrl(null);
+      setIsPlaying(false);
     }
   }, []);
+
+  const handleAudioReady = useCallback((url: string) => {
+    // Revoke previous URL to avoid memory leaks
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioUrl(url);
+  }, [audioUrl]);
+
+  const togglePlayback = useCallback(() => {
+    if (!audioUrl) return;
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      const audio = new Audio(audioUrl);
+      audio.onended = () => setIsPlaying(false);
+      audio.play();
+      audioRef.current = audio;
+      setIsPlaying(true);
+    }
+  }, [audioUrl, isPlaying]);
 
   // Get feedback for current answer
   const getFeedback = useCallback(async () => {
@@ -219,6 +268,7 @@ export default function Home() {
           questionType: q?.type || "behavioral",
           company: profile.targetCompany,
           role: profile.targetRole,
+          country: profile.country,
           profile,
           answerDurationSec: answerDuration || 60,
           modelAnswer: undefined,
@@ -262,8 +312,15 @@ export default function Home() {
 
         // Sync to InsForge cloud + vector embedding
         if (user?.id) {
-          cloudSaveAnswer(user?.id, { ...record, feedback: record.feedback as unknown as Record<string, unknown> });
-          cloudSaveSession(user?.id, sessionData);
+          cloudSaveAnswer(user?.id, {
+            ...record,
+            feedback: record.feedback as unknown as Record<string, unknown>,
+            transcript: record.answer,
+          });
+          cloudSaveSession(user?.id, {
+            ...sessionData,
+            generatedQuestions: sessionQuestions,
+          });
           // Embed answer for vector similarity search (fire-and-forget)
           fetch("/api/vector", {
             method: "POST",
@@ -301,6 +358,9 @@ export default function Home() {
       setAnswerStartTime(null);
       setFollowUpQ(null);
       setIsFollowUp(false);
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+      setIsPlaying(false);
     }
   }, [currentQIndex, sessionQuestions.length]);
 
@@ -316,6 +376,7 @@ export default function Home() {
           action: "session_summary",
           company: profile.targetCompany,
           role: profile.targetRole,
+          country: profile.country,
           profile,
           sessionNumber: getSessionCount(),
           answers: sessionAnswers.map(a => ({
@@ -556,6 +617,7 @@ export default function Home() {
                   <VoiceRecorder
                     onTranscript={handleTranscript}
                     onRecordingChange={handleRecordingChange}
+                    onAudioReady={handleAudioReady}
                     disabled={loading}
                   />
                 </div>
@@ -564,7 +626,31 @@ export default function Home() {
                 {answer && (
                   <div className="space-y-3">
                     <div className="bg-surface rounded-lg p-3">
-                      <div className="text-[10px] text-muted font-bold mb-1">YOUR ANSWER ({answerDuration}s)</div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-[10px] text-muted font-bold">YOUR ANSWER ({answerDuration}s)</div>
+                        {audioUrl && (
+                          <button
+                            onClick={togglePlayback}
+                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${
+                              isPlaying
+                                ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                : "bg-accent/20 text-accent border border-accent/30 hover:bg-accent/30"
+                            }`}
+                          >
+                            {isPlaying ? (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                                Stop
+                              </>
+                            ) : (
+                              <>
+                                <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                Re-listen
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-300 whitespace-pre-wrap max-h-32 overflow-y-auto">{answer}</p>
                     </div>
                     <div className="flex gap-2">
@@ -887,6 +973,7 @@ function SessionSummaryCard({ summary, answers, onNewSession }: {
 
 function HistoryView() {
   const [profile, setProfile] = useState(getProfile());
+  const [expandedAnswer, setExpandedAnswer] = useState<string | null>(null);
   useEffect(() => { setProfile(getProfile()); }, []);
 
   if (profile.answers.length === 0) {
@@ -906,13 +993,20 @@ function HistoryView() {
     sessionMap.get(a.sessionId)!.push(a);
   }
 
+  const scoreColor = (s: number) =>
+    s >= 85 ? "text-green-400" : s >= 70 ? "text-blue-400" : s >= 50 ? "text-yellow-400" : "text-red-400";
+
+  const scoreBg = (s: number) =>
+    s >= 85 ? "bg-green-900/50 text-green-400" : s >= 70 ? "bg-blue-900/50 text-blue-400" : s >= 50 ? "bg-yellow-900/50 text-yellow-400" : "bg-red-900/50 text-red-400";
+
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-bold text-slate-200">Practice History</h2>
       {Array.from(sessionMap.entries()).map(([sessId, answers]) => {
         const session = profile.sessions.find(s => s.id === sessId);
-        const avgScore = answers.filter(a => a.feedback.overall_score > 0).length > 0
-          ? Math.round(answers.filter(a => a.feedback.overall_score > 0).reduce((s, a) => s + a.feedback.overall_score, 0) / answers.filter(a => a.feedback.overall_score > 0).length)
+        const scoredAnswers = answers.filter(a => a.feedback.overall_score > 0);
+        const avgScore = scoredAnswers.length > 0
+          ? Math.round(scoredAnswers.reduce((s, a) => s + a.feedback.overall_score, 0) / scoredAnswers.length)
           : 0;
 
         return (
@@ -927,27 +1021,199 @@ function HistoryView() {
                 </span>
               </div>
               {avgScore > 0 && (
-                <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                  avgScore >= 70 ? "bg-green-900/50 text-green-400" : "bg-yellow-900/50 text-yellow-400"
-                }`}>{avgScore} avg</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-bold ${scoreBg(avgScore)}`}>{avgScore} avg</span>
               )}
             </summary>
             <div className="border-t border-border">
-              {answers.map(a => (
-                <div key={a.id} className="p-3 border-b border-border last:border-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {a.feedback.overall_score > 0 && (
-                      <span className={`text-xs font-bold ${
-                        a.feedback.overall_score >= 70 ? "text-green-400" : a.feedback.overall_score >= 50 ? "text-yellow-400" : "text-red-400"
-                      }`}>{a.feedback.overall_score}</span>
+              {answers.map(a => {
+                const isExpanded = expandedAnswer === a.id;
+                const fb = a.feedback;
+                return (
+                  <div key={a.id} className="border-b border-border last:border-0">
+                    {/* Collapsed row */}
+                    <button
+                      onClick={() => setExpandedAnswer(isExpanded ? null : a.id)}
+                      className="w-full p-3 text-left hover:bg-surface/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        {fb.overall_score > 0 && (
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${scoreBg(fb.overall_score)}`}>
+                            {fb.overall_score}
+                          </span>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs text-slate-300 truncate">{a.questionText}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-muted">{a.type}</span>
+                            <span className="text-[10px] text-muted">{a.durationSec}s</span>
+                            {fb.coaching_tip && <span className="text-[10px] text-muted truncate">Tip: {fb.coaching_tip}</span>}
+                          </div>
+                        </div>
+                        <svg className={`w-4 h-4 text-muted transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </button>
+
+                    {/* Expanded detail */}
+                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-3 bg-surface/30">
+                        {/* Question */}
+                        <div className="bg-surface rounded-lg p-3">
+                          <div className="text-[10px] text-accent font-bold uppercase mb-1">Question</div>
+                          <p className="text-sm text-slate-200">{a.questionText}</p>
+                        </div>
+
+                        {/* Your Answer / Transcript */}
+                        <div className="bg-surface rounded-lg p-3">
+                          <div className="text-[10px] text-accent2 font-bold uppercase mb-1">Your Answer ({a.durationSec}s)</div>
+                          <p className="text-xs text-slate-300 whitespace-pre-wrap">{a.answer}</p>
+                        </div>
+
+                        {/* STAR Scores */}
+                        {fb.star_scores && (
+                          <div className="bg-surface rounded-lg p-3">
+                            <div className="text-[10px] text-muted font-bold uppercase mb-2">STAR Scores</div>
+                            <div className="grid grid-cols-4 gap-2">
+                              {Object.entries(fb.star_scores).map(([k, v]) => (
+                                <div key={k} className="text-center">
+                                  <div className={`text-lg font-bold ${scoreColor(v as number)}`}>{v as number}</div>
+                                  <div className="text-[10px] text-muted capitalize">{k}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Dimension Scores */}
+                        {fb.dimension_scores && (
+                          <div className="bg-surface rounded-lg p-3">
+                            <div className="text-[10px] text-muted font-bold uppercase mb-2">Dimension Scores</div>
+                            <div className="space-y-1.5">
+                              {Object.entries(fb.dimension_scores).map(([k, v]) => (
+                                <div key={k} className="flex items-center gap-2">
+                                  <span className="text-[10px] text-muted w-28 capitalize">{k.replace(/_/g, " ")}</span>
+                                  <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${(v as number) >= 70 ? "bg-green-500" : (v as number) >= 50 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${v}%` }} />
+                                  </div>
+                                  <span className={`text-[10px] font-bold w-6 text-right ${scoreColor(v as number)}`}>{v as number}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Sentence Analysis */}
+                        {fb.sentence_analysis && fb.sentence_analysis.length > 0 && (
+                          <div className="bg-surface rounded-lg p-3">
+                            <div className="text-[10px] text-muted font-bold uppercase mb-2">Sentence Analysis</div>
+                            <div className="space-y-2">
+                              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                              {fb.sentence_analysis.map((s: any, i: number) => (
+                                <div key={i} className={`text-xs p-2 rounded border-l-2 ${
+                                  s.rating === "strong" ? "border-green-500 bg-green-900/10" :
+                                  s.rating === "okay" ? "border-yellow-500 bg-yellow-900/10" :
+                                  "border-red-500 bg-red-900/10"
+                                }`}>
+                                  <p className="text-slate-300">&quot;{s.sentence}&quot;</p>
+                                  <p className="text-muted mt-1">{s.reason}</p>
+                                  {s.rewrite && <p className="text-accent2 mt-1">Better: &quot;{s.rewrite}&quot;</p>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Delivery Analysis */}
+                        {fb.delivery_analysis && (
+                          <div className="bg-surface rounded-lg p-3">
+                            <div className="text-[10px] text-muted font-bold uppercase mb-2">Delivery Analysis</div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              {fb.delivery_analysis.filler_words?.length > 0 && (
+                                <div className="bg-red-900/10 rounded p-2">
+                                  <span className="text-[10px] text-red-400 font-bold">Filler Words</span>
+                                  <p className="text-slate-300">{fb.delivery_analysis.filler_words.join(", ")}</p>
+                                </div>
+                              )}
+                              {fb.delivery_analysis.hedging_phrases?.length > 0 && (
+                                <div className="bg-yellow-900/10 rounded p-2">
+                                  <span className="text-[10px] text-yellow-400 font-bold">Hedging</span>
+                                  <p className="text-slate-300">{fb.delivery_analysis.hedging_phrases.join(", ")}</p>
+                                </div>
+                              )}
+                              {fb.delivery_analysis.power_words?.length > 0 && (
+                                <div className="bg-green-900/10 rounded p-2">
+                                  <span className="text-[10px] text-green-400 font-bold">Power Words</span>
+                                  <p className="text-slate-300">{fb.delivery_analysis.power_words.join(", ")}</p>
+                                </div>
+                              )}
+                              <div className="bg-blue-900/10 rounded p-2">
+                                <span className="text-[10px] text-blue-400 font-bold">Active Voice</span>
+                                <p className="text-slate-300">{fb.delivery_analysis.active_voice_pct}%</p>
+                              </div>
+                            </div>
+                            {fb.delivery_analysis.pacing_note && (
+                              <p className="text-[10px] text-muted mt-2">Pacing: {fb.delivery_analysis.pacing_note}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Strengths & Improvements */}
+                        <div className="grid grid-cols-2 gap-3">
+                          {fb.strengths?.length > 0 && (
+                            <div className="bg-green-900/10 rounded-lg p-3">
+                              <div className="text-[10px] text-green-400 font-bold uppercase mb-1">Strengths</div>
+                              <ul className="space-y-1">
+                                {fb.strengths.map((s: string, i: number) => (
+                                  <li key={i} className="text-[10px] text-slate-300">+ {s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {fb.improvements?.length > 0 && (
+                            <div className="bg-red-900/10 rounded-lg p-3">
+                              <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Improvements</div>
+                              <ul className="space-y-1">
+                                {fb.improvements.map((s: string, i: number) => (
+                                  <li key={i} className="text-[10px] text-slate-300">- {s}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Coaching Tip */}
+                        {fb.coaching_tip && (
+                          <div className="bg-accent/10 border border-accent/20 rounded-lg p-3">
+                            <div className="text-[10px] text-accent font-bold uppercase mb-1">Coaching Tip</div>
+                            <p className="text-xs text-slate-200">{fb.coaching_tip}</p>
+                          </div>
+                        )}
+
+                        {/* Weak Areas */}
+                        {fb.weak_areas?.length > 0 && (
+                          <div className="flex flex-wrap gap-1">
+                            {fb.weak_areas.map((w: string, i: number) => (
+                              <span key={i} className="text-[10px] bg-red-900/30 text-red-400 px-2 py-0.5 rounded">
+                                {WEAK_AREA_LABELS[w] || w}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Follow-up Question */}
+                        {fb.follow_up_question && (
+                          <div className="bg-accent2/10 border border-accent2/20 rounded-lg p-3">
+                            <div className="text-[10px] text-accent2 font-bold uppercase mb-1">Follow-Up Question</div>
+                            <p className="text-xs text-slate-200">{fb.follow_up_question}</p>
+                          </div>
+                        )}
+                      </div>
                     )}
-                    <span className="text-xs text-slate-300 truncate">{a.questionText}</span>
                   </div>
-                  {a.feedback.coaching_tip && (
-                    <p className="text-[10px] text-muted mt-1">Tip: {a.feedback.coaching_tip}</p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </details>
         );
