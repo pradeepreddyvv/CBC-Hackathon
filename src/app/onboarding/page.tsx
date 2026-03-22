@@ -72,6 +72,7 @@ export default function OnboardingPage() {
   });
 
   const [isOtherCompany, setIsOtherCompany] = useState(false);
+  const [autoFillJdLoading, setAutoFillJdLoading] = useState(false);
   const update = (fields: Partial<OnboardingData>) => setData(prev => ({ ...prev, ...fields }));
 
   const toggleRole = (role: string) => {
@@ -109,6 +110,64 @@ export default function OnboardingPage() {
       setLoading(false);
     }
   }, [data.resumeText, data.llmContext, data.name, data.background, data.experience, data.skills]);
+
+  // Auto-fill Step 3 fields from Job Description using Gemini
+  const autoFillFromJD = useCallback(async () => {
+    if (!data.jobDescription.trim()) return;
+    setAutoFillJdLoading(true);
+    try {
+      const res = await fetch("/api/parse-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobDescription: data.jobDescription }),
+      });
+      const result = await res.json();
+      if (result.profile) {
+        const p = result.profile;
+        const fields: Partial<OnboardingData> = {};
+        // Target company
+        if (p.targetCompany && p.targetCompany !== "General") {
+          const preset = COMPANY_PRESETS.find(c => c.toLowerCase() === p.targetCompany.toLowerCase());
+          if (preset) {
+            fields.companyName = preset;
+            setIsOtherCompany(false);
+          } else {
+            fields.companyName = p.targetCompany;
+            setIsOtherCompany(true);
+          }
+        }
+        // Years of experience
+        if (p.yearsExperience) {
+          const yoe = p.yearsExperience;
+          if (yoe <= 2) fields.yearsExperience = "0-2";
+          else if (yoe <= 5) fields.yearsExperience = "2-5";
+          else if (yoe <= 10) fields.yearsExperience = "5-10";
+          else fields.yearsExperience = "10+";
+        }
+        // Round type
+        if (p.roundType) {
+          const matchedRound = ROUND_TYPES.find(r => r.toLowerCase().includes(p.roundType.toLowerCase()));
+          if (matchedRound) fields.roundType = matchedRound;
+        }
+        // Key skills
+        if (p.keySkills) {
+          fields.targetSkills = typeof p.keySkills === "string" ? p.keySkills : (p.keySkills as string[]).join(", ");
+        }
+        // Target role from JD
+        if (p.targetRole) {
+          const matchedRole = ROLE_OPTIONS.find(r => r.toLowerCase().includes(p.targetRole.toLowerCase()));
+          if (matchedRole && !data.targetRoles.includes(matchedRole)) {
+            fields.targetRoles = [...data.targetRoles, matchedRole];
+          }
+        }
+        update(fields);
+      }
+    } catch (e) {
+      console.error("Auto-fill from JD error:", e);
+    } finally {
+      setAutoFillJdLoading(false);
+    }
+  }, [data.jobDescription, data.targetRoles]);
 
   // Run internet research
   const runResearch = useCallback(async () => {
@@ -399,6 +458,47 @@ export default function OnboardingPage() {
               <p className="text-sm text-muted mt-1">Tell us about the specific role you&apos;re targeting.</p>
             </div>
 
+            {/* Job Description — Required, at the top */}
+            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+              <div>
+                <label className="text-xs text-muted font-semibold block mb-1">
+                  Job Description <span className="text-red-400">*</span>
+                </label>
+                <textarea
+                  value={data.jobDescription}
+                  onChange={e => update({ jobDescription: e.target.value })}
+                  placeholder="Paste the full job description here — we'll auto-fill company, skills, experience level, and more..."
+                  rows={6}
+                  className={`w-full bg-surface border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y ${
+                    !data.jobDescription.trim() ? "border-red-500/50" : "border-border"
+                  }`}
+                />
+                {!data.jobDescription.trim() && (
+                  <p className="text-xs text-red-400 mt-1">Job description is required for personalized questions.</p>
+                )}
+              </div>
+
+              {data.jobDescription.trim() && (
+                <button
+                  onClick={autoFillFromJD}
+                  disabled={autoFillJdLoading}
+                  className="w-full py-2.5 bg-accent2 text-bg rounded-lg text-sm font-semibold hover:bg-accent2/80 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+                >
+                  {autoFillJdLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-bg border-t-transparent rounded-full animate-spin" />
+                      Analyzing JD with AI...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+                      Auto-Fill from Job Description
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               {/* Company Selection */}
               <div>
@@ -480,18 +580,6 @@ export default function OnboardingPage() {
                 onChange={v => update({ targetSkills: v })}
                 placeholder="e.g., React, Node.js, distributed systems, leadership"
               />
-
-              {/* Job Description */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-1">Job Description (Optional)</label>
-                <textarea
-                  value={data.jobDescription}
-                  onChange={e => update({ jobDescription: e.target.value })}
-                  placeholder="Paste the full job description here for tailored questions..."
-                  rows={5}
-                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
-                />
-              </div>
             </div>
           </div>
         )}
@@ -672,7 +760,7 @@ export default function OnboardingPage() {
                   setStep(s => s + 1);
                 }
               }}
-              disabled={step === 1 && !data.name}
+              disabled={(step === 1 && !data.name) || (step === 3 && !data.jobDescription.trim())}
               className="px-6 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/80 disabled:opacity-50 transition-colors"
             >
               {step === 4 && !data.researchResults ? "Skip Research" : "Next"}

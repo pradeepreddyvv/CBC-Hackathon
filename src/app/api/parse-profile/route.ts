@@ -4,10 +4,33 @@ import { callGemini, extractJSON } from "@/lib/gemini";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { resume, context } = body;
+    const { resume, context, jobDescription } = body;
 
-    if (!resume && !context) {
-      return NextResponse.json({ error: "Provide resume or context" }, { status: 400 });
+    if (!resume && !context && !jobDescription) {
+      return NextResponse.json({ error: "Provide resume, context, or job description" }, { status: 400 });
+    }
+
+    // If job description is provided, extract setup fields from it
+    if (jobDescription && !resume && !context) {
+      const jdPrompt = `You are a job description analysis expert. Extract structured information from this job description to help a candidate prepare for their interview.
+
+JOB DESCRIPTION:
+"""
+${jobDescription.substring(0, 8000)}
+"""
+
+Extract and return ONLY valid JSON (no markdown, no code fences):
+{
+  "targetCompany": "Company name from the JD (e.g., Google, Amazon, Meta, Microsoft, Apple, Netflix, or the actual company name)",
+  "targetRole": "The role title normalized to one of: Software Engineer, Frontend Engineer, Backend Engineer, Full Stack, ML/AI Engineer, Data Scientist, DevOps/SRE, Mobile Developer, Product Manager, Data Engineer, Security Engineer, QA Engineer",
+  "yearsExperience": <number of years of experience required, e.g., 0, 2, 5, 10>,
+  "roundType": "Best guess interview round type from: Phone Screen, Technical Round, System Design, Behavioral / Bar Raiser, Onsite Loop, Take-Home, Final Round, General Prep",
+  "keySkills": "Comma-separated list of key technical skills and qualifications mentioned in the JD"
+}`;
+
+      const text = await callGemini(jdPrompt);
+      const profile = extractJSON(text);
+      return NextResponse.json({ profile });
     }
 
     const prompt = `You are a profile extraction expert. Extract structured profile information from the provided resume and/or context.

@@ -872,7 +872,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       }
 
       if (data.humanized?.spoken_feedback && window.speechSynthesis) {
-        const utter = new SpeechSynthesisUtterance(data.humanized.spoken_feedback);
+        const feedbackText = data.humanized.spoken_feedback;
+        const utter = new SpeechSynthesisUtterance(feedbackText);
         utter.rate = 0.9;
         utter.pitch = 0.85;
         const voices = window.speechSynthesis.getVoices();
@@ -883,11 +884,23 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         }
         setInterviewerTalking(true);
         setFeedbackSpeaking(true);
-        setBubbleText(data.humanized.spoken_feedback.substring(0, 80) + "...");
+
+        // Track word-by-word for the speech bubble above interviewer's head
+        const feedbackWords = feedbackText.split(" ");
+        setBubbleText(feedbackWords.slice(0, 7).join(" ") + "...");
+
+        utter.onboundary = (e: SpeechSynthesisEvent) => {
+          if (e.name !== "word") return;
+          const spokenSoFar = feedbackText.substring(0, e.charIndex + e.charLength).trim();
+          const wordIdx = spokenSoFar.split(/\s+/).length - 1;
+          // Show a sliding window of recent words in the bubble
+          setBubbleText(feedbackWords.slice(Math.max(0, wordIdx - 6), wordIdx + 1).join(" "));
+        };
 
         utter.onend = () => {
           setInterviewerTalking(false);
           setFeedbackSpeaking(false);
+          setBubbleText(feedbackWords.slice(-7).join(" "));
         };
         window.speechSynthesis.speak(utter);
       }
@@ -1034,7 +1047,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   // ── Render ────────────────────────────────────────────────────
 
   return (
-    <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", width: "100%", height: "100vh", background: "#060c16", display: "flex", flexDirection: "column", position: "relative", userSelect: "none" }}>
+    <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", width: "100%", height: "100vh", background: "#060c16", display: "flex", flexDirection: "row", position: "relative", userSelect: "none" }}>
+      {/* Left: 3D canvas (shrinks when feedback is open) */}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", transition: "all 0.4s ease" }}>
       {/* Three.js canvas */}
       <div ref={mountRef} style={{ flex: 1, overflow: "hidden", position: "relative" }}>
 
@@ -1165,22 +1180,15 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         </div>
       )}
 
-      {/* Transcript / question / feedback display */}
-      {mode !== "intro" && (
+      {/* Transcript / question display (non-feedback modes only) */}
+      {mode !== "intro" && mode !== "feedback" && (
         <div style={{
-          position: "absolute",
-          bottom: mode === "feedback" ? 18 : 110,
-          left: mode === "feedback" ? "auto" : "50%",
-          right: mode === "feedback" ? 18 : "auto",
-          transform: mode === "feedback" ? "none" : "translateX(-50%)",
-          width: mode === "feedback" ? 360 : "88%",
-          maxWidth: mode === "feedback" ? 360 : 750,
+          position: "absolute", bottom: 110, left: "50%", transform: "translateX(-50%)",
+          width: "88%", maxWidth: 750,
           background: "rgba(6,12,22,0.95)", borderRadius: 14, padding: "14px 20px",
-          minHeight: 50,
-          maxHeight: mode === "feedback" ? "70vh" : 200,
+          minHeight: 50, maxHeight: 200,
           overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)",
-          zIndex: 20,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+          zIndex: 20, boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         }}>
           {mode === "asking" && (
             <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.7 }}>
@@ -1240,115 +1248,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             </div>
           )}
 
-          {/* Feedback display */}
-          {mode === "feedback" && (
-            <div>
-              {feedbackLoading ? (
-                <div style={{ textAlign: "center", padding: 20 }}>
-                  <div style={{ color: "#facc15", fontSize: 14, fontWeight: 700, marginBottom: 8, animation: "pulse 1.5s infinite" }}>
-                    {feedbackMode === "single" ? "Analyzing your answer..." : "Analyzing full session..."}
-                  </div>
-                  <div style={{ color: "#64748b", fontSize: 12 }}>Gemini is analyzing, then Claude will humanize the feedback</div>
-                </div>
-              ) : feedbackData ? (
-                <div>
-                  {/* Humanized spoken feedback */}
-                  <div style={{ marginBottom: 12, padding: "10px 12px", background: "rgba(250,204,21,0.06)", borderRadius: 8, borderLeft: "3px solid #facc15" }}>
-                    <div style={{ color: "#facc15", fontSize: 11, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
-                      Interviewer says{feedbackSpeaking ? " (speaking...)" : ""}:
-                    </div>
-                    <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.6, fontStyle: "italic" }}>
-                      &ldquo;{feedbackData.humanized?.spoken_feedback || "No feedback available"}&rdquo;
-                    </div>
-                  </div>
-
-                  {/* Scores */}
-                  {feedbackData.analysis && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
-                      <div style={{ background: "rgba(96,165,250,0.08)", borderRadius: 8, padding: "8px 14px", minWidth: 80, display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ position: "relative", width: 48, height: 48 }}>
-                          <ScoreRing score={(feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || 0} size={48} stroke={4} />
-                          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: sc((feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || 0) }}>
-                              {(feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || "—"}
-                            </span>
-                          </div>
-                        </div>
-                        <div>
-                          <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Score</div>
-                        </div>
-                      </div>
-                      {(feedbackData.analysis as any).readiness_label && (
-                        <div style={{ background: "rgba(74,222,128,0.08)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
-                          <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Readiness</div>
-                          <div style={{ color: "#4ade80", fontSize: 14, fontWeight: 700 }}>
-                            {(feedbackData.analysis as any).readiness_label}
-                          </div>
-                        </div>
-                      )}
-                      {(feedbackData.analysis as any).hiring_recommendation && (
-                        <div style={{ background: "rgba(250,204,21,0.08)", borderRadius: 8, padding: "8px 14px", minWidth: 80 }}>
-                          <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Recommendation</div>
-                          <div style={{ color: "#facc15", fontSize: 14, fontWeight: 700 }}>
-                            {(feedbackData.analysis as any).hiring_recommendation}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* STAR scores */}
-                  {(feedbackData.analysis as any)?.star_scores && (
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>STAR Framework</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        {Object.entries((feedbackData.analysis as any).star_scores).map(([key, val]) => (
-                          <div key={key} style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "6px 4px" }}>
-                            <div style={{ fontSize: 18, fontWeight: 800, color: sc(val as number) }}>{val as number}</div>
-                            <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "capitalize" }}>{key}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Dimension scores */}
-                  {(feedbackData.analysis as any)?.dimension_scores && (
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Dimensions</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {Object.entries((feedbackData.analysis as any).dimension_scores).map(([key, val]) => (
-                          <div key={key} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 6, padding: "3px 8px" }}>
-                            <span style={{ color: "#94a3b8", fontSize: 10, textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
-                            <span style={{ color: sc(val as number), fontSize: 12, fontWeight: 700 }}>{val as number}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Strengths & improvements */}
-                  {((feedbackData.analysis as any)?.strengths || (feedbackData.analysis as any)?.strengths_to_leverage) && (
-                    <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: "#4ade80", fontSize: 10, fontWeight: 700, marginBottom: 3 }}>STRENGTHS</div>
-                        {((feedbackData.analysis as any).strengths || (feedbackData.analysis as any).strengths_to_leverage || []).slice(0, 3).map((s: string, i: number) => (
-                          <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>+ {s}</div>
-                        ))}
-                      </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ color: "#f87171", fontSize: 10, fontWeight: 700, marginBottom: 3 }}>IMPROVE</div>
-                        {((feedbackData.analysis as any).improvements || (feedbackData.analysis as any).top_3_focus_areas || []).slice(0, 3).map((s: string, i: number) => (
-                          <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 2 }}>- {s}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              ) : null}
-            </div>
-          )}
         </div>
       )}
 
@@ -1448,39 +1347,158 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           </div>
         )}
 
-        {/* Feedback controls */}
-        {mode === "feedback" && !feedbackLoading && feedbackData && (() => {
-          const isCurrentFollowUp = followUpFlags[currentQIdx];
-          const hasMore = isCurrentFollowUp
-            ? origQUsedRef.current + 1 < originalQsRef.current.length
-            : origQUsedRef.current < originalQsRef.current.length - 1;
-          return (
-            <div style={{ width: "100%", display: "flex", gap: 10 }}>
-              {hasMore && (
-                <button onClick={() => { closeFeedback(); nextQuestion(); }} style={{
-                  flex: 1, padding: "14px 0", borderRadius: 12, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
-                  background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
-                  fontSize: 16, fontWeight: 700,
-                }}>
-                  {!isCurrentFollowUp ? "Next → Follow-up" : "Next Question"}
-                </button>
-              )}
-              <button onClick={() => { closeFeedback(); setMode("intro"); setBubbleText(""); }} style={{
-                flex: hasMore ? "none" : 1,
-                padding: "14px 20px", borderRadius: 12, border: "1px solid rgba(74,222,128,0.45)", cursor: "pointer",
-                background: hasMore
-                  ? "rgba(255,255,255,0.05)"
-                  : "linear-gradient(135deg,#1a3a2a,#163028)",
-                color: "white",
-                fontSize: hasMore ? 13 : 16,
-                fontWeight: 700,
-              }}>
-                {hasMore ? "End Interview" : "Interview Complete!"}
-              </button>
-            </div>
-          );
-        })()}
+        {/* Feedback mode — controls are in the sidebar */}
+        {mode === "feedback" && (
+          <div style={{ width: "100%", textAlign: "center", color: feedbackSpeaking ? "#facc15" : "#64748b", fontSize: 13, fontWeight: 600 }}>
+            {feedbackSpeaking ? "Interviewer is giving feedback..." : feedbackLoading ? "Analyzing your answer..." : "See feedback in the panel →"}
+          </div>
+        )}
       </div>
+
+      </div>{/* end left wrapper */}
+
+      {/* ═══ RIGHT SIDEBAR: Feedback Panel ═══ */}
+      {mode === "feedback" && (
+        <div style={{
+          width: 400, minWidth: 400, height: "100vh", overflowY: "auto",
+          background: "rgba(8,14,28,0.98)", borderLeft: "1px solid rgba(255,255,255,0.08)",
+          padding: "20px 18px", display: "flex", flexDirection: "column", gap: 14,
+        }}>
+          <div style={{ color: "#facc15", fontSize: 13, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4 }}>
+            {feedbackMode === "single" ? "Question Feedback" : "Session Analysis"}
+          </div>
+
+          {feedbackLoading ? (
+            <div style={{ textAlign: "center", padding: "40px 0" }}>
+              <div style={{ color: "#facc15", fontSize: 14, fontWeight: 700, marginBottom: 8, animation: "pulse 1.5s infinite" }}>
+                {feedbackMode === "single" ? "Analyzing your answer..." : "Analyzing full session..."}
+              </div>
+              <div style={{ color: "#64748b", fontSize: 12 }}>Gemini is analyzing, then Claude will humanize the feedback</div>
+            </div>
+          ) : feedbackData ? (
+            <>
+              {/* Humanized spoken feedback */}
+              <div style={{ padding: "12px 14px", background: "rgba(250,204,21,0.06)", borderRadius: 10, borderLeft: "3px solid #facc15" }}>
+                <div style={{ color: "#facc15", fontSize: 10, fontWeight: 700, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>
+                  Interviewer says{feedbackSpeaking ? " (speaking...)" : ""}:
+                </div>
+                <div style={{ color: "#e2e8f0", fontSize: 13, lineHeight: 1.6, fontStyle: "italic" }}>
+                  &ldquo;{feedbackData.humanized?.spoken_feedback || "No feedback available"}&rdquo;
+                </div>
+              </div>
+
+              {/* Score + badges */}
+              {feedbackData.analysis && (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <div style={{ background: "rgba(96,165,250,0.08)", borderRadius: 10, padding: "10px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ position: "relative", width: 52, height: 52 }}>
+                      <ScoreRing score={(feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || 0} size={52} stroke={4} />
+                      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <span style={{ fontSize: 16, fontWeight: 800, color: sc((feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || 0) }}>
+                          {(feedbackData.analysis as any).overall_score || (feedbackData.analysis as any).session_score || "—"}
+                        </span>
+                      </div>
+                    </div>
+                    <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 600 }}>Overall<br />Score</div>
+                  </div>
+                  {(feedbackData.analysis as any).readiness_label && (
+                    <div style={{ background: "rgba(74,222,128,0.08)", borderRadius: 10, padding: "10px 14px", flex: 1 }}>
+                      <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Readiness</div>
+                      <div style={{ color: "#4ade80", fontSize: 15, fontWeight: 700, marginTop: 2 }}>
+                        {(feedbackData.analysis as any).readiness_label}
+                      </div>
+                    </div>
+                  )}
+                  {(feedbackData.analysis as any).hiring_recommendation && (
+                    <div style={{ background: "rgba(250,204,21,0.08)", borderRadius: 10, padding: "10px 14px", flex: 1 }}>
+                      <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 600 }}>Recommendation</div>
+                      <div style={{ color: "#facc15", fontSize: 15, fontWeight: 700, marginTop: 2 }}>
+                        {(feedbackData.analysis as any).hiring_recommendation}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* STAR scores */}
+              {(feedbackData.analysis as any)?.star_scores && (
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>STAR Framework</div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    {Object.entries((feedbackData.analysis as any).star_scores).map(([key, val]) => (
+                      <div key={key} style={{ flex: 1, textAlign: "center", background: "rgba(255,255,255,0.03)", borderRadius: 8, padding: "8px 4px" }}>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: sc(val as number) }}>{val as number}</div>
+                        <div style={{ fontSize: 9, color: "#94a3b8", textTransform: "capitalize" }}>{key}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Dimension scores */}
+              {(feedbackData.analysis as any)?.dimension_scores && (
+                <div>
+                  <div style={{ color: "#94a3b8", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>Dimensions</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {Object.entries((feedbackData.analysis as any).dimension_scores).map(([key, val]) => (
+                      <div key={key} style={{ display: "flex", alignItems: "center", gap: 4, background: "rgba(255,255,255,0.03)", borderRadius: 6, padding: "4px 8px" }}>
+                        <span style={{ color: "#94a3b8", fontSize: 10, textTransform: "capitalize" }}>{key.replace(/_/g, " ")}</span>
+                        <span style={{ color: sc(val as number), fontSize: 12, fontWeight: 700 }}>{val as number}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Strengths & improvements */}
+              {((feedbackData.analysis as any)?.strengths || (feedbackData.analysis as any)?.strengths_to_leverage) && (
+                <div style={{ display: "flex", gap: 10 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#4ade80", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>STRENGTHS</div>
+                    {((feedbackData.analysis as any).strengths || (feedbackData.analysis as any).strengths_to_leverage || []).slice(0, 3).map((s: string, i: number) => (
+                      <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 3 }}>+ {s}</div>
+                    ))}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ color: "#f87171", fontSize: 10, fontWeight: 700, marginBottom: 4 }}>IMPROVE</div>
+                    {((feedbackData.analysis as any).improvements || (feedbackData.analysis as any).top_3_focus_areas || []).slice(0, 3).map((s: string, i: number) => (
+                      <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 3 }}>- {s}</div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Feedback action buttons */}
+              {(() => {
+                const isCurrentFollowUp = followUpFlags[currentQIdx];
+                const hasMore = isCurrentFollowUp
+                  ? origQUsedRef.current + 1 < originalQsRef.current.length
+                  : origQUsedRef.current < originalQsRef.current.length - 1;
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                    {hasMore && (
+                      <button onClick={() => { closeFeedback(); nextQuestion(); }} style={{
+                        width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
+                        background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
+                        fontSize: 14, fontWeight: 700,
+                      }}>
+                        {!isCurrentFollowUp ? "Next → Follow-up" : "Next Question"}
+                      </button>
+                    )}
+                    <button onClick={() => { closeFeedback(); setMode("intro"); setBubbleText(""); }} style={{
+                      width: "100%", padding: "12px 0", borderRadius: 10, border: "1px solid rgba(74,222,128,0.45)", cursor: "pointer",
+                      background: hasMore ? "rgba(255,255,255,0.05)" : "linear-gradient(135deg,#1a3a2a,#163028)",
+                      color: "white", fontSize: hasMore ? 12 : 14, fontWeight: 700,
+                    }}>
+                      {hasMore ? "End Interview" : "Interview Complete!"}
+                    </button>
+                  </div>
+                );
+              })()}
+            </>
+          ) : null}
+        </div>
+      )}
 
       <style>{`
         @keyframes pulse {
