@@ -70,6 +70,7 @@ interface Props {
   questions?: string[];
   onAnswerRecorded?: (questionIndex: number, answer: string, audioUrl?: string) => void;
   onSessionComplete?: (answers: AnswerRecord3D[], sessionAnalysis: Record<string, any>) => void;
+  onInterviewStart?: () => void;
   companyName?: string;
   profile?: { name: string; background: string; targetRole: string; targetCompany: string; experience: string; skills: string; country?: string };
   userId?: string;
@@ -304,7 +305,7 @@ const DEFAULT_QUESTIONS = [
 
 // ── Main Component ──────────────────────────────────────────────
 
-export default function InterviewArtifactScene({ questions, onAnswerRecorded, onSessionComplete, companyName, profile, userId, sessionId, role }: Props) {
+export default function InterviewArtifactScene({ questions, onAnswerRecorded, onSessionComplete, onInterviewStart, companyName, profile, userId, sessionId, role }: Props) {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const stateRef = useRef<RuntimeState>({
     playing: false, elapsed: 0, lastT: 0,
@@ -348,6 +349,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   // Adaptive questions
   const [adaptiveQs, setAdaptiveQs] = useState<string[]>([]);
   const [allQuestions, setAllQuestions] = useState<string[]>(interviewQs);
+  const [followUpFlags, setFollowUpFlags] = useState<boolean[]>(interviewQs.map(() => false));  // track which Qs are follow-ups
+  const [autoFeedbackDone, setAutoFeedbackDone] = useState(false); // prevent double-fire
 
   // ── Three.js setup ──────────────────────────────────────────
 
@@ -805,6 +808,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     }
 
     setMode("reviewing");
+    setAutoFeedbackDone(false);
   }, [currentQIdx, onAnswerRecorded, allQuestions]);
 
   // ── Feedback functions ──────────────────────────────────────────
@@ -927,6 +931,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                 const newQTexts = aqData.questions.map((q: any) => q.text);
                 setAdaptiveQs(prev => [...prev, ...newQTexts]);
                 setAllQuestions(prev => [...prev, ...newQTexts]);
+                setFollowUpFlags(prev => [...prev, ...newQTexts.map(() => true)]);
               }
             }
           } catch { /* ignore adaptive failure */ }
@@ -977,8 +982,11 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setFeedbackData(null);
     setAdaptiveQs([]);
     setAllQuestions(interviewQs);
+    setFollowUpFlags(interviewQs.map(() => false));
+    setAutoFeedbackDone(false);
+    onInterviewStart?.();
     askQuestion(0);
-  }, [askQuestion, interviewQs]);
+  }, [askQuestion, interviewQs, onInterviewStart]);
 
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -999,7 +1007,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         backdropFilter: "blur(8px)",
       }}>
         {mode === "intro" ? `${companyName || "Mock"} Interview` :
-         mode === "asking" ? "Interviewer is asking..." :
+         mode === "asking" ? (followUpFlags[currentQIdx] ? "Follow-up question..." : "Interviewer is asking...") :
          mode === "recording" ? "Your turn — speak your answer" :
          mode === "feedback" ? (feedbackLoading ? "Analyzing..." : "Interviewer Feedback") :
          "Review your answer"}
@@ -1087,7 +1095,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             color: "#94a3b8", fontSize: 12, fontWeight: 600,
             border: "1px solid rgba(255,255,255,0.1)",
           }}>
-            Q{currentQIdx + 1} / {allQuestions.length}{adaptiveQs.length > 0 ? ` (+${adaptiveQs.length})` : ""}
+            {followUpFlags[currentQIdx] ? "Follow-up" : `Q${currentQIdx + 1}`} / {allQuestions.length}
           </div>
         </div>
       )}
@@ -1103,7 +1111,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         }}>
           {mode === "asking" && (
             <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.5 }}>
-              <span style={{ color: "#6366f1", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>Question {currentQIdx + 1}</span>
+              <span style={{ color: followUpFlags[currentQIdx] ? "#f59e0b" : "#6366f1", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+                {followUpFlags[currentQIdx] ? "Follow-up Question" : `Question ${currentQIdx + 1}`}
+              </span>
               {showQuestionText ? (
                 <>
                   <br />
@@ -1312,7 +1322,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
               background: "linear-gradient(135deg,#6366f1,#a855f7)", color: "white",
               fontSize: 16, fontWeight: 700, boxShadow: "0 4px 16px rgba(99,102,241,0.5)",
             }}>
-              {currentQIdx < allQuestions.length - 1 ? "Next Question →" : "Finish & Get Session Feedback"}
+              {currentQIdx < allQuestions.length - 1
+                ? (followUpFlags[currentQIdx + 1] ? "Answer Follow-up →" : "Next Question →")
+                : "Finish & Get Session Feedback"}
             </button>
           </div>
         )}

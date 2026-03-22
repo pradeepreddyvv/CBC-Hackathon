@@ -53,6 +53,7 @@ export default function Home() {
 
   // Session state
   const [sessionId, setSessionId] = useState("");
+  const sessionIdRef = useRef("");
   const [sessionQuestions, setSessionQuestions] = useState<(Question | AdaptiveQuestion)[]>([]);
   const [sessionPlan, setSessionPlan] = useState<SessionPlan | null>(null);
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -108,7 +109,9 @@ export default function Home() {
         const parsed = JSON.parse(config);
         if (parsed.generatedQuestions?.length > 0) {
           setSessionQuestions(parsed.generatedQuestions);
-          setSessionId("sess_" + Date.now());
+          const newSid = "sess_" + Date.now();
+          setSessionId(newSid);
+          sessionIdRef.current = newSid;
         }
         if (parsed.companyName) {
           setProfile(prev => ({ ...prev, targetCompany: parsed.companyName, country: parsed.country || "" }));
@@ -127,6 +130,7 @@ export default function Home() {
   const startSession = useCallback(async (useAdaptive: boolean) => {
     const sid = "sess_" + Date.now();
     setSessionId(sid);
+    sessionIdRef.current = sid;
     setCurrentQIndex(0);
     setFeedback(null);
     setAnswer("");
@@ -798,17 +802,39 @@ export default function Home() {
               userId={user?.id}
               sessionId={sessionId}
               role={profile.targetRole}
+              onInterviewStart={() => {
+                // Create session row in DB FIRST so FK constraint is satisfied for answers
+                const sid = sessionIdRef.current || `3d_sess_${Date.now()}`;
+                sessionIdRef.current = sid;
+                setSessionId(sid);
+                if (user?.id) {
+                  cloudSaveSession(user.id, {
+                    id: sid,
+                    company: profile.targetCompany,
+                    role: profile.targetRole,
+                    answerCount: 0,
+                    avgScore: 0,
+                    weakAreas: [],
+                    sessionNumber: 1,
+                    generatedQuestions: sessionQuestions.length > 0 ? sessionQuestions : [],
+                    interviewType: "3d-mock",
+                    roundType: "behavioral",
+                    sessionConfig: { mode: "3d-mock", company: profile.targetCompany },
+                  });
+                }
+              }}
               onAnswerRecorded={(qIdx, answerText, audioUrl) => {
                 setAnswer(answerText);
                 if (audioUrl) setAudioUrl(audioUrl);
                 setCurrentQIndex(qIdx);
-                // Save answer to DB
-                if (user?.id && sessionId) {
+                // Save answer to DB using ref (avoids stale closure)
+                const sid = sessionIdRef.current;
+                if (user?.id && sid) {
                   const q = sessionQuestions[qIdx];
-                  const answerId = `3d-${sessionId}-${qIdx}-${Date.now()}`;
+                  const answerId = `3d-${sid}-${qIdx}-${Date.now()}`;
                   cloudSaveAnswer(user.id, {
                     id: answerId,
-                    sessionId,
+                    sessionId: sid,
                     questionId: q?.id || `q-${qIdx}`,
                     questionText: q?.text || answerText.substring(0, 50),
                     category: q?.category || "general",
@@ -821,12 +847,13 @@ export default function Home() {
                 }
               }}
               onSessionComplete={(answers, sessionAnalysis) => {
-                // Save session summary to DB
-                if (user?.id && sessionId) {
+                // Update session with final analysis
+                const sid = sessionIdRef.current;
+                if (user?.id && sid) {
                   const avgScore = sessionAnalysis?.session_score || 0;
                   const weakAreas = sessionAnalysis?.top_3_focus_areas || sessionAnalysis?.adaptive_question_topics || [];
                   cloudSaveSession(user.id, {
-                    id: sessionId,
+                    id: sid,
                     company: profile.targetCompany,
                     role: profile.targetRole,
                     answerCount: answers.length,
