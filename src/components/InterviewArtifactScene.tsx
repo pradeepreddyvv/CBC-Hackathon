@@ -44,306 +44,166 @@ function makeMesh(geo: THREE.BufferGeometry, color: number): THREE.Mesh {
 }
 
 function buildPerson(skinColor: number, suitColor: number, hairColor: number, isInterviewer = false) {
+  // Uses the exact same character rig from the original InterviewReplay scene
   const group = new THREE.Group();
   const skin = skinColor;
   const shirt = suitColor;
-  const pants = isInterviewer ? 0x1a1a2e : 0x1e3a5f;
+  const pants = isInterviewer ? 0x111827 : 0x1e3a5f;
   const hair = hairColor;
-  const lipColor = isInterviewer ? 0xb05050 : 0xc06060;
-  const S = 0.62;
 
-  const skinMat = new THREE.MeshStandardMaterial({ color: skin, roughness: 0.55 });
-  const hairMat = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.7 });
-
-  // ── Torso (shirt/blazer) ──
-  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.26 * S, 0.3 * S, 0.78 * S, 12), new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
-  torso.position.y = 1.08 * S;
+  // Torso
+  const torso = makeMesh(new THREE.CylinderGeometry(0.27, 0.31, 0.82, 10), shirt);
+  torso.position.y = 1.08;
   group.add(torso);
 
-  // Shoulders (rounded)
-  const shoulderGeo = new THREE.SphereGeometry(0.12 * S, 10, 8);
-  const lShoulder = new THREE.Mesh(shoulderGeo, new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
-  lShoulder.position.set(-0.32 * S, 1.42 * S, 0);
-  lShoulder.scale.set(1.1, 0.7, 0.9);
-  group.add(lShoulder);
-  const rShoulder = lShoulder.clone();
-  rShoulder.position.set(0.32 * S, 1.42 * S, 0);
-  group.add(rShoulder);
-
   // Upper arms
-  const armGeo = new THREE.CylinderGeometry(0.08 * S, 0.07 * S, 0.48 * S, 8);
-  const lUA = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
-  lUA.position.set(-0.38 * S, 1.14 * S, 0);
-  lUA.rotation.z = Math.PI / 9;
+  const lUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
+  lUA.position.set(-0.4, 1.18, 0);
+  lUA.rotation.z = Math.PI / 10;
   group.add(lUA);
-  const rUA = new THREE.Mesh(armGeo, new THREE.MeshStandardMaterial({ color: shirt, roughness: 0.6 }));
-  rUA.position.set(0.38 * S, 1.14 * S, 0);
-  rUA.rotation.z = -Math.PI / 9;
+
+  const rUA = makeMesh(new THREE.CylinderGeometry(0.09, 0.08, 0.52, 8), shirt);
+  rUA.position.set(0.4, 1.18, 0);
+  rUA.rotation.z = -Math.PI / 10;
   group.add(rUA);
 
-  // Forearms (skin)
-  const forearmGeo = new THREE.CylinderGeometry(0.065 * S, 0.055 * S, 0.4 * S, 8);
-  const lFA = new THREE.Mesh(forearmGeo, skinMat);
-  lFA.position.set(-0.46 * S, 0.78 * S, 0.12 * S);
-  lFA.rotation.x = 0.45;
-  group.add(lFA);
-  const rFA = new THREE.Mesh(forearmGeo, skinMat.clone());
-  rFA.position.set(0.46 * S, 0.78 * S, 0.12 * S);
-  rFA.rotation.x = 0.45;
-  group.add(rFA);
+  // Lower arms (skin)
+  const lLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  lLA.position.set(-0.5, 0.8, 0.1);
+  lLA.rotation.x = 0.4;
+  group.add(lLA);
+
+  const rLA = makeMesh(new THREE.CylinderGeometry(0.07, 0.065, 0.42, 8), skin);
+  rLA.position.set(0.5, 0.8, 0.1);
+  rLA.rotation.x = 0.4;
+  group.add(rLA);
 
   // Hands
-  const handGeo = new THREE.SphereGeometry(0.06 * S, 8, 6);
-  const lHand = new THREE.Mesh(handGeo, skinMat);
-  lHand.position.set(-0.48 * S, 0.58 * S, 0.28 * S);
+  const lHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
+  lHand.position.set(-0.52, 0.6, 0.25);
   group.add(lHand);
-  const rHand = new THREE.Mesh(handGeo, skinMat.clone());
-  rHand.position.set(0.48 * S, 0.58 * S, 0.28 * S);
+
+  const rHand = makeMesh(new THREE.SphereGeometry(0.09, 8, 6), skin);
+  rHand.position.set(0.52, 0.6, 0.25);
   group.add(rHand);
 
   // Legs
-  const legGeo = new THREE.CylinderGeometry(0.11 * S, 0.1 * S, 0.74 * S, 8);
-  const pantsMat = new THREE.MeshStandardMaterial({ color: pants, roughness: 0.6 });
-  const lLeg = new THREE.Mesh(legGeo, pantsMat);
-  lLeg.position.set(-0.14 * S, 0.37 * S, 0);
+  const lLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
+  lLeg.position.set(-0.15, 0.39, 0);
   group.add(lLeg);
-  const rLeg = new THREE.Mesh(legGeo, pantsMat.clone());
-  rLeg.position.set(0.14 * S, 0.37 * S, 0);
+
+  const rLeg = makeMesh(new THREE.CylinderGeometry(0.12, 0.11, 0.78, 8), pants);
+  rLeg.position.set(0.15, 0.39, 0);
   group.add(rLeg);
 
   // Shoes
-  const shoeGeo = new THREE.BoxGeometry(0.16 * S, 0.08 * S, 0.28 * S);
-  const shoeMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.4 });
-  const lShoe = new THREE.Mesh(shoeGeo, shoeMat);
-  lShoe.position.set(-0.14 * S, 0.04 * S, 0.05 * S);
+  const lShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
+  lShoe.position.set(-0.15, 0.05, 0.06);
   group.add(lShoe);
-  const rShoe = new THREE.Mesh(shoeGeo, shoeMat.clone());
-  rShoe.position.set(0.14 * S, 0.04 * S, 0.05 * S);
+
+  const rShoe = makeMesh(new THREE.BoxGeometry(0.18, 0.1, 0.3), 0x111111);
+  rShoe.position.set(0.15, 0.05, 0.06);
   group.add(rShoe);
 
   // Neck
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08 * S, 0.1 * S, 0.16 * S, 10), skinMat);
-  neck.position.y = 1.54 * S;
+  const neck = makeMesh(new THREE.CylinderGeometry(0.1, 0.12, 0.22, 8), skin);
+  neck.position.y = 1.6;
   group.add(neck);
 
-  // ── Head Group ──
-  const headGrp = new THREE.Group();
-  headGrp.position.y = 1.76 * S;
-  group.add(headGrp);
+  // Head group (for animation)
+  const head = new THREE.Group();
+  head.position.y = 1.82;
+  group.add(head);
 
-  // Skull — oval head shape
-  const skull = new THREE.Mesh(new THREE.SphereGeometry(0.23 * S, 24, 18), skinMat.clone());
-  skull.scale.set(1, 1.15, 0.92);
-  headGrp.add(skull);
+  // Skull
+  const skull = makeMesh(new THREE.SphereGeometry(0.3, 16, 12), skin);
+  skull.scale.y = 1.15;
+  head.add(skull);
 
-  // ── Full Hair (covers top, sides, and back like a real person) ──
-  // Main hair volume — top
-  const hairMain = new THREE.Mesh(new THREE.SphereGeometry(0.245 * S, 16, 12), hairMat);
-  hairMain.position.set(0, 0.08 * S, -0.02 * S);
-  hairMain.scale.set(1.08, 0.65, 1.1);
-  headGrp.add(hairMain);
+  // Hair — full coverage
+  const hairMesh = makeMesh(new THREE.SphereGeometry(0.31, 10, 8), hair);
+  hairMesh.position.y = 0.17;
+  hairMesh.scale.set(1, 0.5, 1);
+  head.add(hairMesh);
 
-  // Hair front fringe
-  const hairFringe = new THREE.Mesh(new THREE.SphereGeometry(0.22 * S, 12, 8), hairMat.clone());
-  hairFringe.position.set(0, 0.14 * S, 0.08 * S);
-  hairFringe.scale.set(1.1, 0.35, 0.6);
-  headGrp.add(hairFringe);
+  // Side hair (covers ears area)
+  const hairSideL = makeMesh(new THREE.SphereGeometry(0.15, 8, 6), hair);
+  hairSideL.position.set(-0.22, 0.05, -0.04);
+  hairSideL.scale.set(0.4, 0.7, 0.7);
+  head.add(hairSideL);
 
-  // Left side hair — covers above ear
-  const hairSideL = new THREE.Mesh(new THREE.SphereGeometry(0.14 * S, 10, 8), hairMat.clone());
-  hairSideL.position.set(-0.19 * S, 0.04 * S, -0.02 * S);
-  hairSideL.scale.set(0.55, 0.85, 0.9);
-  headGrp.add(hairSideL);
+  const hairSideR = makeMesh(new THREE.SphereGeometry(0.15, 8, 6), hair);
+  hairSideR.position.set(0.22, 0.05, -0.04);
+  hairSideR.scale.set(0.4, 0.7, 0.7);
+  head.add(hairSideR);
 
-  // Right side hair
-  const hairSideR = new THREE.Mesh(new THREE.SphereGeometry(0.14 * S, 10, 8), hairMat.clone());
-  hairSideR.position.set(0.19 * S, 0.04 * S, -0.02 * S);
-  hairSideR.scale.set(0.55, 0.85, 0.9);
-  headGrp.add(hairSideR);
+  // Back hair
+  const hairBack = makeMesh(new THREE.SphereGeometry(0.28, 10, 8), hair);
+  hairBack.position.set(0, 0.06, -0.12);
+  hairBack.scale.set(0.95, 0.55, 0.6);
+  head.add(hairBack);
 
-  // Back hair — nape area
-  const hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.23 * S, 12, 10), hairMat.clone());
-  hairBack.position.set(0, 0.0, -0.1 * S);
-  hairBack.scale.set(1.02, 0.7, 0.75);
-  headGrp.add(hairBack);
+  // Eyes
+  const lEye = makeMesh(new THREE.SphereGeometry(0.048, 8, 6), 0x111111);
+  lEye.position.set(-0.11, 0.05, 0.26);
+  head.add(lEye);
 
-  // Hair crown
-  const hairCrown = new THREE.Mesh(new THREE.SphereGeometry(0.2 * S, 10, 8), hairMat.clone());
-  hairCrown.position.set(0, 0.16 * S, -0.04 * S);
-  hairCrown.scale.set(0.9, 0.3, 0.8);
-  headGrp.add(hairCrown);
+  const rEye = makeMesh(new THREE.SphereGeometry(0.048, 8, 6), 0x111111);
+  rEye.position.set(0.11, 0.05, 0.26);
+  head.add(rEye);
 
-  // ── Ears (partially behind side hair) ──
-  const earGeo = new THREE.SphereGeometry(0.045 * S, 8, 6);
-  const lEar = new THREE.Mesh(earGeo, skinMat.clone());
-  lEar.position.set(-0.22 * S, -0.02 * S, 0.02 * S);
-  lEar.scale.set(0.45, 0.75, 0.55);
-  headGrp.add(lEar);
-  const rEar = new THREE.Mesh(earGeo, skinMat.clone());
-  rEar.position.set(0.22 * S, -0.02 * S, 0.02 * S);
-  rEar.scale.set(0.45, 0.75, 0.55);
-  headGrp.add(rEar);
+  // Eyelids (skin-colored, used for blink animation)
+  const lLid = makeMesh(new THREE.SphereGeometry(0.05, 8, 6), skin);
+  lLid.position.set(-0.11, 0.05, 0.26);
+  head.add(lLid);
 
-  // ── Eyebrows ──
-  const browMat = new THREE.MeshStandardMaterial({ color: hair, roughness: 0.8 });
-  const browGeo = new THREE.BoxGeometry(0.085 * S, 0.018 * S, 0.02 * S);
-  const lBrow = new THREE.Mesh(browGeo, browMat);
-  lBrow.position.set(-0.075 * S, 0.1 * S, 0.2 * S);
-  lBrow.rotation.z = 0.06;
-  headGrp.add(lBrow);
-  const rBrow = new THREE.Mesh(browGeo, browMat.clone());
-  rBrow.position.set(0.075 * S, 0.1 * S, 0.2 * S);
-  rBrow.rotation.z = -0.06;
-  headGrp.add(rBrow);
+  const rLid = makeMesh(new THREE.SphereGeometry(0.05, 8, 6), skin);
+  rLid.position.set(0.11, 0.05, 0.26);
+  head.add(rLid);
 
-  // ── Eyes (white sclera + iris + pupil) ──
-  const scleraMat = new THREE.MeshStandardMaterial({ color: 0xf8f8f4, roughness: 0.2 });
-  const eyeGeo = new THREE.SphereGeometry(0.038 * S, 12, 10);
+  // Nose
+  const nose = makeMesh(new THREE.SphereGeometry(0.05, 6, 5), skin);
+  nose.position.set(0, -0.04, 0.28);
+  nose.scale.set(0.8, 0.7, 0.9);
+  head.add(nose);
 
-  const lSclera = new THREE.Mesh(eyeGeo, scleraMat);
-  lSclera.position.set(-0.075 * S, 0.05 * S, 0.19 * S);
-  lSclera.scale.set(1.15, 0.82, 0.5);
-  headGrp.add(lSclera);
-  const rSclera = new THREE.Mesh(eyeGeo, scleraMat.clone());
-  rSclera.position.set(0.075 * S, 0.05 * S, 0.19 * S);
-  rSclera.scale.set(1.15, 0.82, 0.5);
-  headGrp.add(rSclera);
-
-  // Iris (colored)
-  const irisColor = isInterviewer ? 0x3a5a2a : 0x2a3a5a;
-  const irisMat = new THREE.MeshStandardMaterial({ color: irisColor, roughness: 0.3 });
-  const irisGeo = new THREE.SphereGeometry(0.025 * S, 8, 6);
-  const lIris = new THREE.Mesh(irisGeo, irisMat);
-  lIris.position.set(-0.075 * S, 0.048 * S, 0.215 * S);
-  headGrp.add(lIris);
-  const rIris = new THREE.Mesh(irisGeo, irisMat.clone());
-  rIris.position.set(0.075 * S, 0.048 * S, 0.215 * S);
-  headGrp.add(rIris);
-
-  // Pupil (black center)
-  const pupilGeo = new THREE.SphereGeometry(0.014 * S, 8, 6);
-  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.2 });
-  const lPupil = new THREE.Mesh(pupilGeo, pupilMat);
-  lPupil.position.set(-0.075 * S, 0.048 * S, 0.225 * S);
-  headGrp.add(lPupil);
-  const rPupil = new THREE.Mesh(pupilGeo, pupilMat.clone());
-  rPupil.position.set(0.075 * S, 0.048 * S, 0.225 * S);
-  headGrp.add(rPupil);
-
-  // ── Eyelids (subtle skin-colored arc above each eye) ──
-  const lidGeo = new THREE.BoxGeometry(0.09 * S, 0.012 * S, 0.02 * S);
-  const lLid = new THREE.Mesh(lidGeo, skinMat.clone());
-  lLid.position.set(-0.075 * S, 0.078 * S, 0.2 * S);
-  headGrp.add(lLid);
-  const rLid = new THREE.Mesh(lidGeo, skinMat.clone());
-  rLid.position.set(0.075 * S, 0.078 * S, 0.2 * S);
-  headGrp.add(rLid);
-
-  // ── Nose ──
-  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.028 * S, 0.075 * S, 8), skinMat.clone());
-  nose.position.set(0, -0.015 * S, 0.23 * S);
-  nose.rotation.x = -Math.PI / 2;
-  headGrp.add(nose);
-
-  const noseBridge = new THREE.Mesh(new THREE.BoxGeometry(0.022 * S, 0.065 * S, 0.025 * S), skinMat.clone());
-  noseBridge.position.set(0, 0.025 * S, 0.21 * S);
-  headGrp.add(noseBridge);
-
-  // Nostrils
-  const nostrilMat = new THREE.MeshStandardMaterial({ color: 0x8a6a50, roughness: 0.8 });
-  const nostrilGeo = new THREE.SphereGeometry(0.012 * S, 6, 4);
-  const lNostril = new THREE.Mesh(nostrilGeo, nostrilMat);
-  lNostril.position.set(-0.016 * S, -0.048 * S, 0.235 * S);
-  headGrp.add(lNostril);
-  const rNostril = new THREE.Mesh(nostrilGeo, nostrilMat.clone());
-  rNostril.position.set(0.016 * S, -0.048 * S, 0.235 * S);
-  headGrp.add(rNostril);
-
-  // ── Mouth Group (animates open/close) ──
+  // Mouth group (for animation)
   const mouth = new THREE.Group();
-  mouth.position.set(0, -0.1 * S, 0.2 * S);
-  headGrp.add(mouth);
+  mouth.position.set(0, -0.13, 0.27);
+  head.add(mouth);
 
-  const lipMat = new THREE.MeshStandardMaterial({ color: lipColor, roughness: 0.5 });
-  // Upper lip — slight bow shape
-  const upperLip = new THREE.Mesh(new THREE.BoxGeometry(0.09 * S, 0.022 * S, 0.022 * S), lipMat);
-  upperLip.position.y = 0.01 * S;
-  mouth.add(upperLip);
+  const lips = makeMesh(new THREE.BoxGeometry(0.13, 0.04, 0.02), 0x8b3a2a);
+  mouth.add(lips);
 
-  // Lower lip (slightly fuller)
-  const lowerLip = new THREE.Mesh(new THREE.BoxGeometry(0.08 * S, 0.026 * S, 0.024 * S), lipMat.clone());
-  lowerLip.position.y = -0.012 * S;
-  mouth.add(lowerLip);
-
-  // Mouth interior
-  const inner = new THREE.Mesh(new THREE.BoxGeometry(0.055 * S, 0.001, 0.018 * S), new THREE.MeshStandardMaterial({ color: 0x2a0000 }));
-  inner.position.y = -0.003 * S;
+  const inner = makeMesh(new THREE.BoxGeometry(0.09, 0.001, 0.02), 0x2d0000);
+  inner.position.y = -0.02;
   mouth.add(inner);
 
-  // ── Chin ──
-  const chin = new THREE.Mesh(new THREE.SphereGeometry(0.075 * S, 10, 8), skinMat.clone());
-  chin.position.set(0, -0.17 * S, 0.13 * S);
-  chin.scale.set(1, 0.45, 0.65);
-  headGrp.add(chin);
-
-  // ── Jawline (subtle definition) ──
-  const jawGeo = new THREE.BoxGeometry(0.2 * S, 0.03 * S, 0.08 * S);
-  const jaw = new THREE.Mesh(jawGeo, skinMat.clone());
-  jaw.position.set(0, -0.14 * S, 0.1 * S);
-  headGrp.add(jaw);
-
-  // ── Interviewer extras: glasses + tie ──
+  // Interviewer extras: glasses + tie
   if (isInterviewer) {
-    const gM = new THREE.MeshStandardMaterial({ color: 0x1a1a1a, metalness: 0.3 });
-    const geoT = new THREE.TorusGeometry(0.055 * S, 0.007 * S, 8, 24);
+    const geoT = new THREE.TorusGeometry(0.085, 0.011, 6, 20);
+    const gM = new THREE.MeshStandardMaterial({ color: 0x222222 });
 
     const gl = new THREE.Mesh(geoT, gM);
-    gl.position.set(-0.075 * S, 0.05 * S, 0.22 * S);
-    gl.rotation.y = 0.08;
-    headGrp.add(gl);
+    gl.position.set(-0.11, 0.06, 0.26);
+    gl.rotation.y = 0.1;
+    head.add(gl);
+
     const gr = new THREE.Mesh(geoT, gM);
-    gr.position.set(0.075 * S, 0.05 * S, 0.22 * S);
-    gr.rotation.y = -0.08;
-    headGrp.add(gr);
+    gr.position.set(0.11, 0.06, 0.26);
+    gr.rotation.y = -0.1;
+    head.add(gr);
 
-    const bridge = new THREE.Mesh(new THREE.BoxGeometry(0.035 * S, 0.006 * S, 0.006 * S), gM);
-    bridge.position.set(0, 0.055 * S, 0.24 * S);
-    headGrp.add(bridge);
+    const br = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.01, 0.01), gM);
+    br.position.set(0, 0.06, 0.28);
+    head.add(br);
 
-    // Temple arms
-    const tArmGeo = new THREE.BoxGeometry(0.15 * S, 0.005 * S, 0.005 * S);
-    const lTArm = new THREE.Mesh(tArmGeo, gM);
-    lTArm.position.set(-0.15 * S, 0.05 * S, 0.12 * S);
-    headGrp.add(lTArm);
-    const rTArm = new THREE.Mesh(tArmGeo, gM);
-    rTArm.position.set(0.15 * S, 0.05 * S, 0.12 * S);
-    headGrp.add(rTArm);
-
-    // Tie
-    const tie = new THREE.Mesh(new THREE.BoxGeometry(0.055 * S, 0.3 * S, 0.025 * S), new THREE.MeshStandardMaterial({ color: 0x7c3aed, roughness: 0.5 }));
-    tie.position.set(0, 1.06 * S, 0.22 * S);
+    const tie = makeMesh(new THREE.BoxGeometry(0.08, 0.38, 0.04), 0x7c3aed);
+    tie.position.set(0, 1.13, 0.26);
     group.add(tie);
-
-    // Tie knot
-    const knot = new THREE.Mesh(new THREE.SphereGeometry(0.02 * S, 6, 6), new THREE.MeshStandardMaterial({ color: 0x6d28d9, roughness: 0.5 }));
-    knot.position.set(0, 1.42 * S, 0.24 * S);
-    knot.scale.set(1.2, 0.8, 0.8);
-    group.add(knot);
-  } else {
-    // Candidate: collar detail
-    const collarGeo = new THREE.BoxGeometry(0.12 * S, 0.05 * S, 0.04 * S);
-    const collarMat = new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.5 });
-    const lCollar = new THREE.Mesh(collarGeo, collarMat);
-    lCollar.position.set(-0.1 * S, 1.48 * S, 0.15 * S);
-    lCollar.rotation.z = 0.3;
-    group.add(lCollar);
-    const rCollar = new THREE.Mesh(collarGeo, collarMat.clone());
-    rCollar.position.set(0.1 * S, 1.48 * S, 0.15 * S);
-    rCollar.rotation.z = -0.3;
-    group.add(rCollar);
   }
 
-  return { group, head: headGrp, mouth };
+  return { group, head, mouth };
 }
 
 function buildChair() {
@@ -669,8 +529,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
 
     // Camera
     const camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 50);
-    camera.position.set(0, 2.0, 4.2);
-    camera.lookAt(0, 0.65, 0);
+    camera.position.set(0, 2.8, 7.5);
+    camera.lookAt(0, 1.5, 0);
     cameraRef.current = camera;
 
     // Renderer
@@ -716,28 +576,26 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
 
     // ── Interviewer (left) ──────────────────────────────────────
     const ivChair = buildChair();
-    ivChair.position.set(-1.28, 0, 0.1);
-    ivChair.rotation.y = Math.PI / 2;
-    ivChair.scale.setScalar(0.75);
+    ivChair.position.set(-2.0, 0, 0.6);
+    ivChair.rotation.y = 0.55;
     scene.add(ivChair);
 
     const { group: ivGroup, head: ivHead, mouth: ivMouth } = buildPerson(0xc68642, 0x1e1b4b, 0x555566, true);
-    ivGroup.position.set(-1.28, 0.08, 0.1);
-    ivGroup.rotation.y = Math.PI / 2;
+    ivGroup.position.set(-2.0, 0, 0.6);
+    ivGroup.rotation.y = 0.55;
     scene.add(ivGroup);
     ivHeadRef.current = ivHead as any;
     ivMouthRef.current = ivMouth as any;
 
     // ── Candidate (right) ───────────────────────────────────────
     const cdChair = buildChair();
-    cdChair.position.set(1.28, 0, 0.1);
-    cdChair.rotation.y = -Math.PI / 2;
-    cdChair.scale.setScalar(0.75);
+    cdChair.position.set(2.0, 0, 0.6);
+    cdChair.rotation.y = -0.55;
     scene.add(cdChair);
 
     const { group: cdGroup, head: cdHead, mouth: cdMouth } = buildPerson(0xfcd9b0, 0x1d4ed8, 0x3b2000, false);
-    cdGroup.position.set(1.28, 0.08, 0.1);
-    cdGroup.rotation.y = -Math.PI / 2;
+    cdGroup.position.set(2.0, 0, 0.6);
+    cdGroup.rotation.y = -0.55;
     scene.add(cdGroup);
     cdHeadRef.current = cdHead as any;
     cdMouthRef.current = cdMouth as any;
@@ -783,8 +641,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       const t = clockRef.current!.getElapsedTime();
       const spk = activeSpeakerRef.current;
 
-      // Head bobs (head is now a Group at y=1.09 after 0.62 scale)
-      const headY = 1.76 * 0.62; // ~1.09
+      // Head bobs (head at y=1.82 — original full-scale characters)
+      const headY = 1.82;
       if (ivHeadRef.current) {
         ivHeadRef.current.position.y = spk === 1 ? headY + Math.sin(t * 4.2) * 0.018 : headY;
         ivHeadRef.current.rotation.x = spk !== 1 && spk === 2 ? Math.sin(t * 0.9) * 0.05 : 0;
@@ -796,8 +654,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         cdHeadRef.current.rotation.z = spk !== 2 && spk === 1 ? Math.sin(t * 0.7) * 0.04 : 0;
       }
 
-      // Mouth animation (mouth is now a Group — scale.y for open/close)
-      const mouthY = -0.1 * 0.62; // ~-0.062
+      // Mouth animation (mouth Group at y=-0.13 — original scale)
+      const mouthY = -0.13;
       if (ivMouthRef.current) {
         const s = spk === 1 ? Math.abs(Math.sin(t * 10.5)) * 0.9 + 0.1 : 0;
         ivMouthRef.current.scale.y = 1 + s * 2.5;
@@ -813,11 +671,11 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       if (glowRef.current) {
         const g = glowRef.current;
         if (spk === 1) {
-          g.position.set(-1.28, 1.05, 0.1);
+          g.position.set(-2.0, 1.8, 0.6);
           g.color.setHex(0x5080ff);
           g.intensity = 0.9 + Math.sin(t * 5.2) * 0.14;
         } else if (spk === 2) {
-          g.position.set(1.28, 1.05, 0.1);
+          g.position.set(2.0, 1.8, 0.6);
           g.color.setHex(0x9050ff);
           g.intensity = 0.9 + Math.sin(t * 5.0) * 0.14;
         } else {
@@ -826,9 +684,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       }
 
       // Subtle camera breathe
-      camera.position.x = Math.sin(t * 0.11) * 0.065;
-      camera.position.y = 2.0 + Math.sin(t * 0.085) * 0.042;
-      camera.lookAt(0, 0.65, 0);
+      camera.position.x = Math.sin(t * 0.11) * 0.15;
+      camera.position.y = 2.8 + Math.sin(t * 0.085) * 0.06;
+      camera.lookAt(0, 1.5, 0);
 
       updateBubbles();
       renderer.render(scene, camera);
