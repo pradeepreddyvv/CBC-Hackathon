@@ -9,7 +9,11 @@ export async function GET(req: NextRequest) {
 
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const redirectUri = `${process.env.NEXT_PUBLIC_URL || "http://localhost:3000"}/api/auth/google/callback`;
+  // Auto-detect origin from request headers (works on both localhost and Vercel)
+  const host = req.headers.get("host") || "localhost:3000";
+  const proto = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const origin = `${proto}://${host}`;
+  const redirectUri = `${origin}/api/auth/google/callback`;
 
   try {
     // Exchange code for tokens
