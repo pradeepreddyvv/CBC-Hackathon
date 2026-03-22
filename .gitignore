@@ -15,6 +15,7 @@ batch_analysis_results.json
 linkedin_manual_jobs*.json
 
 # Data files
+*.db
 *.har
 MASTER_CAREER_VAULT*.json
 
