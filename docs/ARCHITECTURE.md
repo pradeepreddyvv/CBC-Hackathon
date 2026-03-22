@@ -7,11 +7,11 @@
 |                        BROWSER (Client)                          |
 |                                                                  |
 |  +------------------+  +----------------+  +-----------------+   |
-|  |   Login Page     |  | Onboarding     |  | Practice        |   |
+|  |   Login Page     |  | Onboarding     |  | Interview       |   |
 |  |   /login         |  | Wizard         |  | Dashboard       |   |
 |  |                  |  | /onboarding    |  | / (main page)   |   |
 |  | - Email/Pass     |  |                |  |                 |   |
-|  | - Google OAuth   |  | Step 1: Profile|  | Tab: Practice   |   |
+|  | - Google OAuth   |  | Step 1: Profile|  | Tab: Interview  |   |
 |  +------------------+  | Step 2: Type   |  | Tab: Progress   |   |
 |                        | Step 3: Company |  | Tab: History    |   |
 |                        | Step 4: Research|  |                 |   |

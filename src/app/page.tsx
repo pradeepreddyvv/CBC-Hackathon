@@ -16,7 +16,7 @@ import dynamic from "next/dynamic";
 
 const InterviewArtifactScene = dynamic(() => import("@/components/InterviewArtifactScene"), { ssr: false });
 
-type Tab = "practice" | "progress" | "history" | "3d-interview";
+type Tab = "interview" | "progress" | "history" | "3d-interview";
 
 interface AdaptiveQuestion {
   id: string;
@@ -44,7 +44,7 @@ interface SessionPlan {
 export default function Home() {
   const { user, loading: authLoading, logout } = useAuth();
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("practice");
+  const [tab, setTab] = useState<Tab>("interview");
   const [profile, setProfile] = useState<UserProfile>({
     name: "", background: "", targetRole: "Software Engineer",
     targetCompany: "Google", experience: "", skills: "", country: "",
@@ -137,7 +137,7 @@ export default function Home() {
   const saveProfile = useCallback(() => {
     saveUserProfile(profile);
     setProfileSaved(true);
-    setTab("practice");
+    setTab("interview");
   }, [profile]);
 
   // Start a new session — either with default Qs or adaptive AI-generated Qs
@@ -448,7 +448,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            {(["practice", "3d-interview", "progress", "history"] as Tab[]).map(t => (
+            {(["interview", "3d-interview", "progress", "history"] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -456,7 +456,7 @@ export default function Home() {
                   tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
                 }`}
               >
-                {t === "practice" ? "Practice" : t === "3d-interview" ? "3D Mock" : t === "progress" ? "Progress" : "History"}
+                {t === "interview" ? "Interview" : t === "3d-interview" ? "3D Mock" : t === "progress" ? "Progress" : "History"}
               </button>
             ))}
           </div>
@@ -488,7 +488,7 @@ export default function Home() {
 
       <main className="max-w-4xl mx-auto px-4 py-6">
         {/* ═══════ PRACTICE TAB ═══════ */}
-        {tab === "practice" && (
+        {tab === "interview" && (
           <div className="space-y-4">
             {/* Company Pattern Info */}
             {sessionQuestions.length === 0 && !generatingSession && companyPattern.name !== "General" && (
@@ -516,7 +516,7 @@ export default function Home() {
             {/* No active session */}
             {sessionQuestions.length === 0 && !generatingSession && (
               <div className="text-center py-12 space-y-4 fade-in">
-                <h2 className="text-xl font-bold text-slate-200">Start a Practice Session</h2>
+                <h2 className="text-xl font-bold text-slate-200">Start an Interview Session</h2>
                 <p className="text-sm text-muted max-w-md mx-auto">
                   Each session is 5 questions. Get feedback per question or save it all for the end.
                 </p>
@@ -1136,7 +1136,7 @@ function HistoryView() {
       <div className="text-center py-20">
         <div className="text-4xl mb-4">📋</div>
         <h3 className="text-lg font-bold text-slate-200 mb-2">No history yet</h3>
-        <p className="text-sm text-muted">Complete some practice questions to see your history.</p>
+        <p className="text-sm text-muted">Complete some interview questions to see your history.</p>
       </div>
     );
   }
@@ -1156,7 +1156,7 @@ function HistoryView() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-bold text-slate-200">Practice History</h2>
+      <h2 className="text-xl font-bold text-slate-200">Interview History</h2>
       {Array.from(sessionMap.entries()).map(([sessId, answers]) => {
         const session = profile.sessions.find(s => s.id === sessId);
         const scoredAnswers = answers.filter(a => a.feedback.overall_score > 0);

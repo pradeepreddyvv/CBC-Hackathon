@@ -592,7 +592,7 @@ export default function OnboardingPage() {
         {step === 5 && (
           <div className="space-y-5 fade-in">
             <div>
-              <h2 className="text-xl font-bold text-slate-200">Your Practice Questions</h2>
+              <h2 className="text-xl font-bold text-slate-200">Your Interview Questions</h2>
               <p className="text-sm text-muted mt-1">
                 Generated based on your profile, {data.companyName}&apos;s interview style, and real candidate experiences.
               </p>

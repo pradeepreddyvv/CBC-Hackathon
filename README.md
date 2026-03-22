@@ -1,6 +1,6 @@
 # InterviewCoach AI
 
-**AI-Powered Mock Interview Platform with Structured STAR Feedback**
+**AI-Powered Mock Interview Platform with 3D Scene & Structured STAR Feedback**
 
 > HackASU 2026 — Claude Builder Club | Track 3: Economic Empowerment & Education
 
@@ -8,69 +8,75 @@
 
 ## What It Does
 
-InterviewCoach helps job seekers practice interviews with AI and get deeply structured feedback. Upload your resume, pick a target company, and the system generates personalized questions based on real interview data scraped from Reddit, LeetCode, Glassdoor, and GeeksForGeeks. Answer via voice or text, and get scored on STAR framework, delivery quality, and sentence-level analysis.
+InterviewCoach helps job seekers practice interviews with AI in an immersive 3D office environment. Upload your resume, pick a target company, and the system generates personalized questions based on real interview data scraped from Reddit, LeetCode, Glassdoor, and GeeksForGeeks. Answer via voice, get real-time transcription, and receive deeply structured STAR-framework feedback with sentence-level analysis — all tracked over time so you can see exactly where you're improving.
 
 ### Key Features
 
-- **Resume Upload & Auto-Fill** — Upload PDF/DOCX/TXT, AI extracts and fills your profile
+- **3D Mock Interview Scene** — Three.js office with interviewer & candidate characters, speech bubbles via 3D→2D projection, speaker glow lighting
+- **Voice Pipeline** — Speechmatics real-time STT for transcription, Web Speech API for TTS feedback delivery
+- **Resume Upload & Auto-Fill** — Upload PDF/DOCX/TXT, Gemini multimodal API extracts text and fills your profile
 - **Internet Research** — Searches Reddit, LeetCode, Glassdoor, GFG for real interview experiences at your target company
 - **Personalized Question Generation** — AI generates questions based on your profile, company, and research data
-- **Voice & Text Input** — Answer using Web Speech API voice recording or type
 - **STAR Framework Scoring** — Situation, Task, Action, Result scored individually (0-100)
 - **Sentence-Level Analysis** — Every sentence rated as strong/okay/weak with rewrites
 - **Delivery Analysis** — Filler words, hedging phrases, power words, active voice %, pacing
 - **Follow-Up Questions** — AI generates contextual follow-ups based on your answers
 - **Adaptive Sessions** — Targets your weak areas with progressively harder questions
 - **Company-Specific Intelligence** — Built-in profiles for Amazon (LPs), Google, Meta, Microsoft, Apple, Netflix
+- **Full Analysis in History** — Complete per-question analysis (STAR scores, sentence analysis, delivery, coaching tips, ideal answer) stored in DB and retrievable from History tab
 - **Progress Tracking** — Score trends, weak area tracking with improving/stable/declining trends
+- **Light/Dark Theme** — Toggle between light and dark themes with CSS custom properties & localStorage persistence
 - **Cloud Persistence** — All data synced to InsForge PostgreSQL
+- **Google OAuth** — Auto-detecting redirect URIs for localhost + Vercel production
 
 ---
 
 ## Architecture
 
 ```
-                         +------------------+
-                         |   Next.js App    |
-                         |   (Frontend)     |
-                         +--------+---------+
-                                  |
-                    +-------------+-------------+
-                    |                           |
-              +-----v-----+            +-------v-------+
-              | Auth Flow  |            | Practice Flow |
-              +-----+-----+            +-------+-------+
-                    |                           |
-          +---------+---------+       +---------+---------+
-          |                   |       |                   |
-    +-----v-----+   +--------v--+  +-v--------+   +-----v------+
-    | Email/Pass|   | Google    |  | Voice/    |   | Feedback   |
-    | JWT Auth  |   | OAuth 2.0 |  | Text Input|   | Engine     |
-    +-----------+   +-----------+  +----------+   +-----+------+
-                                                        |
-                                              +---------v---------+
-                                              | InsForge Model    |
-                                              | Gateway           |
-                                              | (Gemini 2.5 Flash)|
-                                              +-------------------+
-                                                        |
-              +--------------------+--------------------+
-              |                    |                    |
-        +-----v-----+     +------v------+     +-------v-------+
-        | STAR       |     | Sentence    |     | Delivery      |
-        | Scoring    |     | Analysis    |     | Analysis      |
-        +------------+     +-------------+     +---------------+
-
-    +----------------------------------------------------------+
-    |                   InsForge PostgreSQL                     |
-    |  users | sessions | answers | weak_areas | embeddings     |
-    +----------------------------------------------------------+
+┌─────────────────────────────────────────────────────────┐
+│                    FRONTEND (Next.js)                    │
+│                                                          │
+│  ┌──────────┐  ┌──────────────┐  ┌───────────────────┐  │
+│  │ Login /  │  │  Dashboard   │  │  3D Interview     │  │
+│  │ Onboard  │  │  + History   │  │  Scene (Three.js) │  │
+│  └────┬─────┘  └──────┬───────┘  └────────┬──────────┘  │
+│       │               │                    │             │
+│       │    ┌──────────────────────┐        │             │
+│       │    │ Speech Pipeline      │        │             │
+│       │    │ STT: Speechmatics RT │        │             │
+│       │    │ TTS: Web Speech API  │        │             │
+│       │    └──────────────────────┘        │             │
+└───────┼───────────┼───────────────────────┼─────────────┘
+        │           │                       │
+        ▼           ▼                       ▼
+┌─────────────────────────────────────────────────────────┐
+│                   API ROUTES (Next.js)                   │
+│                                                          │
+│  /api/auth/google/*     Google OAuth (auto-detect host)  │
+│  /api/parse-resume      PDF→text via Gemini multimodal   │
+│  /api/generate-questions Gemini: role+resume→questions   │
+│  /api/analyze-answer    Gemini: STAR analysis + scoring  │
+│  /api/cloud-*           DB CRUD (sessions, answers,      │
+│                         weak areas, embeddings)          │
+│  /api/match-question    Semantic similarity search       │
+└──────────────┬──────────────────────────┬───────────────┘
+               │                          │
+               ▼                          ▼
+┌──────────────────────┐   ┌──────────────────────────────┐
+│   InsForge Gateway   │   │   InsForge PostgreSQL DB     │
+│   (Gemini API proxy) │   │                              │
+│                      │   │  users, sessions, answers    │
+│  Models:             │   │  weak_areas,                 │
+│  gemini-2.5-flash    │   │  question/answer/ideal       │
+│                      │   │  _embeddings                 │
+└──────────────────────┘   └──────────────────────────────┘
 ```
 
 ### Data Flow
 
 ```
-User registers/logs in
+User registers/logs in (Email/Password or Google OAuth)
         |
         v
 Onboarding Wizard (5 steps)
@@ -81,12 +87,12 @@ Onboarding Wizard (5 steps)
   5. Question Generation (5 personalized questions)
         |
         v
-Practice Session
-  - Display question
-  - Record answer (voice/text)
-  - AI generates structured feedback
-  - Optional: answer follow-up question
-  - Repeat for all questions
+Interview Session
+  - Display question (text + TTS voice)
+  - Record answer (Speechmatics real-time STT)
+  - AI generates structured STAR feedback
+  - 3D scene shows interviewer/candidate with speech bubbles
+  - Full analysis saved to DB per question
   - Session summary with readiness score
         |
         v
@@ -95,6 +101,13 @@ Progress Dashboard
   - Weak area tracking (15 competencies)
   - Communication habits analysis
   - Cross-session AI analysis
+        |
+        v
+History Tab
+  - Per-question full analysis retrieval
+  - STAR scores, sentence analysis, delivery metrics
+  - Coaching tips, ideal answer structure
+  - Weak area trends (improving/stable/declining)
 ```
 
 ---
@@ -104,21 +117,22 @@ Progress Dashboard
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
 | **Frontend** | Next.js 14 (App Router) | React framework with SSR |
-| **Styling** | Tailwind CSS v3 | Dark theme UI with custom animations |
+| **3D Scene** | Three.js | Immersive interview office environment |
+| **Styling** | Tailwind CSS v3 | Light/dark theme UI with custom animations |
 | **Language** | TypeScript | Type safety |
 | **AI Gateway** | InsForge Model Gateway | Unified AI model routing |
 | **AI Model** | Gemini 2.5 Flash Lite | Question generation, feedback, research |
 | **Database** | InsForge PostgreSQL 15 | Users, sessions, answers, weak areas |
 | **Vector DB** | pgvector on PostgreSQL | Semantic question search (3072d embeddings) |
 | **Auth** | JWT (jose) + bcryptjs | Email/password + Google OAuth |
-| **Voice** | Web Speech API | Browser-native speech-to-text |
-| **PDF Parsing** | pdf-parse | Resume text extraction |
+| **Voice STT** | Speechmatics Realtime API | Real-time speech-to-text transcription |
+| **Voice TTS** | Web Speech API | Browser-native text-to-speech |
+| **PDF Parsing** | Gemini Multimodal API | Resume PDF text extraction (serverless-compatible) |
 | **DOCX Parsing** | jszip | Resume DOCX extraction |
 
 ### Hackathon Sponsor Integrations
 
 - **InsForge** — PostgreSQL database, AI Model Gateway, vector database (pgvector)
-
 
 ---
 
@@ -133,16 +147,19 @@ src/
 │   │   ├── db/             # PostgreSQL database operations
 │   │   ├── feedback/       # Per-question STAR feedback + session summary
 │   │   ├── parse-profile/  # AI profile extraction from resume/context
-│   │   ├── parse-resume/   # PDF/DOCX/TXT file parsing
+│   │   ├── parse-resume/   # PDF (Gemini multimodal) / DOCX / TXT parsing
 │   │   ├── research/       # Company interview research via AI
+│   │   ├── cloud-save-answer/ # Save individual answer with full analysis to DB
+│   │   ├── cloud-save-session/ # Save session summary to DB
 │   │   └── vector/         # Vector similarity search (pgvector)
 │   ├── login/              # Login/register page
 │   ├── onboarding/         # 5-step setup wizard
-│   ├── page.tsx            # Main practice dashboard
-│   ├── layout.tsx          # Root layout with AuthProvider
-│   └── globals.css         # Tailwind + custom animations
+│   ├── page.tsx            # Main interview dashboard (Interview, 3D Mock, Progress, History tabs)
+│   ├── layout.tsx          # Root layout with AuthProvider + theme script
+│   └── globals.css         # Tailwind + custom animations + light/dark theme variables
 ├── components/
-│   ├── VoiceRecorder.tsx   # Voice input with Web Speech API
+│   ├── InterviewArtifactScene.tsx  # 3D Three.js interview scene (office, characters, speech bubbles)
+│   ├── VoiceRecorder.tsx   # Voice input with Speechmatics real-time STT
 │   ├── FeedbackCard.tsx    # Rich feedback visualization
 │   └── ProgressDashboard.tsx # Stats, trends, weak areas
 └── lib/
@@ -202,7 +219,7 @@ src/
 | user_id | text | Foreign key to users |
 | question_text | text | The question asked |
 | answer_text | text | User's full answer |
-| feedback | jsonb | Complete FeedbackResult |
+| feedback | jsonb | Complete analysis (STAR scores, sentence analysis, delivery, coaching) |
 | duration_sec | int | Answer duration |
 
 ### weak_areas
@@ -227,7 +244,7 @@ Each answer receives a deeply structured `FeedbackResult`:
   "star_scores": { "situation": 70, "task": 80, "action": 85, "result": 60 },
   "dimension_scores": { "clarity": 80, "confidence": 75, "conciseness": 70, "storytelling": 85, "technical_accuracy": 90 },
   "sentence_analysis": [
-    { "sentence": "...", "rating": "strong", "reason": "...", "tags": ["quantified", "ownership"] }
+    { "sentence": "...", "rating": "strong", "reason": "...", "rewrite": "...", "tags": ["quantified", "ownership"] }
   ],
   "delivery_analysis": {
     "filler_words": ["um", "like"],
@@ -240,6 +257,7 @@ Each answer receives a deeply structured `FeedbackResult`:
   "improvements": ["Add more context to the Situation"],
   "coaching_tip": "Lead with the business impact before the technical details",
   "follow_up_question": "Can you elaborate on the technical challenges you faced?",
+  "ideal_answer_structure": { "situation": "...", "task": "...", "action": "...", "result": "..." },
   "weak_areas": ["situation_context", "result_quantification"]
 }
 ```
@@ -263,6 +281,20 @@ Each answer receives a deeply structured `FeedbackResult`:
 | data_driven | Using data to decide |
 | ownership | Taking ownership |
 | bias_for_action | Showing initiative |
+
+---
+
+## 3D Interview Scene
+
+The 3D mock interview uses Three.js to render an immersive office environment:
+
+- **Office** — Dark-themed room with bookshelf, plant, window with emissive glass, ceiling light panel, rug
+- **Characters** — Box-based interviewer and candidate with MeshLambertMaterial, suits, collars, sitting pose
+- **Furniture** — Table with laptop, notepad, pen, water glass; ergonomic chairs
+- **Lighting** — Ambient + directional key/fill/rim lights, PCFSoftShadowMap, FogExp2
+- **Speech Bubbles** — HTML overlays positioned via 3D-to-2D head projection (getWorldPosition → project → screen coords)
+- **Speaker Glow** — PointLight that follows the active speaker
+- **Camera** — Positioned at (0, 2.55, 4.8) with subtle breathing animation
 
 ---
 
@@ -320,6 +352,9 @@ GOOGLE_CLIENT_SECRET=your_google_client_secret
 
 # Auth
 JWT_SECRET=your_jwt_secret
+
+# Speechmatics (for real-time STT)
+SPEECHMATICS_API_KEY=your_speechmatics_api_key
 ```
 
 ### Run Locally
@@ -328,6 +363,14 @@ JWT_SECRET=your_jwt_secret
 npm run dev
 # Open http://localhost:3000
 ```
+
+### Deploy to Vercel
+
+```bash
+vercel --prod
+```
+
+Import the GitHub repo in Vercel, add all environment variables above, and ensure the Google Cloud Console has your Vercel domain added as an authorized OAuth redirect URI (`https://your-domain.vercel.app/api/auth/google/callback`).
 
 ### Build
 
@@ -345,25 +388,27 @@ npm start
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register with email/password |
 | POST | `/api/auth/login` | Login with email/password |
-| GET | `/api/auth/google` | Initiate Google OAuth |
-| GET | `/api/auth/google/callback` | Google OAuth callback |
+| GET | `/api/auth/google` | Initiate Google OAuth (auto-detects redirect URI) |
+| GET | `/api/auth/google/callback` | Google OAuth callback (auto-detects origin) |
 | GET | `/api/auth/me` | Get current authenticated user |
 | POST | `/api/auth/profile` | Update user profile |
 | POST | `/api/auth/logout` | Clear auth cookie |
 
-### AI & Practice
+### AI & Interview
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/feedback` | Get STAR feedback for an answer |
 | POST | `/api/adaptive` | Generate adaptive session or analyze progress |
 | POST | `/api/research` | Search interview experiences online |
-| POST | `/api/parse-resume` | Extract text from PDF/DOCX/TXT |
+| POST | `/api/parse-resume` | Extract text from PDF (Gemini multimodal) / DOCX / TXT |
 | POST | `/api/parse-profile` | AI-extract profile from resume text |
 
 ### Data
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/db` | Database operations (sessions, answers, stats) |
+| POST | `/api/cloud-save-answer` | Save answer with full analysis to DB |
+| POST | `/api/cloud-save-session` | Save session summary to DB |
 | POST | `/api/vector` | Vector similarity search operations |
 
 ---
