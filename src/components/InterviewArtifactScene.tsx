@@ -62,8 +62,8 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number) {
 
   // Mouth
   const mouthMat = new THREE.MeshLambertMaterial({ color: 0x331111 });
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.015, 0.03), mouthMat);
-  mouth.position.set(0, 1.01, 0.17);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.025, 0.04), mouthMat);
+  mouth.position.set(0, 1.005, 0.17);
   mouth.name = "mouth";
   group.add(mouth);
 
@@ -540,17 +540,17 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       // Mouth animation — open/close when speaking
       if (ivMouthRef.current) {
         const openAmt = spk === 1
-          ? 0.015 + Math.abs(Math.sin(t * 12.5)) * 0.035 + Math.abs(Math.sin(t * 7.3)) * 0.015
-          : 0.015;
-        ivMouthRef.current.scale.y = openAmt / 0.015;
-        ivMouthRef.current.position.y = 1.01 - (openAmt - 0.015) * 0.5;
+          ? 0.025 + Math.abs(Math.sin(t * 12.5)) * 0.06 + Math.abs(Math.sin(t * 7.3)) * 0.03
+          : 0.025;
+        ivMouthRef.current.scale.y = openAmt / 0.025;
+        ivMouthRef.current.position.y = 1.005 - (openAmt - 0.025) * 0.6;
       }
       if (cdMouthRef.current) {
         const openAmt = spk === 2
-          ? 0.015 + Math.abs(Math.sin(t * 11.8 + 0.4)) * 0.035 + Math.abs(Math.sin(t * 6.9 + 0.7)) * 0.015
-          : 0.015;
-        cdMouthRef.current.scale.y = openAmt / 0.015;
-        cdMouthRef.current.position.y = 1.01 - (openAmt - 0.015) * 0.5;
+          ? 0.025 + Math.abs(Math.sin(t * 11.8 + 0.4)) * 0.06 + Math.abs(Math.sin(t * 6.9 + 0.7)) * 0.03
+          : 0.025;
+        cdMouthRef.current.scale.y = openAmt / 0.025;
+        cdMouthRef.current.position.y = 1.005 - (openAmt - 0.025) * 0.6;
       }
 
       // Speaker glow
@@ -1168,13 +1168,19 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       {/* Transcript / question / feedback display */}
       {mode !== "intro" && (
         <div style={{
-          position: "absolute", bottom: 110, left: "50%", transform: "translateX(-50%)",
-          width: "88%", maxWidth: 750,
-          background: "rgba(6,12,22,0.92)", borderRadius: 14, padding: "14px 20px",
-          minHeight: 50, maxHeight: mode === "feedback" ? 380 : 280,
+          position: "absolute",
+          bottom: mode === "feedback" ? 18 : 110,
+          left: mode === "feedback" ? "auto" : "50%",
+          right: mode === "feedback" ? 18 : "auto",
+          transform: mode === "feedback" ? "none" : "translateX(-50%)",
+          width: mode === "feedback" ? 360 : "88%",
+          maxWidth: mode === "feedback" ? 360 : 750,
+          background: "rgba(6,12,22,0.95)", borderRadius: 14, padding: "14px 20px",
+          minHeight: 50,
+          maxHeight: mode === "feedback" ? "70vh" : 200,
           overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)",
           zIndex: 20,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
         }}>
           {mode === "asking" && (
             <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.7 }}>

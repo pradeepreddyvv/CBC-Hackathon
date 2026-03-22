@@ -121,7 +121,8 @@ History Tab
 | **Styling** | Tailwind CSS v3 | Light/dark theme UI with custom animations |
 | **Language** | TypeScript | Type safety |
 | **AI Gateway** | InsForge Model Gateway | Unified AI model routing |
-| **AI Model** | Gemini 2.5 Flash Lite | Question generation, feedback, research |
+| **AI Model** | Gemini 2.5 Flash Lite | Question generation, STAR analysis, research |
+| **AI Model** | Claude Haiku (Anthropic) | Humanized conversational interview feedback |
 | **Database** | InsForge PostgreSQL 15 | Users, sessions, answers, weak areas |
 | **Vector DB** | pgvector on PostgreSQL | Semantic question search (3072d embeddings) |
 | **Auth** | JWT (jose) + bcryptjs | Email/password + Google OAuth |

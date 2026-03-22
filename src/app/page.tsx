@@ -470,6 +470,13 @@ export default function Home() {
               {theme === "dark" ? "☀️" : "🌙"}
             </button>
             <button
+              onClick={() => { router.push("/profile"); }}
+              className="text-xs text-muted hover:text-accent transition-colors"
+              title="Profile & settings"
+            >
+              Profile
+            </button>
+            <button
               onClick={() => { router.push("/onboarding"); }}
               className="text-xs text-muted hover:text-accent transition-colors"
               title="New session setup"
@@ -824,19 +831,27 @@ export default function Home() {
               sessionId={sessionId}
               role={profile.targetRole}
               onInterviewStart={() => {
-                // Create session row in DB FIRST so FK constraint is satisfied for answers
                 const sid = sessionIdRef.current || `3d_sess_${Date.now()}`;
                 sessionIdRef.current = sid;
                 setSessionId(sid);
+
+                // Save session to localStorage immediately (appears in History even if partial)
+                const session: SessionRecord = {
+                  id: sid,
+                  company: profile.targetCompany,
+                  role: profile.targetRole,
+                  startedAt: new Date().toISOString(),
+                  answerCount: 0,
+                  avgScore: 0,
+                  weakAreas: [],
+                  sessionNumber: getSessionCount() + 1,
+                };
+                recordSession(session);
+
+                // Also save to cloud DB
                 if (user?.id) {
                   cloudSaveSession(user.id, {
-                    id: sid,
-                    company: profile.targetCompany,
-                    role: profile.targetRole,
-                    answerCount: 0,
-                    avgScore: 0,
-                    weakAreas: [],
-                    sessionNumber: 1,
+                    ...session,
                     generatedQuestions: sessionQuestions.length > 0 ? sessionQuestions : [],
                     interviewType: "3d-mock",
                     roundType: "behavioral",
@@ -848,7 +863,6 @@ export default function Home() {
                 setAnswer(answerText);
                 if (audioUrl) setAudioUrl(audioUrl);
                 setCurrentQIndex(qIdx);
-                // Save answer to DB using ref (avoids stale closure)
                 const sid = sessionIdRef.current;
                 if (user?.id && sid) {
                   const q = sessionQuestions[qIdx];
@@ -868,28 +882,50 @@ export default function Home() {
                 }
               }}
               onFeedbackReceived={(qIdx, question, answerText, analysis, humanizedFeedback, durationSec) => {
-                // Update the answer in DB with feedback analysis
                 const sid = sessionIdRef.current;
+                const q = sessionQuestions[qIdx];
+                const answerId = `3d-${sid}-${qIdx}`;
+
+                // Build feedback for localStorage
+                const feedback: FeedbackResult = {
+                  overall_score: analysis.overall_score || 0,
+                  star_scores: analysis.star_scores || { situation: 0, task: 0, action: 0, result: 0 },
+                  dimension_scores: analysis.dimension_scores || {},
+                  sentence_analysis: analysis.sentence_analysis || [],
+                  delivery_analysis: analysis.delivery_analysis || {},
+                  strengths: analysis.strengths || [],
+                  improvements: analysis.improvements || [],
+                  coaching_tip: analysis.coaching_tip || "",
+                  follow_up_question: analysis.follow_up_question || (analysis.follow_up_questions || [])[0] || "",
+                  weak_areas: analysis.weak_areas || [],
+                  ideal_90sec_structure: analysis.ideal_answer_outline || analysis.ideal_90sec_structure || "",
+                  weakest_sentence_rewrite: analysis.weakest_sentence_rewrite || "",
+                  recommendation: analysis.hiring_recommendation || "",
+                  encouragement: analysis.encouragement || "",
+                };
+
+                // Save to localStorage so it appears in History tab
+                const answerRecord: AnswerRecord = {
+                  id: answerId,
+                  sessionId: sid,
+                  questionId: q?.id || `q-${qIdx}`,
+                  questionText: question,
+                  category: q?.category || "general",
+                  type: q?.type || "behavioral",
+                  answer: answerText,
+                  feedback,
+                  durationSec: durationSec || 0,
+                  timestamp: new Date().toISOString(),
+                };
+                recordAnswer(answerRecord);
+
+                // Save to cloud DB
                 if (user?.id && sid) {
-                  const q = sessionQuestions[qIdx];
-                  const answerId = `3d-${sid}-${qIdx}`;
-                  // Re-save the answer with full feedback
                   cloudSaveAnswer(user.id, {
-                    id: answerId,
-                    sessionId: sid,
-                    questionId: q?.id || `q-${qIdx}`,
-                    questionText: question,
-                    category: q?.category || "general",
-                    type: q?.type || "behavioral",
-                    answer: answerText,
-                    feedback: {
-                      ...analysis,
-                      humanized_feedback: humanizedFeedback,
-                    },
-                    durationSec: durationSec || 0,
+                    ...answerRecord,
+                    feedback: { ...analysis, humanized_feedback: humanizedFeedback },
                     transcript: answerText,
                   });
-                  // Also update weak areas
                   if (analysis.weak_areas?.length) {
                     fetch("/api/db", {
                       method: "POST",
@@ -905,26 +941,33 @@ export default function Home() {
                 }
               }}
               onSessionComplete={(answers, sessionAnalysis) => {
-                // Update session with final analysis
                 const sid = sessionIdRef.current;
+                const avgScore = sessionAnalysis?.session_score || 0;
+                const weakAreas = sessionAnalysis?.top_3_focus_areas || sessionAnalysis?.adaptive_question_topics || [];
+
+                // Save session to localStorage so it appears in History tab
+                const session: SessionRecord = {
+                  id: sid,
+                  company: profile.targetCompany,
+                  role: profile.targetRole,
+                  startedAt: new Date().toISOString(),
+                  answerCount: answers.length,
+                  avgScore,
+                  weakAreas,
+                  sessionNumber: getSessionCount() + 1,
+                };
+                recordSession(session);
+
+                // Save to cloud DB
                 if (user?.id && sid) {
-                  const avgScore = sessionAnalysis?.session_score || 0;
-                  const weakAreas = sessionAnalysis?.top_3_focus_areas || sessionAnalysis?.adaptive_question_topics || [];
                   cloudSaveSession(user.id, {
-                    id: sid,
-                    company: profile.targetCompany,
-                    role: profile.targetRole,
-                    answerCount: answers.length,
-                    avgScore,
-                    weakAreas,
-                    sessionNumber: 1,
+                    ...session,
                     sessionSummary: sessionAnalysis,
                     generatedQuestions: sessionQuestions,
                     interviewType: "3d-mock",
                     roundType: "behavioral",
                     sessionConfig: { mode: "3d-mock", company: profile.targetCompany },
                   });
-                  // Update weak areas
                   answers.forEach(a => {
                     if (a.analysis?.weak_areas?.length) {
                       fetch("/api/db", {
