@@ -362,7 +362,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result);
     }
 
-    return NextResponse.json({ error: "Invalid action. Use: analyze_question, analyze_session, adaptive_questions" }, { status: 400 });
+    // ── Action: Ask question about feedback ────────────────────
+    if (action === "ask_about_feedback") {
+      const { candidateQuestion, feedbackContext, question, answer } = body;
+      if (!candidateQuestion || !feedbackContext) {
+        return NextResponse.json({ error: "candidateQuestion and feedbackContext required" }, { status: 400 });
+      }
+
+      const prompt = `You are a senior interviewer at ${company || "a top tech company"} for a ${role || "Software Engineer"} role. You just gave the candidate feedback on their interview answer. Now the candidate has a follow-up question about your feedback.
+
+Original interview question: "${question || ""}"
+Candidate's answer: "${answer || ""}"
+
+Your feedback was:
+${JSON.stringify(feedbackContext, null, 2)}
+
+The candidate asks: "${candidateQuestion}"
+
+Respond naturally as the interviewer — be helpful, specific, and encouraging. Give actionable advice. Keep your response concise (2-4 sentences). Speak directly to the candidate in second person.
+
+Return ONLY valid JSON (no markdown):
+{
+  "response": "Your conversational response to the candidate's question",
+  "tip": "One specific actionable tip based on their question"
+}`;
+
+      const text = await callGemini(prompt);
+      const result = extractJSON(text);
+      return NextResponse.json(result);
+    }
+
+    return NextResponse.json({ error: "Invalid action. Use: analyze_question, analyze_session, adaptive_questions, ask_about_feedback" }, { status: 400 });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[mock-feedback] Error:", msg);

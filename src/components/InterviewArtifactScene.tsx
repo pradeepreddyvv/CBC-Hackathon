@@ -404,6 +404,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
   const [feedbackFullText, setFeedbackFullText] = useState("");
   const feedbackBoxRef = useRef<HTMLDivElement | null>(null);
+  const [feedbackQA, setFeedbackQA] = useState<{ q: string; a: string; tip?: string }[]>([]);
+  const [feedbackQuestion, setFeedbackQuestion] = useState("");
+  const [askingFeedback, setAskingFeedback] = useState(false);
   const recordingStartRef = useRef<number>(0);
 
   // Alternating question flow: Normal→FollowUp→Normal→FollowUp→Normal
@@ -954,7 +957,80 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setFeedbackData(null);
     setFeedbackFullText("");
     setSpokenWordIdx(-1);
+    setFeedbackQA([]);
+    setFeedbackQuestion("");
   }, []);
+
+  const askAboutFeedback = useCallback(async () => {
+    if (!feedbackQuestion.trim() || !feedbackData) return;
+    const q = feedbackQuestion.trim();
+    setFeedbackQuestion("");
+    setAskingFeedback(true);
+
+    try {
+      const latest = allAnswers[allAnswers.length - 1];
+      const res = await fetch("/api/mock-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "ask_about_feedback",
+          company: companyName || "General",
+          role: role || "Software Engineer",
+          candidateQuestion: q,
+          feedbackContext: feedbackData.analysis,
+          question: latest?.question || "",
+          answer: latest?.answer || "",
+        }),
+      });
+      const data = await res.json();
+      setFeedbackQA(prev => [...prev, { q, a: data.response || "Sorry, I couldn't process that.", tip: data.tip }]);
+
+      // Speak the response
+      if (data.response && window.speechSynthesis) {
+        const utter = new SpeechSynthesisUtterance(data.response);
+        utter.rate = 0.9;
+        utter.pitch = 0.85;
+        const voices = window.speechSynthesis.getVoices();
+        const malePrefs = ["Google UK English Male", "Microsoft David", "Daniel", "Alex", "Arthur", "en-GB"];
+        for (const p of malePrefs) {
+          const v = voices.find(voice => voice.name.includes(p) || voice.lang === p);
+          if (v) { utter.voice = v; break; }
+        }
+        setInterviewerTalking(true);
+        setFeedbackSpeaking(true);
+        setFeedbackFullText(data.response);
+        setSpokenWordIdx(-1);
+
+        const words = data.response.split(" ");
+        setBubbleText(words.slice(0, 7).join(" ") + "...");
+
+        utter.onboundary = (e: SpeechSynthesisEvent) => {
+          if (e.name !== "word") return;
+          const spokenSoFar = data.response.substring(0, e.charIndex + e.charLength).trim();
+          const wordIdx = spokenSoFar.split(/\s+/).length - 1;
+          setBubbleText(words.slice(Math.max(0, wordIdx - 6), wordIdx + 1).join(" "));
+          setSpokenWordIdx(wordIdx);
+          if (feedbackBoxRef.current) {
+            const lineHeight = 22;
+            const wordsPerLine = 10;
+            const currentLine = Math.floor(wordIdx / wordsPerLine);
+            feedbackBoxRef.current.scrollTop = Math.max(0, (currentLine - 1) * lineHeight);
+          }
+        };
+        utter.onend = () => {
+          setInterviewerTalking(false);
+          setFeedbackSpeaking(false);
+          setBubbleText(words.slice(-7).join(" "));
+        };
+        window.speechSynthesis.speak(utter);
+      }
+    } catch (err) {
+      console.error("[3D Mock] Ask feedback error:", err);
+      setFeedbackQA(prev => [...prev, { q, a: "Sorry, something went wrong. Please try again." }]);
+    } finally {
+      setAskingFeedback(false);
+    }
+  }, [feedbackQuestion, feedbackData, allAnswers, companyName, role]);
 
   // ── Follow-up generation ──────────────────────────────────────
   const generateFollowUp = useCallback(async (): Promise<string> => {
@@ -1508,6 +1584,60 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                 </div>
               )}
 
+              {/* Ask about feedback */}
+              {!feedbackLoading && (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 12 }}>
+                  <div style={{ color: "#94a3b8", fontSize: 10, fontWeight: 700, marginBottom: 8, textTransform: "uppercase", letterSpacing: 1 }}>
+                    Ask about your feedback
+                  </div>
+                  {feedbackQA.map((qa, i) => (
+                    <div key={i} style={{ marginBottom: 10 }}>
+                      <div style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+                        <span style={{ color: "#c084fc", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>You:</span>
+                        <span style={{ color: "#e2e8f0", fontSize: 12 }}>{qa.q}</span>
+                      </div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <span style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>IV:</span>
+                        <div>
+                          <span style={{ color: "#94a3b8", fontSize: 12, lineHeight: 1.5 }}>{qa.a}</span>
+                          {qa.tip && <div style={{ color: "#facc15", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>Tip: {qa.tip}</div>}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <input
+                      type="text"
+                      value={feedbackQuestion}
+                      onChange={e => setFeedbackQuestion(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !askingFeedback) askAboutFeedback(); }}
+                      placeholder="e.g. How can I improve my STAR structure?"
+                      disabled={askingFeedback}
+                      style={{
+                        flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 12,
+                        background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)",
+                        color: "#e2e8f0", outline: "none", fontFamily: "inherit",
+                      }}
+                    />
+                    <button
+                      onClick={askAboutFeedback}
+                      disabled={askingFeedback || !feedbackQuestion.trim()}
+                      style={{
+                        padding: "8px 14px", borderRadius: 8, border: "none", cursor: askingFeedback ? "not-allowed" : "pointer",
+                        background: askingFeedback ? "rgba(192,132,252,0.2)" : "linear-gradient(135deg,#7c3aed,#6d28d9)",
+                        color: "white", fontSize: 12, fontWeight: 700, fontFamily: "inherit",
+                      }}
+                    >
+                      {askingFeedback ? (
+                        <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ width: 10, height: 10, border: "2px solid rgba(255,255,255,0.3)", borderTopColor: "white", borderRadius: "50%", animation: "spin 0.7s linear infinite", display: "inline-block" }} />
+                        </span>
+                      ) : "Ask"}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Feedback action buttons */}
               {(() => {
                 const isCurrentFollowUp = followUpFlags[currentQIdx];
@@ -1544,6 +1674,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         @keyframes pulse {
           0%, 100% { opacity: 1; }
           50% { opacity: 0.5; }
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

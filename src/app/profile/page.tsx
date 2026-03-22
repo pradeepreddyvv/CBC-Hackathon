@@ -320,7 +320,7 @@ export default function ProfilePage() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted font-semibold block mb-1">Job Description (optional)</label>
+            <label className="text-xs text-muted font-semibold block mb-1">Job Description <span style={{ color: "#f87171" }}>*</span></label>
             <textarea
               value={jobDescription}
               onChange={e => setJobDescription(e.target.value)}
