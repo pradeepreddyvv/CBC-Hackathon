@@ -248,8 +248,57 @@ export default function OnboardingPage() {
             {/* Quick fill */}
             <div className="bg-card border border-border rounded-xl p-5 space-y-4">
               <h3 className="text-sm font-bold text-accent2">Quick Fill (Optional)</h3>
+
+              {/* Resume Upload */}
               <div>
-                <label className="text-xs text-muted font-semibold block mb-1">Paste Resume Text</label>
+                <label className="text-xs text-muted font-semibold block mb-2">Upload Resume</label>
+                <label className="flex items-center justify-center gap-3 w-full py-4 bg-surface border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-accent transition-colors group">
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt,.md"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setLoading(true);
+                      try {
+                        const formData = new FormData();
+                        formData.append("file", file);
+                        const res = await fetch("/api/parse-resume", { method: "POST", body: formData });
+                        const result = await res.json();
+                        if (result.text) {
+                          update({ resumeText: result.text });
+                        } else {
+                          alert("Could not extract text from file. Try pasting instead.");
+                        }
+                      } catch {
+                        alert("Failed to parse resume file.");
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                  />
+                  <svg className="w-6 h-6 text-muted group-hover:text-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <div>
+                    <span className="text-sm text-slate-200 group-hover:text-accent transition-colors font-semibold">
+                      {loading ? "Parsing..." : "Click to upload resume"}
+                    </span>
+                    <span className="text-xs text-muted block">PDF, DOCX, or TXT</span>
+                  </div>
+                </label>
+                {data.resumeText && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs text-green-400 font-semibold">Resume loaded</span>
+                    <span className="text-xs text-muted">({data.resumeText.length} chars)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Or paste manually */}
+              <div>
+                <label className="text-xs text-muted font-semibold block mb-1">Or Paste Resume Text</label>
                 <textarea
                   value={data.resumeText}
                   onChange={e => update({ resumeText: e.target.value })}

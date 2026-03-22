@@ -1,38 +1,40 @@
 // ============================================================
-// GEMINI API CLIENT — lightweight, no SDK needed
+// AI CLIENT — Uses InsForge Model Gateway
 // ============================================================
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const INSFORGE_URL = process.env.INSFORGE_PROJECT_URL || "";
+const INSFORGE_KEY = process.env.INSFORGE_API_KEY || "";
+const AI_MODEL = process.env.AI_MODEL || "google/gemini-2.5-flash-lite";
 
 export async function callGemini(prompt: string): Promise<string> {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY not set in .env.local");
+  if (!INSFORGE_URL || !INSFORGE_KEY) {
+    throw new Error("INSFORGE_PROJECT_URL or INSFORGE_API_KEY not set in .env.local");
+  }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+  const url = `${INSFORGE_URL}/api/ai/chat/completion`;
 
   const res = await fetch(url, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${INSFORGE_KEY}`,
+    },
     body: JSON.stringify({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        maxOutputTokens: 8192,
-        temperature: 0.7,
-      },
+      model: AI_MODEL,
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 8192,
+      temperature: 0.7,
     }),
   });
 
   if (!res.ok) {
     const err = await res.text();
-    throw new Error(`Gemini API ${res.status}: ${err}`);
+    throw new Error(`InsForge AI ${res.status}: ${err}`);
   }
 
   const data = await res.json();
-  const parts = data.candidates?.[0]?.content?.parts || [];
-  // Skip thinking parts, get the text
-  const text = parts.find((p: { text?: string; thought?: boolean }) => p.text && !p.thought)?.text
-    || parts[parts.length - 1]?.text || "";
-  return text;
+  // InsForge returns { text: "...", metadata: { model, usage } }
+  return data.text || "";
 }
 
 export function extractJSON(text: string): Record<string, unknown> {
