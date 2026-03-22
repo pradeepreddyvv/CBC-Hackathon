@@ -12,7 +12,7 @@
 HackASU 2026 | Track 3: Economic Empowerment & Education
 Team: [Your names]
 
-[Background: screenshot of 3D interview scene]
+[Background: screenshot of 3D interview scene — two characters sitting at table, interviewer with glasses gesturing]
 
 ---
 
@@ -23,7 +23,7 @@ Team: [Your names]
 
 [Two columns:]
 Left: "Without InterviewCoach" — generic ChatGPT response, bullet points, no scoring
-Right: "With InterviewCoach" — 3D scene, STAR scores, sentence analysis, spoken feedback
+Right: "With InterviewCoach" — 3D scene with sitting characters, STAR scores, sentence analysis, spoken feedback, hand gestures
 
 ---
 
@@ -31,8 +31,8 @@ Right: "With InterviewCoach" — 3D scene, STAR scores, sentence analysis, spoke
 
 1. **Upload Resume** → AI extracts your profile (Gemini multimodal)
 2. **Research** → Scrapes Reddit, LeetCode, Glassdoor for real questions (TinyFish)
-3. **3D Interview** → Voice-based mock interview with AI interviewer (Three.js + Speechmatics)
-4. **STAR Feedback** → Sentence-level analysis + spoken feedback (Gemini + Claude Haiku)
+3. **3D Interview** → Voice-based mock with sitting, gesturing AI interviewer (Three.js + Speechmatics)
+4. **STAR Feedback** → Sentence-level analysis + spoken feedback + voice Q&A (Gemini + Claude Haiku)
 
 ---
 
@@ -43,23 +43,26 @@ Right: "With InterviewCoach" — 3D scene, STAR scores, sentence analysis, spoke
 │  TinyFish   │────>│  Gemini Flash    │     │  Claude Haiku        │
 │  Web Scrape │     │  THE ANALYST     │     │  THE INTERVIEWER     │
 │  5 sources  │     │                  │     │                      │
-│             │     │  • STAR scoring  │────>│  • Spoken feedback   │
-│             │     │  • Sentence      │     │  • Follow-up Qs      │
-│             │     │    analysis      │     │  • Feedback Q&A      │
-│             │     │  • Research      │     │  • Coaching plans    │
-│             │     │  • Resume parse  │     │  • Adaptive Qs       │
+│  Reddit     │     │  • STAR scoring  │────>│  • Spoken feedback   │
+│  LeetCode   │     │  • Sentence      │     │  • Follow-up Qs      │
+│  Glassdoor  │     │    analysis      │     │  • Voice/Text Q&A    │
+│  GFG        │     │  • Resume parse  │     │  • Coaching plans    │
+│  IGotAnOffer│     │  • Research      │     │  • Adaptive Qs       │
 └─────────────┘     └────────┬─────────┘     └──────────┬───────────┘
                              │                          │
                       ┌──────┴──────────────────────────┘
                       │
-               ┌──────┴──────┐
-               │  InsForge   │  Routes BOTH models
-               │  PostgreSQL │  + pgvector embeddings
+               ┌──────┴──────┐     ┌────────────────┐
+               │  InsForge   │     │  Speechmatics  │
+               │  AI Gateway │     │  Real-time STT │
+               │  PostgreSQL │     │  Voice input   │
+               │  pgvector   │     └────────────────┘
                └─────────────┘
 ```
 
-**Sponsors: InsForge (DB + AI Gateway for Gemini & Claude), TinyFish (Web Scraping)**
-**Also: Speechmatics (STT), Three.js (3D), Anthropic Claude Haiku**
+**3D Scene (Three.js):** Characters sit at interview table with mouth animation, head bobs, periodic hand gestures, and speech bubbles projected from 3D→2D coordinates.
+
+**Sponsors: InsForge (DB + AI Gateway), TinyFish (Web Scraping), Speechmatics (STT), Anthropic Claude Haiku, Google Gemini**
 
 ---
 
@@ -67,7 +70,9 @@ Right: "With InterviewCoach" — 3D scene, STAR scores, sentence analysis, spoke
 
 - AI feedback supplements human mentorship, doesn't replace it
 - No audio stored on servers — transcription is real-time only
-- Designed to help candidates find their authentic voice, not memorize scripts
+- **"Delete My Data" button** — one-click removal of all transcripts, answers, scores
+- Pre-interview ethics notice shown before every session
+- AI-Generated badge on all feedback panels
 - Transparent scoring — users see exactly why they got each score
 
 ---
@@ -77,8 +82,9 @@ Right: "With InterviewCoach" — 3D scene, STAR scores, sentence analysis, spoke
 **Interview coaching shouldn't be a privilege.**
 
 - Free for anyone with a browser + microphone
-- Company-specific intelligence for 8+ companies
-- Tracks improvement across sessions
+- Company-specific intelligence for 8+ companies (Amazon LPs, Google, Meta, etc.)
+- Tracks improvement across sessions with adaptive difficulty
+- Voice-first design: answer by voice, ask about feedback by voice
 - Built for first-gen students, career changers, and non-native speakers
 
 GitHub: github.com/metalgenesis123321/CBC-Hackathon
@@ -89,7 +95,8 @@ Live: [your Vercel URL]
 ## Design Tips
 
 - **Font**: Inter Bold for headings, Inter Regular for body. Nothing else.
-- **Colors**: Background #0f1117, Accent #6c63ff (purple), Secondary #00d4aa (teal), Text #f8fafc
+- **Colors**: Background #0f1117, Accent #6c63ff (purple), Secondary #22d3ee (cyan), Text #f8fafc
 - **Screenshots**: Use ACTUAL screenshots from the app, not mockups
 - **Slide count**: 6 slides MAX. More slides = less impact.
 - **No bullet point slides**: If you have more than 3 bullets, you have too many words
+- **Show the 3D scene**: The sitting characters with hand gestures are your biggest differentiator — make it prominent

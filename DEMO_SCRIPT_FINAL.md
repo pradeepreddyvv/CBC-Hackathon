@@ -1,6 +1,6 @@
 # InterviewCoach AI — FINAL Demo Script (2:30)
 
-> This is a SHOT LIST, not a speech. Record 3 clips and edit together.
+> This is a SHOT LIST, not a speech. Record 3-5 clips and edit together.
 
 ---
 
@@ -8,8 +8,9 @@
 
 - [ ] App running on Vercel or localhost
 - [ ] Already logged in, profile filled, questions generated
+- [ ] AppNav visible at top — tabs: Practice, 3D Mock, Progress, History
 - [ ] 3D Mock Interview tab open and ready
-- [ ] Browser at 100% zoom, fullscreen, dark mode
+- [ ] Browser at 100% zoom, fullscreen, dark mode (toggle in AppNav)
 - [ ] Mic permissions granted, test TTS works
 - [ ] Practice your "bad answer" once (say "um" twice, skip the Result in STAR)
 - [ ] Phone/webcam ready for face shots (good lighting, clean background)
@@ -23,7 +24,7 @@
 **Say (naturally, not reading):**
 > "I watched my friend prepare for her Amazon interview with nothing but a Google Doc. She knew the answers — she just froze because she'd never said them out loud. So I built an AI that interviews you."
 
-**Cut to:** Screen recording of 3D scene (already loaded)
+**Cut to:** Screen recording of 3D scene (characters sitting at interview table)
 
 **Total: 12 seconds. No intro. No "hi my name is." Story → product.**
 
@@ -35,22 +36,22 @@ This is 80% of your demo. Practice it twice, then record.
 
 ### Shot 2a: Start + Question (0:12–0:30)
 
-**[Ethics notice visible. Click "Start Interview."]**
+**[Ethics notice visible at bottom of controls bar. Click "Start Interview (5 Questions)."]**
 
-> "3D interview office, built with Three.js. The interviewer asks real questions scraped from Reddit and Glassdoor by TinyFish."
+> "3D interview office, built with Three.js. Two characters sitting at a table — the interviewer has glasses and a tie, even does hand gestures while talking. Questions are scraped from Reddit and Glassdoor by TinyFish."
 
-**[TTS plays the question. Speech bubble highlights word by word. LET IT PLAY for 5 seconds — don't talk over the first question, let judges hear the TTS voice.]**
+**[TTS plays the question. Speech bubble appears above interviewer's head. LET IT PLAY for 5 seconds — don't talk over the first question, let judges hear the TTS voice and see the character's mouth moving and hands gesturing.]**
 
 > "Now I answer with my voice — Speechmatics transcribes in real-time."
 
 ### Shot 2b: Your Answer (0:30–0:45)
 
-**[Click Record. Give a DELIBERATELY BAD 10-second answer:]**
+**[Click "Start Recording Your Answer." Give a DELIBERATELY BAD 10-second answer:]**
 
 Example bad answer:
 > "Um, so at my last job I was working on this project where we had to, like, migrate some stuff to the cloud. I worked with the team and um, we got it done. It went pretty well I think."
 
-**[Stop recording. Show transcript appearing.]**
+**[Stop recording. Transcript appears in the review panel. Candidate character's hands gesture while you speak.]**
 
 > "Let's see what the AI thinks of that."
 
@@ -59,25 +60,25 @@ Example bad answer:
 **[Click "Feedback" → "This Question"]**
 
 **[PAUSE — let the loading happen. Talk over it:]**
-> "Gemini scores the STAR structure. Claude Haiku — the interviewer's brain — turns that into spoken feedback."
+> "Gemini scores the STAR structure. Claude Haiku — the interviewer's brain — turns that into spoken, natural feedback."
 
-**[Feedback appears. TTS starts speaking. Speech bubble highlights word by word.]**
+**[Feedback panel slides in on the right. TTS starts speaking. Interviewer character talks with mouth animation and periodic hand gestures. Speech bubble shows what the interviewer is saying in real-time.]**
 
-**[LET THE TTS PLAY for 5-7 seconds. Don't talk. Let judges hear Claude's feedback voice with the highlighting. This is your most visually impressive moment.]**
+**[LET THE TTS PLAY for 5-7 seconds. Don't talk. Let judges hear Claude's feedback voice and see the interviewer's animated gestures. This is your most visually impressive moment.]**
 
 **[Then point at sidebar:]**
-> "52 out of 100. It caught my filler words, flagged that I didn't quantify results, and rated every sentence."
+> "52 out of 100. It caught my filler words, flagged that I didn't quantify results, and rated every STAR dimension."
 
-**[Scroll sidebar quickly — STAR scores → delivery analysis → coaching plan with "Powered by Claude" badge]**
+**[Scroll sidebar quickly — STAR scores → strengths vs. improvements → coaching plan with "Powered by Claude" badge]**
 
 ### Shot 2d: Ask About Feedback (1:15–1:30)
 
-> "And I can have a conversation about the feedback — Claude responds as the interviewer."
+> "And I can have a conversation about the feedback — by typing or using my voice."
 
-**[Type: "How should I improve my answer structure?" → show response + tip appearing]**
+**[Click the mic button (🎤) next to the text input, say: "How should I improve my answer structure?" — OR type it. Show Claude's response + tip appearing. Interviewer character speaks the response.]**
 
 **[If coaching plan is visible, point at it:]**
-> "Claude even generates a personalized coaching plan with specific examples of how to fix my weakest answer."
+> "Claude generates a personalized coaching plan with specific examples of how to fix my weakest answer."
 
 ---
 
@@ -87,10 +88,11 @@ Example bad answer:
 
 | Show | Say | Seconds |
 |------|-----|---------|
-| Profile page with resume auto-fill | "Upload your resume, AI fills your profile" | 3s |
+| AppNav with tabs visible, click "Practice" tab | "Clean navigation — Practice, 3D Mock, Progress, History, dark/light toggle" | 3s |
+| Profile page with resume auto-fill | "Upload your resume, Gemini extracts your profile" | 3s |
 | Company pills (click Amazon) | "Company-specific intelligence — Amazon Leadership Principles, Google Googliness" | 4s |
-| Research results with source badges | "Real interview data from 5 websites" | 3s |
-| History tab with sentence analysis | "Every answer gets sentence-by-sentence analysis" | 4s |
+| Research results with source badges | "Real interview data scraped from 5 websites by TinyFish" | 3s |
+| History tab with sentence analysis | "Every answer gets sentence-by-sentence analysis" | 3s |
 | Progress dashboard with trends | "Weak areas tracked across sessions — the AI adapts to target them" | 4s |
 
 > Total voiceover: "The system researches your target company, generates personalized questions, tracks your weak areas, and adapts the difficulty. Every interview makes you better."
@@ -101,7 +103,7 @@ Example bad answer:
 
 **Setup:** Camera on face again. Same angle as Clip 1.
 
-> "Dual-model architecture — Gemini is the analyst, Claude is the interviewer. InsForge routes both and runs our database. TinyFish scrapes real interview data. Every sponsor API is core to the product."
+> "Dual-model architecture — Gemini is the analyst, Claude is the interviewer. InsForge routes both models and runs our database. TinyFish scrapes real interview data. Speechmatics handles voice transcription. Every sponsor API is core to the product."
 
 ---
 
@@ -135,7 +137,8 @@ Example bad answer:
 | STT doesn't capture | Pre-type an answer, say "real-time transcription captures your answer" |
 | 3D scene lags | Pre-record the 3D segment at lower resolution, splice it in |
 | Feedback API times out | Pre-record a successful feedback flow, splice it in |
-| Word highlighting doesn't sync | Show it anyway, judges will see the text updating |
+| Hand gestures look stiff | They're periodic and subtle — that's intentional, don't mention it |
+| Voice Q&A mic fails | Just type the question instead, both options are shown |
 
 **Golden rule: NEVER stop recording to fix something. Just narrate around it and edit later.**
 
@@ -143,8 +146,21 @@ Example bad answer:
 
 ## WHAT JUDGES WILL REMEMBER (in order of impact)
 
-1. The 3D scene with characters talking — nobody else has this
+1. The 3D scene with characters **sitting and gesturing** — nobody else has this
 2. Your bad answer getting a 52 — they'll laugh, it's relatable
-3. Word-by-word highlighting — visually striking
-4. "Powered by Claude" coaching plan — proves deep integration
-5. "Interview coaching shouldn't cost $300" — emotional close
+3. Interviewer speaking feedback with hand gestures — feels alive
+4. Voice mic (🎤) for asking about feedback — shows voice-first design
+5. "Powered by Claude" coaching plan — proves deep integration
+6. "Delete My Data" on profile — shows ethics consideration
+7. "Interview coaching shouldn't cost $300" — emotional close
+
+---
+
+## KEY FEATURES TO MENTION (if judges ask)
+
+- **Dual-model AI**: Gemini = analyst (STAR scoring, sentence analysis), Claude = interviewer (feedback voice, follow-ups, coaching)
+- **5 sponsor integrations**: InsForge (DB + AI gateway), TinyFish (web scraping), Speechmatics (STT), Gemini, Claude
+- **3D characters**: Sitting posture, mouth animation, periodic hand gestures, speech bubbles
+- **Ethical design**: Pre-interview notice, AI-Generated badge, Delete My Data button, no audio stored
+- **Adaptive learning**: Tracks weak areas, generates harder questions targeting them
+- **Voice-first**: Record answers by voice, ask about feedback by voice
