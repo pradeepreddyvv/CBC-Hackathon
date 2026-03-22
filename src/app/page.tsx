@@ -278,10 +278,23 @@ export default function Home() {
         };
         recordSession(sessionData);
 
-        // Sync to InsForge cloud
+        // Sync to InsForge cloud + vector embedding
         if (cloudUserId) {
           cloudSaveAnswer(cloudUserId, { ...record, feedback: record.feedback as unknown as Record<string, unknown> });
           cloudSaveSession(cloudUserId, sessionData);
+          // Embed answer for vector similarity search (fire-and-forget)
+          fetch("/api/vector", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              action: "embed_answer",
+              userId: cloudUserId,
+              answerId: record.id,
+              questionText: record.questionText,
+              answerText: record.answer,
+              score: data.feedback.overall_score,
+            }),
+          }).catch(() => {});
         }
       }
     } catch (e) {
