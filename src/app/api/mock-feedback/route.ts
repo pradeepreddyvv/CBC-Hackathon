@@ -7,7 +7,13 @@ import { getCompanyPromptContext } from "@/lib/company-patterns";
 const INSFORGE_URL = process.env.INSFORGE_PROJECT_URL || "";
 const INSFORGE_KEY = process.env.INSFORGE_API_KEY || "";
 
-async function callClaudeHaiku(prompt: string): Promise<string> {
+async function callClaudeHaiku(prompt: string, systemPrompt?: string): Promise<string> {
+  const messages: { role: string; content: string }[] = [];
+  if (systemPrompt) {
+    messages.push({ role: "system", content: systemPrompt });
+  }
+  messages.push({ role: "user", content: prompt });
+
   const res = await fetch(`${INSFORGE_URL}/api/ai/chat/completion`, {
     method: "POST",
     headers: {
@@ -16,7 +22,7 @@ async function callClaudeHaiku(prompt: string): Promise<string> {
     },
     body: JSON.stringify({
       model: "anthropic/claude-haiku",
-      messages: [{ role: "user", content: prompt }],
+      messages,
       max_tokens: 4096,
       temperature: 0.8,
     }),
@@ -28,6 +34,20 @@ async function callClaudeHaiku(prompt: string): Promise<string> {
   }
   const data = await res.json();
   return data.text || "";
+}
+
+// ── Claude interviewer persona ──────────────────────────────────
+function interviewerPersona(company: string, role: string) {
+  return `You are a senior technical interviewer at ${company} conducting a mock interview for a ${role} position. You have 15+ years of experience and have conducted hundreds of interviews.
+
+Your personality:
+- Warm but direct — you give honest feedback because you want the candidate to succeed
+- You ask probing follow-up questions to test depth, not to trick candidates
+- You notice communication patterns (filler words, hedging, confidence)
+- You care about authentic answers, not rehearsed scripts
+- When a candidate gives a vague answer, you dig deeper specifically into what THEY did
+
+Always respond as this interviewer persona. Never break character. Speak in second person ("you mentioned...", "I noticed you...").`;
 }
 
 // ── Per-question Gemini analysis prompt ─────────────────────────
@@ -327,7 +347,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ analysis: sessionAnalysis, humanized });
     }
 
-    // ── Action: Generate targeted follow-up question ────────────
+    // ── Action: Generate targeted follow-up question (Claude) ───
     if (action === "generate_followup") {
       const { question, answer, previousQA } = body;
       if (!question || !answer) {
@@ -342,12 +362,13 @@ export async function POST(req: NextRequest) {
         answer,
         previousQA: previousQA || [],
       });
-      const text = await callGemini(prompt);
+      // Claude generates follow-ups — better conversational probing
+      const text = await callClaudeHaiku(prompt, interviewerPersona(company || "General", role || "Software Engineer"));
       const result = extractJSON(text);
       return NextResponse.json(result);
     }
 
-    // ── Action: Generate adaptive follow-up questions ───────────
+    // ── Action: Generate adaptive follow-up questions (Claude) ──
     if (action === "adaptive_questions") {
       const { weakAreas, previousQuestions, count } = body;
       const prompt = buildAdaptiveFollowUpPrompt({
@@ -357,19 +378,20 @@ export async function POST(req: NextRequest) {
         previousQuestions: previousQuestions || [],
         count: count || 3,
       });
-      const text = await callGemini(prompt);
+      // Claude targets weak areas with natural, probing questions
+      const text = await callClaudeHaiku(prompt, interviewerPersona(company || "General", role || "Software Engineer"));
       const result = extractJSON(text);
       return NextResponse.json(result);
     }
 
-    // ── Action: Ask question about feedback ────────────────────
+    // ── Action: Ask question about feedback (Claude) ───────────
     if (action === "ask_about_feedback") {
       const { candidateQuestion, feedbackContext, question, answer } = body;
       if (!candidateQuestion || !feedbackContext) {
         return NextResponse.json({ error: "candidateQuestion and feedbackContext required" }, { status: 400 });
       }
 
-      const prompt = `You are a senior interviewer at ${company || "a top tech company"} for a ${role || "Software Engineer"} role. You just gave the candidate feedback on their interview answer. Now the candidate has a follow-up question about your feedback.
+      const prompt = `You just gave the candidate feedback on their interview answer. Now they have a follow-up question.
 
 Original interview question: "${question || ""}"
 Candidate's answer: "${answer || ""}"
@@ -379,7 +401,7 @@ ${JSON.stringify(feedbackContext, null, 2)}
 
 The candidate asks: "${candidateQuestion}"
 
-Respond naturally as the interviewer — be helpful, specific, and encouraging. Give actionable advice. Keep your response concise (2-4 sentences). Speak directly to the candidate in second person.
+Respond naturally — be helpful, specific, and encouraging. Give actionable advice. Keep your response concise (2-4 sentences). Speak directly to the candidate in second person.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -387,12 +409,48 @@ Return ONLY valid JSON (no markdown):
   "tip": "One specific actionable tip based on their question"
 }`;
 
-      const text = await callGemini(prompt);
+      // Claude handles all conversational feedback — this IS the interviewer talking
+      const text = await callClaudeHaiku(prompt, interviewerPersona(company || "General", role || "Software Engineer"));
       const result = extractJSON(text);
       return NextResponse.json(result);
     }
 
-    return NextResponse.json({ error: "Invalid action. Use: analyze_question, analyze_session, adaptive_questions, ask_about_feedback" }, { status: 400 });
+    // ── Action: Interviewer coaching summary (Claude) ─────────
+    if (action === "coaching_summary") {
+      const { answers, weakAreas, sessionScore } = body;
+
+      const answersBlock = (answers || []).map((a: { question: string; answer: string; score?: number }, i: number) =>
+        `Q${i + 1}: "${a.question}"\nAnswer: "${a.answer}"${a.score ? ` (Score: ${a.score})` : ""}`
+      ).join("\n\n");
+
+      const prompt = `You just finished a mock interview session. Here is the full transcript:
+
+${answersBlock}
+
+Session score: ${sessionScore || "N/A"}/100
+Weak areas identified: ${(weakAreas || []).join(", ") || "None"}
+
+Give the candidate a personalized coaching plan for their next session. Be specific — reference their actual answers. Tell them:
+1. The ONE thing that would improve their score the most
+2. A specific example of how to restructure their weakest answer
+3. What they're already doing well that they should keep doing
+
+Speak as the interviewer wrapping up the session. Be warm but direct. 4-6 sentences.
+
+Return ONLY valid JSON (no markdown):
+{
+  "coaching_plan": "Your personalized coaching advice",
+  "priority_skill": "The single most important skill to practice",
+  "example_rewrite": "A brief example of how to improve their weakest answer",
+  "encouragement": "One encouraging closing statement"
+}`;
+
+      const text = await callClaudeHaiku(prompt, interviewerPersona(company || "General", role || "Software Engineer"));
+      const result = extractJSON(text);
+      return NextResponse.json(result);
+    }
+
+    return NextResponse.json({ error: "Invalid action. Use: analyze_question, analyze_session, generate_followup, adaptive_questions, ask_about_feedback, coaching_summary" }, { status: 400 });
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[mock-feedback] Error:", msg);

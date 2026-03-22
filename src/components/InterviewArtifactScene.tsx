@@ -572,6 +572,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [showFeedbackMenu, setShowFeedbackMenu] = useState(false);
   const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
   const [feedbackFullText, setFeedbackFullText] = useState("");
+  const [coachingData, setCoachingData] = useState<{ coaching_plan?: string; priority_skill?: string; example_rewrite?: string; encouragement?: string } | null>(null);
   const feedbackBoxRef = useRef<HTMLDivElement | null>(null);
   const [feedbackQA, setFeedbackQA] = useState<{ q: string; a: string; tip?: string }[]>([]);
   const [feedbackQuestion, setFeedbackQuestion] = useState("");
@@ -1076,6 +1077,27 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         });
       }
 
+      // For session analysis, also fetch Claude coaching plan in parallel
+      if (fMode === "session" && data.analysis) {
+        fetch("/api/mock-feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "coaching_summary",
+            company: companyName || "General",
+            role: role || "Software Engineer",
+            profile,
+            country: profile?.country || "",
+            answers: allAnswers.map(a => ({ question: a.question, answer: a.answer, score: a.analysis?.overall_score })),
+            weakAreas: data.analysis.top_3_focus_areas || data.analysis.recurring_weaknesses || [],
+            sessionScore: data.analysis.session_score,
+          }),
+        })
+          .then(r => r.json())
+          .then(coaching => setCoachingData(coaching))
+          .catch(() => { /* coaching is supplementary */ });
+      }
+
       if (data.humanized?.spoken_feedback && window.speechSynthesis) {
         const feedbackText = data.humanized.spoken_feedback;
         setFeedbackFullText(feedbackText);
@@ -1136,6 +1158,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setSpokenWordIdx(-1);
     setFeedbackQA([]);
     setFeedbackQuestion("");
+    setCoachingData(null);
   }, []);
 
   const askAboutFeedback = useCallback(async () => {
@@ -1781,6 +1804,47 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                       <div key={i} style={{ color: "#94a3b8", fontSize: 11, marginBottom: 3 }}>- {s}</div>
                     ))}
                   </div>
+                </div>
+              )}
+
+              {/* Claude coaching plan (session only) */}
+              {coachingData && feedbackMode === "session" && (
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                    <div style={{ color: "#c084fc", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>
+                      Coaching Plan
+                    </div>
+                    <div style={{
+                      fontSize: 8, color: "#7c3aed", padding: "2px 6px", borderRadius: 4,
+                      background: "rgba(124,58,237,0.15)", border: "1px solid rgba(124,58,237,0.3)",
+                    }}>
+                      Powered by Claude
+                    </div>
+                  </div>
+                  {coachingData.coaching_plan && (
+                    <div style={{ color: "#e2e8f0", fontSize: 12, lineHeight: 1.6, marginBottom: 8, padding: "8px 10px", background: "rgba(124,58,237,0.06)", borderRadius: 8, borderLeft: "3px solid #7c3aed" }}>
+                      {coachingData.coaching_plan}
+                    </div>
+                  )}
+                  {coachingData.priority_skill && (
+                    <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                      <span style={{ color: "#facc15", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>FOCUS:</span>
+                      <span style={{ color: "#94a3b8", fontSize: 11 }}>{coachingData.priority_skill}</span>
+                    </div>
+                  )}
+                  {coachingData.example_rewrite && (
+                    <div style={{ marginBottom: 6 }}>
+                      <span style={{ color: "#60a5fa", fontSize: 10, fontWeight: 700 }}>EXAMPLE FIX:</span>
+                      <div style={{ color: "#94a3b8", fontSize: 11, marginTop: 3, fontStyle: "italic", lineHeight: 1.5 }}>
+                        &ldquo;{coachingData.example_rewrite}&rdquo;
+                      </div>
+                    </div>
+                  )}
+                  {coachingData.encouragement && (
+                    <div style={{ color: "#4ade80", fontSize: 11, fontStyle: "italic", marginTop: 4 }}>
+                      {coachingData.encouragement}
+                    </div>
+                  )}
                 </div>
               )}
 

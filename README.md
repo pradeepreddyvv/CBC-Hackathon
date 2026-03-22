@@ -124,7 +124,7 @@ History Tab
 | **Language** | TypeScript | Type safety |
 | **AI Gateway** | InsForge Model Gateway | Unified AI model routing |
 | **AI Model** | Gemini 2.5 Flash Lite | Question generation, STAR analysis, research |
-| **AI Model** | Claude Haiku (Anthropic) | Humanized conversational feedback + ask-about-feedback dialogue |
+| **AI Model** | Claude Haiku (Anthropic) | Interviewer persona: humanized feedback, follow-up questions, coaching plans, feedback Q&A, adaptive questions |
 | **Database** | InsForge PostgreSQL 15 | Users, sessions, answers, weak areas |
 | **Vector DB** | pgvector on PostgreSQL | Semantic question search (3072d embeddings) |
 | **Auth** | JWT (jose) + bcryptjs | Email/password + Google OAuth |
