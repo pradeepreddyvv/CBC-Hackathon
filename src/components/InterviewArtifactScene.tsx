@@ -381,11 +381,22 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [feedbackSpeaking, setFeedbackSpeaking] = useState(false);
   const recordingStartRef = useRef<number>(0);
 
-  // Adaptive questions
-  const [adaptiveQs, setAdaptiveQs] = useState<string[]>([]);
-  const [allQuestions, setAllQuestions] = useState<string[]>(interviewQs);
-  const [followUpFlags, setFollowUpFlags] = useState<boolean[]>(interviewQs.map(() => false));
+  // Alternating question flow: Normal→FollowUp→Normal→FollowUp→Normal
+  // We use 3 original questions and generate 2 follow-ups dynamically
+  const originalQsRef = useRef<string[]>(interviewQs.slice(0, 3));
+  const origQUsedRef = useRef(0); // which original Q index we've reached (0, 1, 2)
+  const allQuestionsRef = useRef<string[]>([]);
+  const followUpFlagsRef = useRef<boolean[]>([]);
+  const allAnswersRef = useRef<AnswerRecord3D[]>([]);
+  const [allQuestions, setAllQuestions] = useState<string[]>([]);
+  const [followUpFlags, setFollowUpFlags] = useState<boolean[]>([]);
+  const [generatingFollowUp, setGeneratingFollowUp] = useState(false);
   const [autoFeedbackDone, setAutoFeedbackDone] = useState(false);
+
+  // Keep refs in sync with state
+  useEffect(() => { allQuestionsRef.current = allQuestions; }, [allQuestions]);
+  useEffect(() => { followUpFlagsRef.current = followUpFlags; }, [followUpFlags]);
+  useEffect(() => { allAnswersRef.current = allAnswers; }, [allAnswers]);
 
   // Sync active speaker ref for 3D animation
   useEffect(() => {
@@ -598,9 +609,9 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     return voices.find((voice) => voice.lang.startsWith("en")) || null;
   };
 
-  const askQuestion = useCallback((qIdx: number) => {
+  const askQuestion = useCallback((qIdx: number, directText?: string) => {
     if (!window.speechSynthesis) return;
-    const questionText = allQuestions[qIdx];
+    const questionText = directText || allQuestionsRef.current[qIdx];
     if (!questionText) return;
 
     setMode("asking");
@@ -643,7 +654,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
 
     ttsRef.current = { currentTurn: qIdx, utterance: utter };
     window.speechSynthesis.speak(utter);
-  }, [allQuestions]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ── Voice recording ───────────────────────────────────────────
 
@@ -769,7 +781,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     if (finalText) {
       const record: AnswerRecord3D = {
         questionIndex: currentQIdx,
-        question: allQuestions[currentQIdx],
+        question: allQuestionsRef.current[currentQIdx],
         answer: finalText,
         audioUrl,
         durationSec,
@@ -783,7 +795,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
 
     setMode("reviewing");
     setAutoFeedbackDone(false);
-  }, [currentQIdx, onAnswerRecorded, allQuestions]);
+  }, [currentQIdx, onAnswerRecorded]);
 
   // ── Feedback functions ──────────────────────────────────────────
 
@@ -880,42 +892,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         window.speechSynthesis.speak(utter);
       }
 
-      if (data.analysis) {
-        const weakAreas = fMode === "single"
-          ? (data.analysis.weak_areas || [])
-          : (data.analysis.adaptive_question_topics || data.analysis.top_3_focus_areas || []);
-
-        if (weakAreas.length > 0) {
-          try {
-            const aqRes = await fetch("/api/mock-feedback", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...basePayload,
-                action: "adaptive_questions",
-                weakAreas,
-                previousQuestions: allQuestions,
-                count: 2,
-              }),
-            });
-            if (aqRes.ok) {
-              const aqData = await aqRes.json();
-              if (aqData.questions?.length) {
-                const newQTexts = aqData.questions.map((q: any) => q.text);
-                setAdaptiveQs(prev => [...prev, ...newQTexts]);
-                setAllQuestions(prev => [...prev, ...newQTexts]);
-                setFollowUpFlags(prev => [...prev, ...newQTexts.map(() => true)]);
-              }
-            }
-          } catch { /* ignore adaptive failure */ }
-        }
-      }
     } catch (err) {
       console.error("[3D Mock] Feedback error:", err);
     } finally {
       setFeedbackLoading(false);
     }
-  }, [allAnswers, allQuestions, companyName, role, profile, onFeedbackReceived]);
+  }, [allAnswers, companyName, role, profile, onFeedbackReceived]);
 
   const closeFeedback = useCallback(() => {
     window.speechSynthesis?.cancel();
@@ -925,39 +907,125 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setFeedbackData(null);
   }, []);
 
-  const nextQuestion = useCallback(() => {
-    if (currentQIdx < allQuestions.length - 1) {
-      const next = currentQIdx + 1;
-      setCurrentQIdx(next);
-      setTranscript("");
-      setBubbleText("");
+  // ── Follow-up generation ──────────────────────────────────────
+  const generateFollowUp = useCallback(async (): Promise<string> => {
+    const answers = allAnswersRef.current;
+    const latest = answers[answers.length - 1];
+    if (!latest) return "";
+
+    try {
+      const res = await fetch("/api/mock-feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "generate_followup",
+          company: companyName || "General",
+          role: role || "Software Engineer",
+          profile,
+          country: profile?.country || "",
+          question: latest.question,
+          answer: latest.answer,
+          previousQA: answers.map(a => ({ question: a.question, answer: a.answer })),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.followup_question || "";
+      }
+    } catch (err) {
+      console.error("[3D Mock] Follow-up generation error:", err);
+    }
+    return "";
+  }, [companyName, role, profile]);
+
+  // ── Next question (alternating: Normal→FollowUp→Normal→FollowUp→Normal) ──
+  const nextQuestion = useCallback(async () => {
+    const isCurrentFollowUp = followUpFlagsRef.current[currentQIdx];
+
+    if (!isCurrentFollowUp && origQUsedRef.current < originalQsRef.current.length - 1) {
+      // Just answered a NORMAL question (not the last one) → generate follow-up
+      setGeneratingFollowUp(true);
       setMode("asking");
-      askQuestion(next);
-    } else if (adaptiveQs.length > 0) {
-      const next = currentQIdx + 1;
-      setCurrentQIdx(next);
-      setTranscript("");
       setBubbleText("");
-      setMode("asking");
-      askQuestion(next);
+      setTranscript("");
+
+      const followUpText = await generateFollowUp();
+      setGeneratingFollowUp(false);
+
+      if (followUpText) {
+        const nextIdx = allQuestionsRef.current.length;
+        const newQs = [...allQuestionsRef.current, followUpText];
+        const newFlags = [...followUpFlagsRef.current, true];
+        allQuestionsRef.current = newQs;
+        followUpFlagsRef.current = newFlags;
+        setAllQuestions(newQs);
+        setFollowUpFlags(newFlags);
+        setCurrentQIdx(nextIdx);
+        setAutoFeedbackDone(false);
+        askQuestion(nextIdx, followUpText);
+      } else {
+        // Follow-up generation failed → skip to next normal question
+        origQUsedRef.current += 1;
+        const nextOriginal = originalQsRef.current[origQUsedRef.current];
+        const nextIdx = allQuestionsRef.current.length;
+        const newQs = [...allQuestionsRef.current, nextOriginal];
+        const newFlags = [...followUpFlagsRef.current, false];
+        allQuestionsRef.current = newQs;
+        followUpFlagsRef.current = newFlags;
+        setAllQuestions(newQs);
+        setFollowUpFlags(newFlags);
+        setCurrentQIdx(nextIdx);
+        setAutoFeedbackDone(false);
+        askQuestion(nextIdx, nextOriginal);
+      }
+    } else if (isCurrentFollowUp) {
+      // Just answered a FOLLOW-UP → move to next normal question
+      origQUsedRef.current += 1;
+      if (origQUsedRef.current < originalQsRef.current.length) {
+        const nextOriginal = originalQsRef.current[origQUsedRef.current];
+        const nextIdx = allQuestionsRef.current.length;
+        const newQs = [...allQuestionsRef.current, nextOriginal];
+        const newFlags = [...followUpFlagsRef.current, false];
+        allQuestionsRef.current = newQs;
+        followUpFlagsRef.current = newFlags;
+        setAllQuestions(newQs);
+        setFollowUpFlags(newFlags);
+        setCurrentQIdx(nextIdx);
+        setTranscript("");
+        setBubbleText("");
+        setAutoFeedbackDone(false);
+        askQuestion(nextIdx, nextOriginal);
+      } else {
+        // All done
+        requestFeedback("session");
+      }
     } else {
+      // Last normal question → end session
       requestFeedback("session");
     }
-  }, [currentQIdx, allQuestions.length, adaptiveQs.length, askQuestion, requestFeedback]);
+  }, [currentQIdx, askQuestion, requestFeedback, generateFollowUp]);
 
   const startInterview = useCallback(() => {
+    const origQs = (questions && questions.length > 0 ? questions : DEFAULT_QUESTIONS).slice(0, 3);
+    originalQsRef.current = origQs;
+    origQUsedRef.current = 0;
+
+    const firstQ = origQs[0];
+    allQuestionsRef.current = [firstQ];
+    followUpFlagsRef.current = [false];
+
     setCurrentQIdx(0);
     setTranscript("");
     setBubbleText("");
     setAllAnswers([]);
     setFeedbackData(null);
-    setAdaptiveQs([]);
-    setAllQuestions(interviewQs);
-    setFollowUpFlags(interviewQs.map(() => false));
+    setAllQuestions([firstQ]);
+    setFollowUpFlags([false]);
+    setGeneratingFollowUp(false);
     setAutoFeedbackDone(false);
     onInterviewStart?.();
-    askQuestion(0);
-  }, [askQuestion, interviewQs, onInterviewStart]);
+    askQuestion(0, firstQ);
+  }, [askQuestion, questions, onInterviewStart]);
 
   const fmtTime = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -990,16 +1058,23 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
           />
         </div>
 
-        {/* Progress dots */}
+        {/* Progress dots — always 5 total (Normal→FollowUp→Normal→FollowUp→Normal) */}
         {mode !== "intro" && (
           <div style={{ position: "absolute", top: 14, left: "50%", transform: "translateX(-50%)", display: "flex", gap: 6, zIndex: 10 }}>
-            {allQuestions.map((_, i) => (
-              <div key={i} style={{
-                width: i === currentQIdx ? 20 : 6, height: 6, borderRadius: 99,
-                background: i < currentQIdx ? "#4ade80" : i === currentQIdx ? "rgba(255,255,255,0.9)" : "rgba(255,255,255,0.18)",
-                transition: "all 0.3s ease",
-              }} />
-            ))}
+            {Array.from({ length: 5 }).map((_, i) => {
+              const isFollowUp = i === 1 || i === 3;
+              return (
+                <div key={i} style={{
+                  width: i === currentQIdx ? 20 : isFollowUp ? 8 : 6,
+                  height: 6, borderRadius: 99,
+                  background: i < currentQIdx ? "#4ade80"
+                    : i === currentQIdx ? "rgba(255,255,255,0.9)"
+                    : "rgba(255,255,255,0.18)",
+                  border: isFollowUp ? "1px solid rgba(250,204,21,0.4)" : "none",
+                  transition: "all 0.3s ease",
+                }} />
+              );
+            })}
           </div>
         )}
       </div>
@@ -1015,7 +1090,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         marginTop: 26,
       }}>
         {mode === "intro" ? `${companyName || "Mock"} Interview` :
-         mode === "asking" ? (followUpFlags[currentQIdx] ? "Follow-up question..." : "Interviewer is asking...") :
+         mode === "asking" ? (generatingFollowUp ? "Preparing follow-up..." : followUpFlags[currentQIdx] ? "Follow-up question..." : "Interviewer is asking...") :
          mode === "recording" ? "Your turn — speak your answer" :
          mode === "feedback" ? (feedbackLoading ? "Analyzing..." : "Interviewer Feedback") :
          "Review your answer"}
@@ -1085,7 +1160,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             fontSize: 12, fontWeight: 600,
             border: `1px solid ${followUpFlags[currentQIdx] ? "rgba(250,204,21,0.3)" : "rgba(255,255,255,0.1)"}`,
           }}>
-            {followUpFlags[currentQIdx] ? "Follow-up" : `Q${currentQIdx + 1}`} / {allQuestions.length}
+            {followUpFlags[currentQIdx] ? "Follow-up" : `Q${currentQIdx + 1}`} / 5
           </div>
         </div>
       )}
@@ -1103,23 +1178,36 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         }}>
           {mode === "asking" && (
             <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.7 }}>
-              <span style={{ color: followUpFlags[currentQIdx] ? "#facc15" : "#60a5fa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 8 }}>
-                {followUpFlags[currentQIdx] ? "Follow-up Question" : `Question ${currentQIdx + 1}`}
-              </span>
-              <div style={{ fontSize: 16, lineHeight: 1.7, letterSpacing: 0.2 }}>
-                {allQuestions[currentQIdx].split(" ").map((word, i) => (
-                  <span key={i} style={{
-                    color: spokenWordIdx >= i ? "#ffffff" : "rgba(148,163,184,0.5)",
-                    fontWeight: spokenWordIdx === i ? 800 : spokenWordIdx >= i ? 600 : 400,
-                    background: spokenWordIdx === i ? "rgba(96,165,250,0.25)" : "transparent",
-                    borderRadius: spokenWordIdx === i ? 4 : 0,
-                    padding: spokenWordIdx === i ? "1px 4px" : "0 1px",
-                    transition: "all 0.15s ease",
-                  }}>
-                    {word}{" "}
+              {generatingFollowUp ? (
+                <div style={{ textAlign: "center", padding: "16px 0" }}>
+                  <div style={{ color: "#facc15", fontSize: 14, fontWeight: 700, marginBottom: 8, animation: "pulse 1.5s infinite" }}>
+                    Crafting a follow-up based on your answer...
+                  </div>
+                  <div style={{ color: "#64748b", fontSize: 12 }}>
+                    The interviewer is preparing a deeper question to probe your response
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span style={{ color: followUpFlags[currentQIdx] ? "#facc15" : "#60a5fa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 8 }}>
+                    {followUpFlags[currentQIdx] ? "Follow-up Question" : `Question ${currentQIdx + 1}`}
                   </span>
-                ))}
-              </div>
+                  <div style={{ fontSize: 16, lineHeight: 1.7, letterSpacing: 0.2 }}>
+                    {(allQuestions[currentQIdx] || "").split(" ").map((word, i) => (
+                      <span key={i} style={{
+                        color: spokenWordIdx >= i ? "#ffffff" : "rgba(148,163,184,0.5)",
+                        fontWeight: spokenWordIdx === i ? 800 : spokenWordIdx >= i ? 600 : 400,
+                        background: spokenWordIdx === i ? "rgba(96,165,250,0.25)" : "transparent",
+                        borderRadius: spokenWordIdx === i ? 4 : 0,
+                        padding: spokenWordIdx === i ? "1px 4px" : "0 1px",
+                        transition: "all 0.15s ease",
+                      }}>
+                        {word}{" "}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           )}
           {mode === "recording" && (
@@ -1251,14 +1339,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
                     </div>
                   )}
 
-                  {/* Adaptive questions notice */}
-                  {adaptiveQs.length > 0 && (
-                    <div style={{ background: "rgba(96,165,250,0.08)", borderRadius: 6, padding: "6px 10px", marginTop: 6 }}>
-                      <div style={{ color: "#60a5fa", fontSize: 11, fontWeight: 700 }}>
-                        +{adaptiveQs.length} follow-up questions added based on your weak areas
-                      </div>
-                    </div>
-                  )}
                 </div>
               ) : null}
             </div>
@@ -1282,15 +1362,15 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             fontSize: 16, fontWeight: 700, boxShadow: "0 0 30px rgba(96,165,250,0.18)",
             letterSpacing: 0.5,
           }}>
-            Start Interview ({allQuestions.length} Questions)
+            Start Interview (5 Questions)
           </button>
         )}
 
-        {/* Asking */}
+        {/* Asking / Generating follow-up */}
         {mode === "asking" && (
-          <div style={{ width: "100%", textAlign: "center", color: "#60a5fa", fontSize: 14, fontWeight: 600 }}>
+          <div style={{ width: "100%", textAlign: "center", color: generatingFollowUp ? "#facc15" : "#60a5fa", fontSize: 14, fontWeight: 600 }}>
             <span style={{ display: "inline-block", animation: "pulse 1.5s infinite" }}>
-              Interviewer is speaking...
+              {generatingFollowUp ? "Generating follow-up question based on your answer..." : "Interviewer is speaking..."}
             </span>
           </div>
         )}
@@ -1337,43 +1417,63 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
         {mode === "reviewing" && (
           <div style={{ width: "100%", display: "flex", gap: 10 }}>
             <button onClick={nextQuestion} style={{
-              flex: 1, padding: "14px 0", borderRadius: 12, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
-              background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
-              fontSize: 16, fontWeight: 700, boxShadow: "0 0 30px rgba(96,165,250,0.18)",
+              flex: 1, padding: "14px 0", borderRadius: 12, cursor: "pointer",
+              border: `1px solid ${!followUpFlags[currentQIdx] && origQUsedRef.current < originalQsRef.current.length - 1 ? "rgba(250,204,21,0.45)" : "rgba(96,165,250,0.45)"}`,
+              background: !followUpFlags[currentQIdx] && origQUsedRef.current < originalQsRef.current.length - 1
+                ? "linear-gradient(135deg,#3a2a0a,#2a1f08)"
+                : "linear-gradient(135deg,#1e3a5f,#163050)",
+              color: "white",
+              fontSize: 16, fontWeight: 700,
+              boxShadow: !followUpFlags[currentQIdx] && origQUsedRef.current < originalQsRef.current.length - 1
+                ? "0 0 30px rgba(250,204,21,0.15)"
+                : "0 0 30px rgba(96,165,250,0.18)",
             }}>
-              {currentQIdx < allQuestions.length - 1
-                ? (followUpFlags[currentQIdx + 1] ? "Answer Follow-up" : "Next Question")
-                : "Finish & Get Session Feedback"}
+              {(() => {
+                const isCurrentFollowUp = followUpFlags[currentQIdx];
+                if (!isCurrentFollowUp && origQUsedRef.current < originalQsRef.current.length - 1) {
+                  return "Next → Follow-up Question";
+                } else if (isCurrentFollowUp && origQUsedRef.current + 1 < originalQsRef.current.length) {
+                  return "Next Question";
+                } else {
+                  return "Finish & Get Session Feedback";
+                }
+              })()}
             </button>
           </div>
         )}
 
         {/* Feedback controls */}
-        {mode === "feedback" && !feedbackLoading && feedbackData && (
-          <div style={{ width: "100%", display: "flex", gap: 10 }}>
-            {currentQIdx < allQuestions.length - 1 && (
-              <button onClick={() => { closeFeedback(); nextQuestion(); }} style={{
-                flex: 1, padding: "14px 0", borderRadius: 12, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
-                background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
-                fontSize: 16, fontWeight: 700,
+        {mode === "feedback" && !feedbackLoading && feedbackData && (() => {
+          const isCurrentFollowUp = followUpFlags[currentQIdx];
+          const hasMore = isCurrentFollowUp
+            ? origQUsedRef.current + 1 < originalQsRef.current.length
+            : origQUsedRef.current < originalQsRef.current.length - 1;
+          return (
+            <div style={{ width: "100%", display: "flex", gap: 10 }}>
+              {hasMore && (
+                <button onClick={() => { closeFeedback(); nextQuestion(); }} style={{
+                  flex: 1, padding: "14px 0", borderRadius: 12, border: "1px solid rgba(96,165,250,0.45)", cursor: "pointer",
+                  background: "linear-gradient(135deg,#1e3a5f,#163050)", color: "white",
+                  fontSize: 16, fontWeight: 700,
+                }}>
+                  {!isCurrentFollowUp ? "Next → Follow-up" : "Next Question"}
+                </button>
+              )}
+              <button onClick={() => { closeFeedback(); setMode("intro"); setBubbleText(""); }} style={{
+                flex: hasMore ? "none" : 1,
+                padding: "14px 20px", borderRadius: 12, border: "1px solid rgba(74,222,128,0.45)", cursor: "pointer",
+                background: hasMore
+                  ? "rgba(255,255,255,0.05)"
+                  : "linear-gradient(135deg,#1a3a2a,#163028)",
+                color: "white",
+                fontSize: hasMore ? 13 : 16,
+                fontWeight: 700,
               }}>
-                Next Question
+                {hasMore ? "End Interview" : "Interview Complete!"}
               </button>
-            )}
-            <button onClick={() => { closeFeedback(); setMode("intro"); setBubbleText(""); }} style={{
-              flex: currentQIdx < allQuestions.length - 1 ? "none" : 1,
-              padding: "14px 20px", borderRadius: 12, border: "1px solid rgba(74,222,128,0.45)", cursor: "pointer",
-              background: currentQIdx < allQuestions.length - 1
-                ? "rgba(255,255,255,0.05)"
-                : "linear-gradient(135deg,#1a3a2a,#163028)",
-              color: "white",
-              fontSize: currentQIdx < allQuestions.length - 1 ? 13 : 16,
-              fontWeight: 700,
-            }}>
-              {currentQIdx < allQuestions.length - 1 ? "End Interview" : "Interview Complete!"}
-            </button>
-          </div>
-        )}
+            </div>
+          );
+        })()}
       </div>
 
       <style>{`

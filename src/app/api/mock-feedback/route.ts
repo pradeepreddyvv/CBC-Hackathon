@@ -173,6 +173,42 @@ Do NOT use bullet points. Speak naturally.
 Return ONLY valid JSON: { "spoken_feedback": "your conversational feedback here", "tone": "encouraging|neutral|concerned", "closing_advice": "one key thing to focus on" }`;
 }
 
+// ── Targeted follow-up question generation ─────────────────────
+function buildTargetedFollowUpPrompt(params: {
+  company: string;
+  role: string;
+  context: string;
+  question: string;
+  answer: string;
+  previousQA: { question: string; answer: string }[];
+}) {
+  const prevBlock = params.previousQA.length > 0
+    ? `\nPrevious Q&A in this interview:\n${params.previousQA.map((qa, i) => `Q${i + 1}: "${qa.question}"\nA${i + 1}: "${qa.answer}"`).join("\n\n")}\n`
+    : "";
+
+  return `You are a senior interviewer at ${params.company} for a ${params.role} position.
+
+${params.context}
+${prevBlock}
+The candidate just answered:
+QUESTION: "${params.question}"
+ANSWER: "${params.answer}"
+
+Based on their answer, generate ONE natural follow-up question that:
+- Digs deeper into a specific detail they mentioned (or should have mentioned)
+- Tests whether they truly experienced this or are making it up
+- Probes a gap, vague area, or interesting claim in their answer
+- Feels like a natural continuation a real interviewer would ask
+
+The follow-up should feel conversational, not robotic. A real interviewer would say something like "You mentioned X — can you tell me more about..." or "What specifically happened when..." or "How did you measure the impact of..."
+
+Return ONLY valid JSON (no markdown, no code fences):
+{
+  "followup_question": "the follow-up question text",
+  "reason": "why this follow-up is being asked (what gap or claim it probes)"
+}`;
+}
+
 // ── Adaptive question generation based on weak areas ────────────
 function buildAdaptiveFollowUpPrompt(params: {
   company: string;
@@ -289,6 +325,26 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ analysis: sessionAnalysis, humanized });
+    }
+
+    // ── Action: Generate targeted follow-up question ────────────
+    if (action === "generate_followup") {
+      const { question, answer, previousQA } = body;
+      if (!question || !answer) {
+        return NextResponse.json({ error: "question and answer required" }, { status: 400 });
+      }
+
+      const prompt = buildTargetedFollowUpPrompt({
+        company: company || "General",
+        role: role || "Software Engineer",
+        context: fullContext,
+        question,
+        answer,
+        previousQA: previousQA || [],
+      });
+      const text = await callGemini(prompt);
+      const result = extractJSON(text);
+      return NextResponse.json(result);
     }
 
     // ── Action: Generate adaptive follow-up questions ───────────
