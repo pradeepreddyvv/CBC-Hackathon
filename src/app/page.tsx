@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import VoiceRecorder from "@/components/VoiceRecorder";
 import FeedbackCard from "@/components/FeedbackCard";
 import ProgressDashboard from "@/components/ProgressDashboard";
+import InterviewLab from "@/components/InterviewLab";
 import { QUESTION_BANK, WEAK_AREA_LABELS, Question } from "@/lib/questions";
 import { getCompanyPattern } from "@/lib/company-patterns";
 import {
@@ -10,7 +11,7 @@ import {
   FeedbackResult, AnswerRecord, SessionRecord, UserProfile,
 } from "@/lib/store";
 
-type Tab = "setup" | "practice" | "progress" | "history";
+type Tab = "setup" | "practice" | "interview" | "progress" | "history";
 
 interface AdaptiveQuestion {
   id: string;
@@ -328,7 +329,7 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <div className="flex gap-1">
-            {(["setup", "practice", "progress", "history"] as Tab[]).map(t => (
+            {(["setup", "practice", "interview", "progress", "history"] as Tab[]).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -336,7 +337,7 @@ export default function Home() {
                   tab === t ? "bg-accent text-white" : "text-muted hover:bg-card hover:text-slate-200"
                 }`}
               >
-                {t === "setup" ? "Profile" : t === "practice" ? "Practice" : t === "progress" ? "Progress" : "History"}
+                {t === "setup" ? "Profile" : t === "practice" ? "Practice" : t === "interview" ? "Interview Mode" : t === "progress" ? "Progress" : "History"}
               </button>
             ))}
           </div>
@@ -757,6 +758,9 @@ export default function Home() {
             )}
           </div>
         )}
+
+        {/* ═══════ INTERVIEW TAB ═══════ */}
+        {tab === "interview" && <InterviewLab profile={profile} />}
 
         {/* ═══════ PROGRESS TAB ═══════ */}
         {tab === "progress" && <ProgressDashboard />}

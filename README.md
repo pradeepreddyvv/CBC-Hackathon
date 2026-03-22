@@ -89,6 +89,7 @@ npm install
 2. Create `.env.local` in the project root
 ```bash
 GEMINI_API_KEY=your_gemini_key
+SPEECHMATICS_API_KEY=your_speechmatics_key
 # Optional fallback (supported too)
 # GEMINI_KEY=your_gemini_key
 # Optional model override
@@ -106,6 +107,13 @@ npm run dev
 ```bash
 npm run build
 ```
+
+### Interview Mode (new)
+
+- Open the app and go to **Interview Mode**.
+- Click **Start Recording** to capture interviewer + candidate conversation.
+- Click **Transcribe Conversation** to run Speechmatics diarization (speaker labels).
+- Click **Generate Interview Feedback** to get coaching from the full transcript.
 
 ### Run the Pipeline Scripts (Python + n8n)
 
