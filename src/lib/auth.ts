@@ -108,7 +108,7 @@ export async function getUserById(userId: string) {
   const res = await p.query(
     `SELECT id, email, name, avatar_url, background, target_role, target_company,
             experience, skills, resume_text, llm_context, target_roles,
-            interview_type, onboarded
+            interview_type, onboarded, country
      FROM users WHERE id = $1`,
     [userId]
   );

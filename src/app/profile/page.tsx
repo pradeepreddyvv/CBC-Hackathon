@@ -44,13 +44,44 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!loading && !user) { router.push("/login"); return; }
-    const p = getProfile();
-    if (p.userProfile.name) {
-      setProfile(p.userProfile);
-    } else if (user) {
-      setProfile(prev => ({ ...prev, name: user.name || prev.name }));
-    }
-    // Load session config
+
+    // Fetch full user data from DB (includes background, skills, etc.)
+    const fetchFullUser = async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          const u = data.user;
+          if (u) {
+            setProfile({
+              name: u.name || "",
+              background: u.background || "",
+              targetRole: u.target_role || "Software Engineer",
+              targetCompany: u.target_company || "Google",
+              experience: u.experience || "",
+              skills: u.skills || "",
+              country: u.country || "",
+            });
+            // If company is not a preset, set to "Other"
+            if (u.target_company && !COMPANY_PRESETS.includes(u.target_company)) {
+              setProfile(prev => ({ ...prev, targetCompany: "Other" }));
+              setCustomCompany(u.target_company);
+            }
+          }
+        }
+      } catch {
+        // Fallback to localStorage
+        const p = getProfile();
+        if (p.userProfile.name) {
+          setProfile(p.userProfile);
+        } else if (user) {
+          setProfile(prev => ({ ...prev, name: user.name || prev.name }));
+        }
+      }
+    };
+    fetchFullUser();
+
+    // Load session config for interview settings
     const config = localStorage.getItem("interview_session_config");
     if (config) {
       try {
@@ -58,13 +89,6 @@ export default function ProfilePage() {
         if (parsed.interviewType) setInterviewType(parsed.interviewType);
         if (parsed.roundType) setRoundType(parsed.roundType);
         if (parsed.jobDescription) setJobDescription(parsed.jobDescription);
-        if (parsed.companyName) {
-          const isPreset = COMPANY_PRESETS.includes(parsed.companyName);
-          if (!isPreset) {
-            setProfile(prev => ({ ...prev, targetCompany: "Other" }));
-            setCustomCompany(parsed.companyName);
-          }
-        }
       } catch { /* ignore */ }
     }
   }, [user, loading, router]);
@@ -88,6 +112,7 @@ export default function ProfilePage() {
           target_company: company,
           experience: updatedProfile.experience,
           skills: updatedProfile.skills,
+          country: updatedProfile.country || "",
         }),
       }).catch(() => {});
     }
