@@ -118,7 +118,7 @@ Progress Dashboard
 ### Hackathon Sponsor Integrations
 
 - **InsForge** — PostgreSQL database, AI Model Gateway, vector database (pgvector)
-- **Gemini** — AI model via InsForge gateway (gemini-2.5-flash-lite)
+
 
 ---
 
