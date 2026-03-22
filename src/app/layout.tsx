@@ -10,20 +10,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <head>
         <meta name="color-scheme" content="dark" />
         <meta name="theme-color" content="#000000" />
-        <script dangerouslySetInnerHTML={{ __html: `
-          (function() {
-            try {
-              var t = localStorage.getItem('theme');
-              if (t === 'light') document.documentElement.setAttribute('data-theme', 'light');
-            } catch(e) {}
-          })();
-        `}} />
       </head>
-      <body style={{ margin: 0, padding: 0, background: "#050a14", minHeight: "100vh" }}>
+      <body style={{ margin: 0, padding: 0, background: "#000", minHeight: "100vh" }}>
         <ThemeProvider>
           <AuthProvider>{children}</AuthProvider>
         </ThemeProvider>

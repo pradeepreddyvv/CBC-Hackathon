@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from "react";
 import { getProfile, getWeakAreas, LearningProfile, WeakAreaProfile } from "@/lib/store";
 import { WEAK_AREA_LABELS } from "@/lib/questions";
@@ -11,6 +10,7 @@ const bento = { background: "rgba(255,255,255,0.04)", border: "1px solid rgba(25
 export default function ProgressDashboard() {
   const [profile, setProfile] = useState<LearningProfile | null>(null);
   const [weakAreas, setWeakAreas] = useState<WeakAreaProfile[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [analysis, setAnalysis] = useState<any>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
@@ -43,10 +43,10 @@ export default function ProgressDashboard() {
     <div style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }} className="fade-in">
       <h2 style={{ fontSize: 24, fontWeight: 700, color: "white", letterSpacing: "-0.02em", marginBottom: 20 }}>Progress</h2>
 
-      {/* Top bento row -- 4 stat tiles */}
+      {/* Top bento row — 4 stat tiles */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 12 }} className="stagger">
         {[
-          { label: "Sessions", value: profile.sessions.length, color: T.cyan },
+          { label: "Sessions", value: profile.sessions.length, color: T.cyan, icon: "🗓" },
           { label: "Questions", value: profile.answers.length, color: T.violet },
           { label: "Avg score", value: profile.overallAvgScore, color: sc(profile.overallAvgScore) },
           { label: "Mins practised", value: `${profile.totalPracticeMinutes}`, color: T.success },
@@ -58,8 +58,10 @@ export default function ProgressDashboard() {
         ))}
       </div>
 
-      {/* Second bento row -- score trend + communication */}
+      {/* Second bento row — score trend + weak areas */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+
+        {/* Score trend tile */}
         {recentScores.length > 1 && (
           <div style={{ ...bento }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 16 }}>Score Trend <span style={{ fontSize: 12, color: T.tert, fontWeight: 400 }}>last {recentScores.length}</span></div>
@@ -76,6 +78,7 @@ export default function ProgressDashboard() {
           </div>
         )}
 
+        {/* Communication habits tile */}
         <div style={{ ...bento }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 16 }}>Communication Habits</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
@@ -94,7 +97,7 @@ export default function ProgressDashboard() {
         </div>
       </div>
 
-      {/* Wide bento -- weak areas */}
+      {/* Wide bento — weak areas */}
       {weakAreas.length > 0 && (
         <div style={{ ...bento, marginBottom: 12 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.text, marginBottom: 16 }}>Skill Breakdown</div>
@@ -106,7 +109,7 @@ export default function ProgressDashboard() {
                   <div className="bar-animate" style={{ height: "100%", width: `${w.avgScore}%`, background: `linear-gradient(90deg, ${sc(w.avgScore)}, ${sc(w.avgScore)}88)`, borderRadius: 2 }} />
                 </div>
                 <span style={{ fontSize: 12, fontWeight: 700, color: sc(w.avgScore), width: 28, textAlign: "right" }}>{w.avgScore}</span>
-                <span style={{ fontSize: 13, width: 16, color: w.trend === "improving" ? T.success : w.trend === "declining" ? T.danger : T.tert }}>{w.trend === "improving" ? "up" : w.trend === "declining" ? "down" : "--"}</span>
+                <span style={{ fontSize: 13, width: 16, color: w.trend === "improving" ? T.success : w.trend === "declining" ? T.danger : T.tert }}>{w.trend === "improving" ? "↑" : w.trend === "declining" ? "↓" : "—"}</span>
               </div>
             ))}
           </div>

@@ -2,141 +2,74 @@
 import { useState, useCallback } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
+import AppNav from "@/components/AppNav";
 
-const ROLE_OPTIONS = [
-  "Software Engineer", "Frontend Engineer", "Backend Engineer", "Full Stack",
-  "ML/AI Engineer", "Data Scientist", "DevOps/SRE", "Mobile Developer",
-  "Product Manager", "Data Engineer", "Security Engineer", "QA Engineer",
-];
+const C = { cyan: "#22d3ee", violet: "#818cf8", success: "#34d399", warning: "#fbbf24", danger: "#f87171", text: "var(--text)", sec: "var(--text-sec)", tert: "var(--text-tert)" };
+const card = { background: "var(--card-bg)", border: "1px solid var(--border)", borderRadius: 20 };
 
+const ROLE_OPTIONS = ["Software Engineer","Frontend Engineer","Backend Engineer","Full Stack","ML/AI Engineer","Data Scientist","DevOps/SRE","Mobile Developer","Product Manager","Data Engineer","Security Engineer","QA Engineer"];
 const INTERVIEW_TYPES = [
   { id: "behavioral", label: "Behavioral", desc: "STAR stories, leadership, conflict resolution", icon: "💬" },
   { id: "technical", label: "Technical", desc: "Coding, algorithms, system knowledge", icon: "💻" },
   { id: "system_design", label: "System Design", desc: "Architecture, scalability, trade-offs", icon: "🏗️" },
-  { id: "mixed", label: "Mixed (Recommended)", desc: "All types — most realistic prep", icon: "🎯" },
+  { id: "mixed", label: "Mixed", badge: "Recommended", desc: "All types — most realistic prep", icon: "🎯" },
 ];
+const ROUND_TYPES = ["Phone Screen","Technical Round","System Design","Behavioral / Bar Raiser","Onsite Loop","Take-Home","Final Round","General Prep"];
+const COMPANY_PRESETS = ["Google","Amazon","Meta","Microsoft","Apple","Netflix","Startup","Other"];
+const EXP_OPTIONS = [{ v: "0-2", l: "0–2 yrs", sub: "New Grad" },{ v: "2-5", l: "2–5 yrs", sub: "Mid-Level" },{ v: "5-10", l: "5–10 yrs", sub: "Senior" },{ v: "10+", l: "10+ yrs", sub: "Staff+" }];
 
-const ROUND_TYPES = [
-  "Phone Screen", "Technical Round", "System Design", "Behavioral / Bar Raiser",
-  "Onsite Loop", "Take-Home", "Final Round", "General Prep",
-];
+interface OnboardingData { name:string; country:string; resumeText:string; llmContext:string; targetRoles:string[]; background:string; experience:string; skills:string; interviewType:string; companyName:string; jobDescription:string; yearsExperience:string; roundType:string; targetSkills:string; researchResults:unknown; generatedQuestions:unknown[]; }
 
-const COMPANY_PRESETS = [
-  "Google", "Amazon", "Meta", "Microsoft", "Apple", "Netflix",
-  "Startup", "Other",
-];
-
-interface OnboardingData {
-  name: string;
-  country: string;
-  resumeText: string;
-  llmContext: string;
-  targetRoles: string[];
-  background: string;
-  experience: string;
-  skills: string;
-  interviewType: string;
-  companyName: string;
-  jobDescription: string;
-  yearsExperience: string;
-  roundType: string;
-  targetSkills: string;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  researchResults: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  generatedQuestions: any[];
+function Field({ label, value, onChange, placeholder, multiline, rows }: { label:string; value:string; onChange:(v:string)=>void; placeholder:string; multiline?:boolean; rows?:number }) {
+  const [focused, setFocused] = useState(false);
+  const base: React.CSSProperties = { width:"100%", background: focused ? "rgba(34,211,238,0.05)" : "rgba(255,255,255,0.04)", border: `1px solid ${focused ? "rgba(34,211,238,0.4)" : "rgba(255,255,255,0.10)"}`, borderRadius:12, padding:"14px 16px", fontSize:15, color:C.text, outline:"none", fontFamily:"inherit", transition:"all 0.2s", boxSizing:"border-box" as const, boxShadow: focused ? "0 0 0 3px rgba(34,211,238,0.10)" : "none" };
+  return (
+    <div>
+      <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.tert, marginBottom:8, letterSpacing:"0.05em", textTransform:"uppercase" }}>{label}</label>
+      {multiline ? (
+        <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows||4} style={{ ...base, resize:"vertical" }} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} />
+      ) : (
+        <input type="text" value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} style={base} onFocus={()=>setFocused(true)} onBlur={()=>setFocused(false)} />
+      )}
+    </div>
+  );
 }
 
 export default function OnboardingPage() {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, logout } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState<OnboardingData>({
-    name: user?.name || "",
-    country: "",
-    resumeText: "",
-    llmContext: "",
-    targetRoles: [],
-    background: "",
-    experience: "",
-    skills: "",
-    interviewType: "mixed",
-    companyName: "Google",
-    jobDescription: "",
-    yearsExperience: "0-2",
-    roundType: "General Prep",
-    targetSkills: "",
-    researchResults: null,
-    generatedQuestions: [],
-  });
-
+  const [data, setData] = useState<OnboardingData>({ name:user?.name||"", country:"", resumeText:"", llmContext:"", targetRoles:[], background:"", experience:"", skills:"", interviewType:"mixed", companyName:"Google", jobDescription:"", yearsExperience:"0-2", roundType:"General Prep", targetSkills:"", researchResults:null, generatedQuestions:[] });
   const [isOtherCompany, setIsOtherCompany] = useState(false);
   const [autoFillJdLoading, setAutoFillJdLoading] = useState(false);
   const update = (fields: Partial<OnboardingData>) => setData(prev => ({ ...prev, ...fields }));
+  const toggleRole = (role: string) => setData(prev => ({ ...prev, targetRoles: prev.targetRoles.includes(role) ? prev.targetRoles.filter(r=>r!==role) : [...prev.targetRoles, role] }));
 
-  const toggleRole = (role: string) => {
-    setData(prev => ({
-      ...prev,
-      targetRoles: prev.targetRoles.includes(role)
-        ? prev.targetRoles.filter(r => r !== role)
-        : [...prev.targetRoles, role],
-    }));
-  };
-
-  // Auto-fill from resume/context
   const autoFill = useCallback(async () => {
     if (!data.resumeText && !data.llmContext) return;
     setLoading(true);
     try {
-      const res = await fetch("/api/parse-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resume: data.resumeText, context: data.llmContext }),
-      });
+      const res = await fetch("/api/parse-profile", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ resume:data.resumeText, context:data.llmContext }) });
       const result = await res.json();
-      if (result.profile) {
-        const p = result.profile;
-        update({
-          name: p.name || data.name,
-          background: p.background || data.background,
-          experience: p.experience || data.experience,
-          skills: p.skills || data.skills,
-        });
-      }
-    } catch (e) {
-      console.error("Auto-fill error:", e);
-    } finally {
-      setLoading(false);
-    }
+      if (result.profile) { const p = result.profile; update({ name:p.name||data.name, background:p.background||data.background, experience:p.experience||data.experience, skills:p.skills||data.skills }); }
+    } catch(e) { console.error(e); } finally { setLoading(false); }
   }, [data.resumeText, data.llmContext, data.name, data.background, data.experience, data.skills]);
 
-  // Auto-fill Step 3 fields from Job Description using Gemini
   const autoFillFromJD = useCallback(async () => {
     if (!data.jobDescription.trim()) return;
     setAutoFillJdLoading(true);
     try {
-      const res = await fetch("/api/parse-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jobDescription: data.jobDescription }),
-      });
+      const res = await fetch("/api/parse-profile", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ jobDescription:data.jobDescription }) });
       const result = await res.json();
       if (result.profile) {
         const p = result.profile;
         const fields: Partial<OnboardingData> = {};
-        // Target company
         if (p.targetCompany && p.targetCompany !== "General") {
           const preset = COMPANY_PRESETS.find(c => c.toLowerCase() === p.targetCompany.toLowerCase());
-          if (preset) {
-            fields.companyName = preset;
-            setIsOtherCompany(false);
-          } else {
-            fields.companyName = p.targetCompany;
-            setIsOtherCompany(true);
-          }
+          if (preset) { fields.companyName = preset; setIsOtherCompany(false); }
+          else { fields.companyName = p.targetCompany; setIsOtherCompany(true); }
         }
-        // Years of experience
         if (p.yearsExperience) {
           const yoe = p.yearsExperience;
           if (yoe <= 2) fields.yearsExperience = "0-2";
@@ -144,16 +77,13 @@ export default function OnboardingPage() {
           else if (yoe <= 10) fields.yearsExperience = "5-10";
           else fields.yearsExperience = "10+";
         }
-        // Round type
         if (p.roundType) {
           const matchedRound = ROUND_TYPES.find(r => r.toLowerCase().includes(p.roundType.toLowerCase()));
           if (matchedRound) fields.roundType = matchedRound;
         }
-        // Key skills
         if (p.keySkills) {
           fields.targetSkills = typeof p.keySkills === "string" ? p.keySkills : (p.keySkills as string[]).join(", ");
         }
-        // Target role from JD
         if (p.targetRole) {
           const matchedRole = ROLE_OPTIONS.find(r => r.toLowerCase().includes(p.targetRole.toLowerCase()));
           if (matchedRole && !data.targetRoles.includes(matchedRole)) {
@@ -162,628 +92,305 @@ export default function OnboardingPage() {
         }
         update(fields);
       }
-    } catch (e) {
-      console.error("Auto-fill from JD error:", e);
-    } finally {
-      setAutoFillJdLoading(false);
-    }
+    } catch(e) { console.error("Auto-fill from JD error:", e); } finally { setAutoFillJdLoading(false); }
   }, [data.jobDescription, data.targetRoles]);
 
-  // Run internet research
-  const runResearch = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/research", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company: data.companyName,
-          role: data.targetRoles[0] || "Software Engineer",
-          interviewType: data.interviewType,
-          roundType: data.roundType,
-          skills: data.targetSkills || data.skills,
-          yearsExperience: data.yearsExperience,
-          country: data.country,
-        }),
-      });
-      const result = await res.json();
-      update({ researchResults: result.research });
-    } catch (e) {
-      console.error("Research error:", e);
-    } finally {
-      setLoading(false);
-    }
+  // Fire-and-forget: run research in background and save results to localStorage when done
+  const runResearchInBackground = useCallback(() => {
+    fetch("/api/research", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ company:data.companyName, role:data.targetRoles[0]||"Software Engineer", interviewType:data.interviewType, roundType:data.roundType, skills:data.targetSkills||data.skills, yearsExperience:data.yearsExperience, country:data.country }) })
+      .then(res => res.json())
+      .then(result => {
+        if (result.research) {
+          // Update localStorage with research results so the home page can use them
+          try {
+            const config = JSON.parse(localStorage.getItem("interview_session_config") || "{}");
+            config.researchResults = result.research;
+            localStorage.setItem("interview_session_config", JSON.stringify(config));
+          } catch { /* ignore */ }
+        }
+      })
+      .catch(e => console.error("Background research error:", e));
   }, [data]);
 
-  // Generate questions
-  const generateQuestions = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("/api/adaptive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "generate_session",
-          company: data.companyName,
-          role: data.targetRoles[0] || "Software Engineer",
-          country: data.country,
-          profile: {
-            name: data.name,
-            background: data.background,
-            targetRole: data.targetRoles[0] || "Software Engineer",
-            targetCompany: data.companyName,
-            experience: data.experience,
-            skills: data.skills,
-            country: data.country,
-          },
-          weakAreas: [],
-          completedQuestions: [],
-          sessionNumber: 1,
-          interviewType: data.interviewType,
-          jobDescription: data.jobDescription,
-          researchContext: data.researchResults
-            ? JSON.stringify(data.researchResults).substring(0, 3000)
-            : undefined,
-        }),
-      });
-      const result = await res.json();
-      if (result.session?.questions) {
-        update({ generatedQuestions: result.session.questions });
-      }
-    } catch (e) {
-      console.error("Generate error:", e);
-    } finally {
-      setLoading(false);
-    }
-  }, [data]);
-
-  // Save and start practice
   const finishOnboarding = async () => {
     setLoading(true);
     try {
-      // Save profile to DB
-      await fetch("/api/auth/profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name,
-          background: data.background,
-          target_role: data.targetRoles[0] || "Software Engineer",
-          target_company: data.companyName,
-          experience: data.experience,
-          skills: data.skills,
-          resume_text: data.resumeText,
-          llm_context: data.llmContext,
-          target_roles: data.targetRoles,
-          interview_type: data.interviewType,
-          country: data.country,
-          onboarded: true,
-        }),
-      });
+      await fetch("/api/auth/profile", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({ name:data.name, background:data.background, target_role:data.targetRoles[0]||"Software Engineer", target_company:data.companyName, experience:data.experience, skills:data.skills, resume_text:data.resumeText, llm_context:data.llmContext, target_roles:data.targetRoles, interview_type:data.interviewType, country:data.country, onboarded:true }) });
       await refreshUser();
-      // Store session config in localStorage for the practice page
-      localStorage.setItem("interview_session_config", JSON.stringify({
-        companyName: data.companyName,
-        interviewType: data.interviewType,
-        roundType: data.roundType,
-        jobDescription: data.jobDescription,
-        generatedQuestions: data.generatedQuestions,
-        researchResults: data.researchResults,
-        country: data.country,
-      }));
+      // Save session config (research will be populated in background)
+      localStorage.setItem("interview_session_config", JSON.stringify({ companyName:data.companyName, interviewType:data.interviewType, roundType:data.roundType, jobDescription:data.jobDescription, generatedQuestions:[], researchResults:null, country:data.country }));
+      // Fire off research in background — results saved to localStorage when ready
+      runResearchInBackground();
       router.push("/");
-    } catch (e) {
-      console.error("Save error:", e);
-    } finally {
-      setLoading(false);
-    }
+    } catch(e) { console.error(e); } finally { setLoading(false); }
   };
 
-  const totalSteps = 5;
-
+  const totalSteps = 3;
+  const STEPS = [
+    { label: "Profile", desc: "Your background & resume" },
+    { label: "Interview Type", desc: "Behavioral, technical, mixed" },
+    { label: "Company & Role", desc: "Target company & round" },
+  ];
   return (
-    <div className="min-h-screen bg-bg">
-      {/* Progress Bar */}
-      <div className="bg-surface border-b border-border px-4 py-3">
-        <div className="max-w-2xl mx-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-lg font-bold text-accent">InterviewCoach</span>
-            <span className="text-xs text-muted">Step {step} of {totalSteps}</span>
-          </div>
-          <div className="flex gap-1">
-            {Array.from({ length: totalSteps }).map((_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 flex-1 rounded-full transition-colors ${
-                  i < step ? "bg-accent" : "bg-border"
-                }`}
-              />
-            ))}
+    <div style={{ minHeight:"100vh", background:"var(--bg)", fontFamily:"-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Helvetica Neue', sans-serif", position:"relative" }}>
+      {/* Glow */}
+      <div style={{ position:"fixed", top:-200, left:"50%", transform:"translateX(-50%)", width:800, height:800, borderRadius:"50%", background:"radial-gradient(ellipse, rgba(34,211,238,0.07) 0%, rgba(129,140,248,0.04) 45%, transparent 70%)", pointerEvents:"none", zIndex:0 }} />
+
+      <AppNav
+        user={user}
+        showSetup={false}
+        onTabChange={() => router.push("/")}
+        onSignOut={() => { logout(); router.push("/login"); }}
+      />
+
+      {/* Two-column layout */}
+      <div style={{ maxWidth:1400, margin:"0 auto", padding:"40px 32px 100px 48px", display:"grid", gridTemplateColumns:"280px 1fr", gap:36, position:"relative", zIndex:1 }}>
+
+        {/* LEFT: Step sidebar */}
+        <div style={{ height:"fit-content", position:"sticky", top:104 }}>
+          <div style={{ ...card, padding:"28px 22px" }}>
+            <div style={{ fontSize:12, fontWeight:700, color:C.tert, letterSpacing:"0.08em", textTransform:"uppercase", marginBottom:22 }}>Setup Progress</div>
+            {STEPS.map((s, i) => {
+              const n = i+1;
+              const done = n < step;
+              const active = n === step;
+              return (
+                <div key={s.label}>
+                  <button onClick={()=>{ if(n <= step) setStep(n); }}
+                    style={{ display:"flex", alignItems:"center", gap:14, padding:"12px 14px", borderRadius:12, background:active?"rgba(34,211,238,0.08)":"transparent", border:`1px solid ${active?"rgba(34,211,238,0.2)":"transparent"}`, cursor:n<=step?"pointer":"default", width:"100%", textAlign:"left", fontFamily:"inherit", transition:"all 0.15s" }}>
+                    <div style={{ width:32, height:32, borderRadius:"50%", background:active?C.cyan:done?C.success:"rgba(255,255,255,0.08)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:13, fontWeight:700, color:active||done?"#050a14":C.tert, flexShrink:0 }}>
+                      {done ? "✓" : n}
+                    </div>
+                    <div>
+                      <div style={{ fontSize:15, fontWeight:600, color:active?C.cyan:done?C.success:C.sec, lineHeight:1.2 }}>{s.label}</div>
+                      <div style={{ fontSize:12, color:C.tert, marginTop:3 }}>{s.desc}</div>
+                    </div>
+                  </button>
+                  {i < STEPS.length-1 && <div style={{ width:1, height:16, background:done?"rgba(52,211,153,0.25)":"rgba(255,255,255,0.06)", marginLeft:30, marginTop:2, marginBottom:2 }} />}
+                </div>
+              );
+            })}
           </div>
         </div>
-      </div>
 
-      <main className="max-w-2xl mx-auto px-4 py-8">
-        {/* ═══ STEP 1: Profile ═══ */}
+        {/* RIGHT: Step content */}
+        <main style={{ minWidth:0 }}>
+
+        {/* ── STEP 1: Profile ── */}
         {step === 1 && (
-          <div className="space-y-5 fade-in">
-            <div>
-              <h2 className="text-xl font-bold text-slate-200">Your Profile</h2>
-              <p className="text-sm text-muted mt-1">Tell us about yourself so we can personalize your practice.</p>
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ marginBottom:4 }}>
+              <h2 style={{ fontSize:30, fontWeight:800, color:"var(--heading)", letterSpacing:"-0.03em", margin:"0 0 8px" }}>Your Profile</h2>
+              <p style={{ fontSize:16, color:C.sec, margin:0 }}>Tell us about yourself so we can personalise your practice sessions.</p>
             </div>
 
-            {/* Quick fill */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              <h3 className="text-sm font-bold text-accent2">Quick Fill (Optional)</h3>
-
-              {/* Resume Upload */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-2">Upload Resume</label>
-                <label className="flex items-center justify-center gap-3 w-full py-4 bg-surface border-2 border-dashed border-border rounded-xl cursor-pointer hover:border-accent transition-colors group">
-                  <input
-                    type="file"
-                    accept=".pdf,.docx,.txt,.md"
-                    className="hidden"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) return;
-                      setLoading(true);
-                      try {
-                        const formData = new FormData();
-                        formData.append("file", file);
-                        const res = await fetch("/api/parse-resume", { method: "POST", body: formData });
-                        const result = await res.json();
-                        if (result.text) {
-                          update({ resumeText: result.text });
-                        } else {
-                          alert("Could not extract text from file. Try pasting instead.");
-                        }
-                      } catch {
-                        alert("Failed to parse resume file.");
-                      } finally {
-                        setLoading(false);
-                      }
-                    }}
-                  />
-                  <svg className="w-6 h-6 text-muted group-hover:text-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                  <div>
-                    <span className="text-sm text-slate-200 group-hover:text-accent transition-colors font-semibold">
-                      {loading ? "Parsing..." : "Click to upload resume"}
-                    </span>
-                    <span className="text-xs text-muted block">PDF, DOCX, or TXT</span>
+            {/* Resume quick-fill */}
+            <div style={{ ...card, padding:"28px 32px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.cyan, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:20 }}>Quick Fill from Resume</div>
+              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
+                {/* Upload */}
+                <label style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", gap:10, padding:"28px 20px", background:"var(--surface)", border:"2px dashed var(--border-hi)", borderRadius:14, cursor:"pointer", transition:"all 0.2s" }}
+                  onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(34,211,238,0.4)"; e.currentTarget.style.background="rgba(34,211,238,0.04)";}}
+                  onMouseLeave={e=>{e.currentTarget.style.borderColor="rgba(255,255,255,0.12)"; e.currentTarget.style.background="rgba(255,255,255,0.03)";}}>
+                  <input type="file" accept=".pdf,.docx,.txt,.md" style={{ display:"none" }} onChange={async (e) => {
+                    const file = e.target.files?.[0]; if (!file) return; setLoading(true);
+                    try { const fd = new FormData(); fd.append("file", file); const res = await fetch("/api/parse-resume",{method:"POST",body:fd}); const r = await res.json(); if(r.text) update({resumeText:r.text}); else alert("Could not extract text. Try pasting instead."); }
+                    catch { alert("Failed to parse resume."); } finally { setLoading(false); }
+                  }} />
+                  <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={data.resumeText ? C.success : C.tert} strokeWidth="1.8" strokeLinecap="round"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+                  <div style={{ textAlign:"center" }}>
+                    <div style={{ fontSize:14, fontWeight:600, color: data.resumeText ? C.success : "white" }}>{loading ? "Parsing..." : data.resumeText ? "Resume loaded ✓" : "Upload Resume"}</div>
+                    <div style={{ fontSize:12, color:C.tert, marginTop:3 }}>PDF, DOCX, or TXT</div>
                   </div>
                 </label>
-                {data.resumeText && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs text-green-400 font-semibold">Resume loaded</span>
-                    <span className="text-xs text-muted">({data.resumeText.length} chars)</span>
-                  </div>
-                )}
+
+                {/* Paste */}
+                <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+                  <label style={{ fontSize:12, fontWeight:600, color:C.tert, letterSpacing:"0.05em", textTransform:"uppercase" }}>Or Paste Resume</label>
+                  <textarea value={data.resumeText} onChange={e=>update({resumeText:e.target.value})} placeholder="Paste your resume text here..." rows={5}
+                    style={{ flex:1, background:"var(--input-bg)", border:"1px solid var(--input-border)", borderRadius:12, padding:"12px 14px", fontSize:13, color:C.text, outline:"none", fontFamily:"inherit", resize:"none" }} />
+                </div>
               </div>
 
-              {/* Or paste manually */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-1">Or Paste Resume Text</label>
-                <textarea
-                  value={data.resumeText}
-                  onChange={e => update({ resumeText: e.target.value })}
-                  placeholder="Copy-paste your resume text here..."
-                  rows={3}
-                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
-                />
+              {/* LLM context */}
+              <div style={{ marginBottom:16 }}>
+                <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.tert, marginBottom:8, letterSpacing:"0.05em", textTransform:"uppercase" }}>AI-Generated Context (Optional)</label>
+                <textarea value={data.llmContext} onChange={e=>update({llmContext:e.target.value})} placeholder="Paste output from ChatGPT / Claude summarising your background..." rows={3}
+                  style={{ width:"100%", background:"var(--input-bg)", border:"1px solid var(--input-border)", borderRadius:12, padding:"12px 14px", fontSize:13, color:C.text, outline:"none", fontFamily:"inherit", resize:"vertical", boxSizing:"border-box" }} />
               </div>
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-1">LLM-Generated Context (Optional)</label>
-                <textarea
-                  value={data.llmContext}
-                  onChange={e => update({ llmContext: e.target.value })}
-                  placeholder="Paste output from ChatGPT/Claude about your background..."
-                  rows={3}
-                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y"
-                />
-              </div>
+
               {(data.resumeText || data.llmContext) && (
-                <button onClick={autoFill} disabled={loading}
-                  className="w-full py-2.5 bg-accent2 text-bg rounded-lg text-sm font-semibold hover:bg-accent2/80 disabled:opacity-50 transition-colors">
-                  {loading ? "Analyzing..." : "Auto-Fill from Resume / Context"}
+                <button onClick={autoFill} disabled={loading} style={{ width:"100%", padding:"14px", borderRadius:12, background:"linear-gradient(135deg, #22d3ee, #818cf8)", color:"white", fontSize:15, fontWeight:700, border:"none", cursor:loading?"not-allowed":"pointer", fontFamily:"inherit", opacity:loading?0.7:1 }}>
+                  {loading ? "Analysing..." : "✦ Auto-Fill from Resume"}
                 </button>
               )}
             </div>
 
             {/* Manual fields */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-3">
-              <InputField label="Name" value={data.name} onChange={v => update({ name: v })} placeholder="Your name" />
-              <InputField label="Country" value={data.country} onChange={v => update({ country: v })} placeholder="e.g., United States, India, Germany" />
-              <InputField label="Background" value={data.background} onChange={v => update({ background: v })} placeholder="e.g., CS student, 3 years backend engineer" />
-              <InputField label="Experience" value={data.experience} onChange={v => update({ experience: v })} placeholder="Key projects, achievements with metrics" multiline />
-              <InputField label="Skills" value={data.skills} onChange={v => update({ skills: v })} placeholder="Python, React, AWS, System Design, etc." />
+            <div style={{ ...card, padding:"28px 32px", display:"flex", flexDirection:"column", gap:18 }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.cyan, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:4 }}>Your Details</div>
+              <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+                  <Field label="Name" value={data.name} onChange={v=>update({name:v})} placeholder="Your name" />
+                  <Field label="Country" value={data.country} onChange={v=>update({country:v})} placeholder="e.g., United States, India" />
+                </div>
+                <Field label="Background" value={data.background} onChange={v=>update({background:v})} placeholder="e.g., CS student, 3 years backend engineer" />
+                <Field label="Experience" value={data.experience} onChange={v=>update({experience:v})} placeholder="Key projects, achievements with metrics..." multiline rows={3} />
+                <Field label="Skills" value={data.skills} onChange={v=>update({skills:v})} placeholder="Python, React, AWS, System Design..." />
 
-              {/* Target Roles Multi-Select */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-2">Target Roles (select all that apply)</label>
-                <div className="flex flex-wrap gap-2">
-                  {ROLE_OPTIONS.map(role => (
-                    <button
-                      key={role}
-                      onClick={() => toggleRole(role)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        data.targetRoles.includes(role)
-                          ? "bg-accent text-white"
-                          : "bg-surface border border-border text-muted hover:border-accent hover:text-slate-200"
-                      }`}
-                    >
-                      {role}
-                    </button>
-                  ))}
+                {/* Target Roles */}
+                <div>
+                  <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.tert, marginBottom:10, letterSpacing:"0.05em", textTransform:"uppercase" }}>Target Roles</label>
+                  <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                    {ROLE_OPTIONS.map(role => {
+                      const sel = data.targetRoles.includes(role);
+                      return (
+                        <button key={role} onClick={()=>toggleRole(role)} style={{ padding:"8px 16px", borderRadius:999, fontSize:13, fontWeight:600, border:`1px solid ${sel ? "rgba(34,211,238,0.4)" : "rgba(255,255,255,0.10)"}`, background: sel ? "rgba(34,211,238,0.12)" : "rgba(255,255,255,0.04)", color: sel ? C.cyan : C.sec, cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s" }}>
+                          {role}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 2: Interview Type ═══ */}
+        {/* ── STEP 2: Interview Type ── */}
         {step === 2 && (
-          <div className="space-y-5 fade-in">
+          <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
             <div>
-              <h2 className="text-xl font-bold text-slate-200">Interview Type</h2>
-              <p className="text-sm text-muted mt-1">What type of interview are you preparing for?</p>
+              <h2 style={{ fontSize:30, fontWeight:800, color:"var(--heading)", letterSpacing:"-0.03em", margin:"0 0 8px" }}>Interview Type</h2>
+              <p style={{ fontSize:16, color:C.sec, margin:0 }}>What type of interview are you preparing for?</p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              {INTERVIEW_TYPES.map(t => (
-                <button
-                  key={t.id}
-                  onClick={() => update({ interviewType: t.id })}
-                  className={`p-5 rounded-xl border-2 text-left transition-all ${
-                    data.interviewType === t.id
-                      ? "border-accent bg-accent/10"
-                      : "border-border bg-card hover:border-accent/50"
-                  }`}
-                >
-                  <div className="text-2xl mb-2">{t.icon}</div>
-                  <div className="text-sm font-bold text-slate-200">{t.label}</div>
-                  <div className="text-xs text-muted mt-1">{t.desc}</div>
-                </button>
-              ))}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:14 }}>
+              {INTERVIEW_TYPES.map(t => {
+                const sel = data.interviewType === t.id;
+                return (
+                  <button key={t.id} onClick={()=>update({interviewType:t.id})} style={{ padding:"28px 24px", borderRadius:20, border:`1px solid ${sel ? "rgba(34,211,238,0.35)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(34,211,238,0.08)" : "rgba(17,25,45,0.85)", cursor:"pointer", fontFamily:"inherit", textAlign:"left", transition:"all 0.18s", position:"relative" }}>
+                    {t.badge && <span style={{ position:"absolute", top:16, right:16, padding:"3px 10px", borderRadius:999, fontSize:10, fontWeight:700, background:"rgba(34,211,238,0.15)", color:C.cyan, letterSpacing:"0.04em" }}>{t.badge}</span>}
+                    <div style={{ fontSize:36, marginBottom:14 }}>{t.icon}</div>
+                    <div style={{ fontSize:17, fontWeight:700, color:"var(--heading)", marginBottom:6 }}>{t.label}</div>
+                    <div style={{ fontSize:14, color:C.sec, lineHeight:1.5 }}>{t.desc}</div>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* ═══ STEP 3: Company & Role Details ═══ */}
+        {/* ── STEP 3: Company & Role ── */}
         {step === 3 && (
-          <div className="space-y-5 fade-in">
+          <div style={{ display:"flex", flexDirection:"column", gap:24 }}>
             <div>
-              <h2 className="text-xl font-bold text-slate-200">Company & Role Details</h2>
-              <p className="text-sm text-muted mt-1">Tell us about the specific role you&apos;re targeting.</p>
+              <h2 style={{ fontSize:30, fontWeight:800, color:"var(--heading)", letterSpacing:"-0.03em", margin:"0 0 8px" }}>Company & Role</h2>
+              <p style={{ fontSize:16, color:C.sec, margin:0 }}>Tell us about the specific role you&apos;re targeting.</p>
             </div>
 
-            {/* Job Description — Required, at the top */}
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
+            {/* Company */}
+            <div style={{ ...card, padding:"28px 32px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.tert, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:14 }}>Target Company</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:10, marginBottom: isOtherCompany ? 14 : 0 }}>
+                {COMPANY_PRESETS.map(c => {
+                  const sel = c === "Other" ? isOtherCompany : (!isOtherCompany && data.companyName === c);
+                  return (
+                    <button key={c} onClick={()=>{ if(c==="Other"){setIsOtherCompany(true);update({companyName:""});}else{setIsOtherCompany(false);update({companyName:c});}}}
+                      style={{ padding:"10px 20px", borderRadius:999, fontSize:14, fontWeight:600, border:`1px solid ${sel ? "rgba(34,211,238,0.4)" : "rgba(255,255,255,0.10)"}`, background: sel ? "rgba(34,211,238,0.12)" : "rgba(255,255,255,0.04)", color: sel ? C.cyan : C.sec, cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s" }}>
+                      {c}
+                    </button>
+                  );
+                })}
+              </div>
+              {isOtherCompany && (
+                <input type="text" value={data.companyName} onChange={e=>update({companyName:e.target.value})} placeholder="Enter company name" autoFocus
+                  style={{ width:"100%", background:"var(--input-bg)", border:"1px solid rgba(34,211,238,0.35)", borderRadius:12, padding:"14px 16px", fontSize:15, color:C.text, outline:"none", fontFamily:"inherit", boxSizing:"border-box" }} />
+              )}
+            </div>
+
+            {/* Experience level */}
+            <div style={{ ...card, padding:"28px 32px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.tert, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:16 }}>Experience Level</div>
+              <div style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:10 }}>
+                {EXP_OPTIONS.map(e => {
+                  const sel = data.yearsExperience === e.v;
+                  return (
+                    <button key={e.v} onClick={()=>update({yearsExperience:e.v})} style={{ padding:"16px 12px", borderRadius:14, border:`1px solid ${sel ? "rgba(129,140,248,0.4)" : "rgba(255,255,255,0.08)"}`, background: sel ? "rgba(129,140,248,0.10)" : "rgba(255,255,255,0.03)", cursor:"pointer", fontFamily:"inherit", textAlign:"center", transition:"all 0.15s" }}>
+                      <div style={{ fontSize:16, fontWeight:700, color: sel ? C.violet : "white", marginBottom:4 }}>{e.l}</div>
+                      <div style={{ fontSize:12, color:C.tert }}>{e.sub}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Round type */}
+            <div style={{ ...card, padding:"28px 32px" }}>
+              <div style={{ fontSize:13, fontWeight:700, color:C.tert, textTransform:"uppercase", letterSpacing:"0.07em", marginBottom:14 }}>Interview Round</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                {ROUND_TYPES.map(r => {
+                  const sel = data.roundType === r;
+                  return (
+                    <button key={r} onClick={()=>update({roundType:r})} style={{ padding:"9px 18px", borderRadius:999, fontSize:13, fontWeight:600, border:`1px solid ${sel ? "rgba(251,191,36,0.4)" : "rgba(255,255,255,0.10)"}`, background: sel ? "rgba(251,191,36,0.10)" : "rgba(255,255,255,0.04)", color: sel ? C.warning : C.sec, cursor:"pointer", fontFamily:"inherit", transition:"all 0.15s" }}>
+                      {r}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* JD (Required) */}
+            <div style={{ ...card, padding:"28px 32px", display:"flex", flexDirection:"column", gap:18 }}>
               <div>
-                <label className="text-xs text-muted font-semibold block mb-1">
-                  Job Description <span className="text-red-400">*</span>
+                <label style={{ display:"block", fontSize:12, fontWeight:600, color:C.tert, marginBottom:8, letterSpacing:"0.05em", textTransform:"uppercase" }}>
+                  Job Description <span style={{ color:C.danger }}>*</span>
                 </label>
-                <textarea
-                  value={data.jobDescription}
-                  onChange={e => update({ jobDescription: e.target.value })}
-                  placeholder="Paste the full job description here — we'll auto-fill company, skills, experience level, and more..."
-                  rows={6}
-                  className={`w-full bg-surface border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none resize-y ${
-                    !data.jobDescription.trim() ? "border-red-500/50" : "border-border"
-                  }`}
-                />
+                <textarea value={data.jobDescription} onChange={e=>update({jobDescription:e.target.value})} placeholder="Paste the full job description here — we'll auto-fill company, skills, experience level, and more..." rows={6}
+                  style={{ width:"100%", background:"rgba(255,255,255,0.04)", border:`1px solid ${!data.jobDescription.trim() ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.10)"}`, borderRadius:12, padding:"14px 16px", fontSize:15, color:C.text, outline:"none", fontFamily:"inherit", resize:"vertical", boxSizing:"border-box" as const }} />
                 {!data.jobDescription.trim() && (
-                  <p className="text-xs text-red-400 mt-1">Job description is required for personalized questions.</p>
+                  <p style={{ fontSize:12, color:C.danger, marginTop:6 }}>Job description is required for personalized questions.</p>
                 )}
               </div>
-
               {data.jobDescription.trim() && (
-                <button
-                  onClick={autoFillFromJD}
-                  disabled={autoFillJdLoading}
-                  className="w-full py-2.5 bg-accent2 text-bg rounded-lg text-sm font-semibold hover:bg-accent2/80 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
-                >
+                <button onClick={autoFillFromJD} disabled={autoFillJdLoading}
+                  style={{ width:"100%", padding:"14px", borderRadius:12, background:"linear-gradient(135deg, #22d3ee, #818cf8)", color:"white", fontSize:15, fontWeight:700, border:"none", cursor:autoFillJdLoading?"not-allowed":"pointer", fontFamily:"inherit", opacity:autoFillJdLoading?0.7:1, display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
                   {autoFillJdLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-bg border-t-transparent rounded-full animate-spin" />
-                      Analyzing JD with AI...
-                    </>
+                    <><div style={{ width:16, height:16, border:"2px solid white", borderTopColor:"transparent", borderRadius:"50%", animation:"spin 0.7s linear infinite" }} />Analysing JD with AI...</>
                   ) : (
-                    <>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                      Auto-Fill from Job Description
-                    </>
+                    <>⚡ Auto-Fill from Job Description</>
                   )}
                 </button>
               )}
             </div>
 
-            <div className="bg-card border border-border rounded-xl p-5 space-y-4">
-              {/* Company Selection */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-2">Target Company</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {COMPANY_PRESETS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => {
-                        if (c === "Other") {
-                          setIsOtherCompany(true);
-                          update({ companyName: "" });
-                        } else {
-                          setIsOtherCompany(false);
-                          update({ companyName: c });
-                        }
-                      }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        (c === "Other" && isOtherCompany) || (!isOtherCompany && data.companyName === c)
-                          ? "bg-accent text-white"
-                          : "bg-surface border border-border text-muted hover:border-accent"
-                      }`}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-                {isOtherCompany && (
-                  <input
-                    type="text"
-                    value={data.companyName}
-                    placeholder="Enter company name"
-                    onChange={e => update({ companyName: e.target.value })}
-                    className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none mt-2"
-                    autoFocus
-                  />
-                )}
-              </div>
-
-              {/* Years of Experience */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-1">Years of Experience</label>
-                <select
-                  value={data.yearsExperience}
-                  onChange={e => update({ yearsExperience: e.target.value })}
-                  className="w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none"
-                >
-                  <option value="0-2">0-2 years (New Grad / Intern)</option>
-                  <option value="2-5">2-5 years (Mid-Level)</option>
-                  <option value="5-10">5-10 years (Senior)</option>
-                  <option value="10+">10+ years (Staff+)</option>
-                </select>
-              </div>
-
-              {/* Round Type */}
-              <div>
-                <label className="text-xs text-muted font-semibold block mb-2">Interview Round</label>
-                <div className="flex flex-wrap gap-2">
-                  {ROUND_TYPES.map(r => (
-                    <button
-                      key={r}
-                      onClick={() => update({ roundType: r })}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                        data.roundType === r
-                          ? "bg-accent2 text-bg"
-                          : "bg-surface border border-border text-muted hover:border-accent2"
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Key Skills for this role */}
-              <InputField
-                label="Key Skills for This Role"
-                value={data.targetSkills}
-                onChange={v => update({ targetSkills: v })}
-                placeholder="e.g., React, Node.js, distributed systems, leadership"
-              />
+            {/* Skills */}
+            <div style={{ ...card, padding:"28px 32px", display:"flex", flexDirection:"column", gap:18 }}>
+              <Field label="Key Skills for This Role" value={data.targetSkills} onChange={v=>update({targetSkills:v})} placeholder="e.g., React, Node.js, distributed systems, leadership" />
             </div>
-          </div>
-        )}
-
-        {/* ═══ STEP 4: Internet Research ═══ */}
-        {step === 4 && (
-          <div className="space-y-5 fade-in">
-            <div>
-              <h2 className="text-xl font-bold text-slate-200">Interview Research</h2>
-              <p className="text-sm text-muted mt-1">
-                We&apos;ll search Reddit, LeetCode, Glassdoor, and GeeksForGeeks for real interview experiences at {data.companyName}.
-              </p>
-            </div>
-
-            {!data.researchResults && !loading && (
-              <div className="text-center py-8">
-                <button
-                  onClick={runResearch}
-                  className="px-8 py-4 bg-accent text-white rounded-xl font-semibold hover:bg-accent/80 transition-colors text-sm"
-                >
-                  Search Interview Experiences
-                </button>
-                <p className="text-xs text-muted mt-3">
-                  Searches Reddit, LeetCode, Glassdoor, GFG for {data.companyName} {data.targetRoles[0] || "SWE"} interviews
-                </p>
-              </div>
-            )}
-
-            {loading && (
-              <div className="text-center py-12">
-                <div className="inline-block w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin mb-4" />
-                <p className="text-sm text-muted">Searching interview experiences across Reddit, LeetCode, Glassdoor, GFG...</p>
-              </div>
-            )}
-
-            {data.researchResults && (
-              <div className="space-y-4">
-                {/* Interview Format */}
-                {data.researchResults.interview_format && (
-                  <div className="bg-card border border-border rounded-xl p-5">
-                    <h3 className="text-sm font-bold text-accent2 mb-2">Interview Format</h3>
-                    <p className="text-xs text-slate-300">{data.researchResults.interview_format}</p>
-                  </div>
-                )}
-
-                {/* Common Questions */}
-                {data.researchResults.common_questions?.length > 0 && (
-                  <div className="bg-card border border-border rounded-xl p-5">
-                    <h3 className="text-sm font-bold text-accent mb-2">Common Questions Reported</h3>
-                    <ul className="space-y-2">
-                      {data.researchResults.common_questions.map((q: string, i: number) => (
-                        <li key={i} className="text-xs text-slate-300 pl-3 relative before:absolute before:left-0 before:content-['→'] before:text-accent">{q}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Tips */}
-                {data.researchResults.tips?.length > 0 && (
-                  <div className="bg-accent/10 border border-accent/30 rounded-xl p-5">
-                    <h3 className="text-sm font-bold text-accent mb-2">Tips from Candidates</h3>
-                    <ul className="space-y-2">
-                      {data.researchResults.tips.map((t: string, i: number) => (
-                        <li key={i} className="text-xs text-slate-300">{t}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Difficulty */}
-                {data.researchResults.difficulty && (
-                  <div className="bg-surface rounded-xl p-4 flex items-center gap-3">
-                    <span className="text-xs text-muted">Reported Difficulty:</span>
-                    <span className={`text-sm font-bold ${
-                      data.researchResults.difficulty === "Hard" ? "text-red-400" :
-                      data.researchResults.difficulty === "Medium" ? "text-yellow-400" : "text-green-400"
-                    }`}>{data.researchResults.difficulty}</span>
-                  </div>
-                )}
-
-                {/* Sources */}
-                {data.researchResults.sources?.length > 0 && (
-                  <div className="bg-surface rounded-xl p-4">
-                    <h4 className="text-xs text-muted font-bold mb-2">Sources</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {data.researchResults.sources.map((s: string, i: number) => (
-                        <span key={i} className="text-[10px] bg-card px-2 py-1 rounded text-muted">{s}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ═══ STEP 5: Generated Questions ═══ */}
-        {step === 5 && (
-          <div className="space-y-5 fade-in">
-            <div>
-              <h2 className="text-xl font-bold text-slate-200">Your Interview Questions</h2>
-              <p className="text-sm text-muted mt-1">
-                Generated based on your profile, {data.companyName}&apos;s interview style, and real candidate experiences.
-              </p>
-            </div>
-
-            {data.generatedQuestions.length === 0 && !loading && (
-              <div className="text-center py-8">
-                <button
-                  onClick={generateQuestions}
-                  className="px-8 py-4 bg-accent text-white rounded-xl font-semibold hover:bg-accent/80 transition-colors text-sm"
-                >
-                  Generate Personalized Questions
-                </button>
-              </div>
-            )}
-
-            {loading && (
-              <div className="text-center py-12">
-                <div className="inline-block w-8 h-8 border-2 border-border border-t-accent rounded-full animate-spin mb-4" />
-                <p className="text-sm text-muted">AI is generating personalized questions based on your profile and research...</p>
-              </div>
-            )}
-
-            {data.generatedQuestions.length > 0 && (
-              <div className="space-y-3">
-                {data.generatedQuestions.map((q: { text: string; type: string; category: string; difficulty: string; hint?: string }, i: number) => (
-                  <div key={i} className="bg-card border border-border rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-6 h-6 rounded-full bg-accent text-white text-xs flex items-center justify-center font-bold">{i + 1}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        q.type === "behavioral" ? "bg-blue-900/50 text-blue-400" :
-                        q.type === "technical" ? "bg-purple-900/50 text-purple-400" :
-                        "bg-orange-900/50 text-orange-400"
-                      }`}>{q.type}</span>
-                      <span className="text-[10px] text-muted">{q.category}</span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
-                        q.difficulty === "easy" ? "bg-green-900/50 text-green-400" :
-                        q.difficulty === "medium" ? "bg-yellow-900/50 text-yellow-400" :
-                        "bg-red-900/50 text-red-400"
-                      }`}>{q.difficulty}</span>
-                    </div>
-                    <p className="text-sm text-slate-200">{q.text}</p>
-                    {q.hint && (
-                      <p className="text-xs text-muted mt-2 italic">{q.hint}</p>
-                    )}
-                  </div>
-                ))}
-
-                <button
-                  onClick={finishOnboarding}
-                  disabled={loading}
-                  className="w-full py-4 bg-accent text-white rounded-xl font-bold text-base hover:bg-accent/80 disabled:opacity-50 transition-colors mt-4"
-                >
-                  {loading ? "Saving..." : "Start Practicing"}
-                </button>
-              </div>
-            )}
           </div>
         )}
 
         {/* Navigation */}
-        <div className="flex justify-between mt-8">
-          <button
-            onClick={() => setStep(s => Math.max(1, s - 1))}
-            disabled={step === 1}
-            className="px-6 py-2.5 bg-surface border border-border rounded-lg text-sm text-muted hover:text-slate-200 disabled:opacity-30 transition-colors"
-          >
-            Back
+        <div style={{ display:"flex", justifyContent:"space-between", marginTop:40 }}>
+          <button onClick={()=>setStep(s=>Math.max(1,s-1))} disabled={step===1}
+            style={{ padding:"14px 28px", borderRadius:14, background:"rgba(255,255,255,0.05)", border:"1px solid rgba(255,255,255,0.10)", color:step===1?"rgba(255,255,255,0.2)":C.sec, fontSize:15, fontWeight:600, cursor:step===1?"not-allowed":"pointer", fontFamily:"inherit" }}>
+            ← Back
           </button>
-
-          {step < totalSteps && (
-            <button
-              onClick={() => {
-                if (step === 4 && !data.researchResults) {
-                  runResearch().then(() => setStep(s => s + 1));
-                } else {
-                  setStep(s => s + 1);
-                }
-              }}
-              disabled={(step === 1 && !data.name) || (step === 3 && !data.jobDescription.trim())}
-              className="px-6 py-2.5 bg-accent text-white rounded-lg text-sm font-semibold hover:bg-accent/80 disabled:opacity-50 transition-colors"
-            >
-              {step === 4 && !data.researchResults ? "Skip Research" : "Next"}
+          {step < totalSteps ? (
+            <button onClick={()=>setStep(s=>s+1)} disabled={(step===1&&!data.name)}
+              style={{ padding:"14px 32px", borderRadius:14, background: (step===1&&!data.name)?"rgba(34,211,238,0.3)":"linear-gradient(135deg, #22d3ee, #818cf8)", color:"white", fontSize:15, fontWeight:700, border:"none", cursor:(step===1&&!data.name)?"not-allowed":"pointer", fontFamily:"inherit" }}>
+              Continue →
+            </button>
+          ) : (
+            <button onClick={finishOnboarding} disabled={loading||!data.jobDescription.trim()}
+              style={{ padding:"14px 32px", borderRadius:14, background: (!data.jobDescription.trim())?"rgba(34,211,238,0.3)":"linear-gradient(135deg, #22d3ee, #818cf8)", color:"white", fontSize:15, fontWeight:700, border:"none", cursor:(loading||!data.jobDescription.trim())?"not-allowed":"pointer", fontFamily:"inherit", opacity:loading?0.7:1 }}>
+              {loading ? "Saving..." : "Start Practising →"}
             </button>
           )}
         </div>
-      </main>
-    </div>
-  );
-}
-
-function InputField({ label, value, onChange, placeholder, multiline }: {
-  label: string; value: string; onChange: (v: string) => void; placeholder: string; multiline?: boolean;
-}) {
-  const cls = "w-full bg-surface border border-border rounded-lg px-3 py-2 text-sm text-slate-200 focus:border-accent focus:outline-none";
-  return (
-    <div>
-      <label className="text-xs text-muted font-semibold block mb-1">{label}</label>
-      {multiline ? (
-        <textarea value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} rows={3} className={cls + " resize-y"} />
-      ) : (
-        <input type="text" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className={cls} />
-      )}
+        </main>
+      </div>
+      <style>{`input::placeholder,textarea::placeholder{color:rgba(255,255,255,0.22)}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

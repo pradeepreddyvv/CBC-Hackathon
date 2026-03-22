@@ -1,5 +1,4 @@
 "use client";
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { FeedbackResult } from "@/lib/store";
 
 interface FeedbackCardProps { feedback: FeedbackResult; questionText: string; }
@@ -28,7 +27,7 @@ export default function FeedbackCard({ feedback: f }: FeedbackCardProps) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif" }} className="slide-up">
 
-      {/* Score hero -- bento row */}
+      {/* Score hero — bento row */}
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: 12 }}>
         <div style={{ ...bento, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "20px 24px", background: "rgba(34,211,238,0.05)", borderColor: "rgba(34,211,238,0.15)" }}>
           <ScoreRing score={f.overall_score} />
@@ -84,7 +83,7 @@ export default function FeedbackCard({ feedback: f }: FeedbackCardProps) {
         {f.improvements?.length > 0 && (
           <div style={{ ...bento, background: "rgba(248,113,113,0.05)", borderColor: "rgba(248,113,113,0.15)" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.danger, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Improve</div>
-            {f.improvements.map((s: string, i: number) => <div key={i} style={{ fontSize: 13, color: T.text, marginBottom: 6, display: "flex", gap: 6, lineHeight: 1.45 }}><span style={{ color: T.danger, flexShrink: 0 }}>--</span>{s}</div>)}
+            {f.improvements.map((s: string, i: number) => <div key={i} style={{ fontSize: 13, color: T.text, marginBottom: 6, display: "flex", gap: 6, lineHeight: 1.45 }}><span style={{ color: T.danger, flexShrink: 0 }}>–</span>{s}</div>)}
           </div>
         )}
       </div>
@@ -92,7 +91,7 @@ export default function FeedbackCard({ feedback: f }: FeedbackCardProps) {
       {/* Coaching tip bento */}
       {f.coaching_tip && (
         <div style={{ ...bento, background: "rgba(34,211,238,0.05)", borderColor: "rgba(34,211,238,0.15)" }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: T.cyan, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Coaching Tip</div>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.cyan, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>💡 Coaching Tip</div>
           <p style={{ fontSize: 14, color: T.text, lineHeight: 1.6, margin: 0 }}>{f.coaching_tip}</p>
         </div>
       )}
@@ -110,6 +109,7 @@ export default function FeedbackCard({ feedback: f }: FeedbackCardProps) {
         <div style={{ ...bento }}>
           <div style={{ fontSize: 11, fontWeight: 600, color: T.tert, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 12 }}>Sentence Analysis</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             {f.sentence_analysis.map((s: any, i: number) => (
               <div key={i} style={{ padding: 12, borderRadius: 10, borderLeft: `3px solid ${s.rating === "strong" ? T.success : s.rating === "okay" ? T.warning : T.danger}`, background: s.rating === "strong" ? "rgba(52,211,153,0.05)" : s.rating === "okay" ? "rgba(251,191,36,0.05)" : "rgba(248,113,113,0.05)" }}>
                 <p style={{ fontSize: 13, color: T.text, margin: "0 0 4px" }}>&ldquo;{s.sentence}&rdquo;</p>
