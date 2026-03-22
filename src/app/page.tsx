@@ -83,6 +83,20 @@ export default function Home() {
   // Generating session
   const [generatingSession, setGeneratingSession] = useState(false);
 
+  // Theme
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") as "dark" | "light" | null;
+    if (saved) { setTheme(saved); document.documentElement.setAttribute("data-theme", saved === "light" ? "light" : ""); }
+  }, []);
+  const toggleTheme = useCallback(() => {
+    const next = theme === "dark" ? "light" : "dark";
+    setTheme(next);
+    localStorage.setItem("theme", next);
+    if (next === "light") document.documentElement.setAttribute("data-theme", "light");
+    else document.documentElement.removeAttribute("data-theme");
+  }, [theme]);
+
   // Auth guard
   useEffect(() => {
     if (!authLoading && !user) {
@@ -448,6 +462,13 @@ export default function Home() {
           </div>
           <div className="flex items-center gap-2 ml-2 pl-2 border-l border-border">
             <span className="text-xs text-muted">{user.name}</span>
+            <button
+              onClick={toggleTheme}
+              className="text-xs text-muted hover:text-accent transition-colors px-2 py-1 rounded-lg hover:bg-card"
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} theme`}
+            >
+              {theme === "dark" ? "☀️" : "🌙"}
+            </button>
             <button
               onClick={() => { router.push("/onboarding"); }}
               className="text-xs text-muted hover:text-accent transition-colors"
@@ -823,7 +844,7 @@ export default function Home() {
                   });
                 }
               }}
-              onAnswerRecorded={(qIdx, answerText, audioUrl) => {
+              onAnswerRecorded={(qIdx, answerText, audioUrl, durationSec) => {
                 setAnswer(answerText);
                 if (audioUrl) setAudioUrl(audioUrl);
                 setCurrentQIndex(qIdx);
@@ -841,9 +862,46 @@ export default function Home() {
                     type: q?.type || "behavioral",
                     answer: answerText,
                     feedback: {},
-                    durationSec: 0,
+                    durationSec: durationSec || 0,
                     transcript: answerText,
                   });
+                }
+              }}
+              onFeedbackReceived={(qIdx, question, answerText, analysis, humanizedFeedback, durationSec) => {
+                // Update the answer in DB with feedback analysis
+                const sid = sessionIdRef.current;
+                if (user?.id && sid) {
+                  const q = sessionQuestions[qIdx];
+                  const answerId = `3d-${sid}-${qIdx}`;
+                  // Re-save the answer with full feedback
+                  cloudSaveAnswer(user.id, {
+                    id: answerId,
+                    sessionId: sid,
+                    questionId: q?.id || `q-${qIdx}`,
+                    questionText: question,
+                    category: q?.category || "general",
+                    type: q?.type || "behavioral",
+                    answer: answerText,
+                    feedback: {
+                      ...analysis,
+                      humanized_feedback: humanizedFeedback,
+                    },
+                    durationSec: durationSec || 0,
+                    transcript: answerText,
+                  });
+                  // Also update weak areas
+                  if (analysis.weak_areas?.length) {
+                    fetch("/api/db", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        action: "updateWeakAreas",
+                        userId: user.id,
+                        areas: analysis.weak_areas,
+                        score: analysis.overall_score || 50,
+                      }),
+                    }).catch(() => {});
+                  }
                 }
               }}
               onSessionComplete={(answers, sessionAnalysis) => {
@@ -1299,11 +1357,46 @@ function HistoryView() {
                           </div>
                         )}
 
+                        {/* Weakest Sentence Rewrite */}
+                        {fb.weakest_sentence_rewrite && fb.weakest_sentence_rewrite.original && (
+                          <div className="bg-surface rounded-lg p-3">
+                            <div className="text-[10px] text-muted font-bold uppercase mb-2">Best Single Improvement</div>
+                            <p className="text-xs text-red-400 line-through mb-1">{fb.weakest_sentence_rewrite.original}</p>
+                            <p className="text-xs text-green-400">{fb.weakest_sentence_rewrite.improved}</p>
+                          </div>
+                        )}
+
                         {/* Follow-up Question */}
                         {fb.follow_up_question && (
                           <div className="bg-accent2/10 border border-accent2/20 rounded-lg p-3">
-                            <div className="text-[10px] text-accent2 font-bold uppercase mb-1">Follow-Up Question</div>
+                            <div className="text-[10px] text-accent2 font-bold uppercase mb-1">Likely Follow-Up Question</div>
                             <p className="text-xs text-slate-200">{fb.follow_up_question}</p>
+                          </div>
+                        )}
+
+                        {/* Ideal 90-Second Structure */}
+                        {fb.ideal_90sec_structure && (
+                          <details className="bg-surface rounded-lg p-3">
+                            <summary className="text-[10px] text-accent font-bold uppercase cursor-pointer">Ideal 90-Second Answer Structure</summary>
+                            <p className="text-xs text-slate-300 mt-2 whitespace-pre-wrap">{fb.ideal_90sec_structure}</p>
+                          </details>
+                        )}
+
+                        {/* Recommendation & Encouragement */}
+                        {fb.recommendation && (
+                          <div className={`rounded-lg p-3 ${
+                            fb.recommendation === "Strong" ? "bg-green-900/10 border border-green-500/20" :
+                            fb.recommendation === "Good" ? "bg-blue-900/10 border border-blue-500/20" :
+                            "bg-yellow-900/10 border border-yellow-500/20"
+                          }`}>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-bold ${
+                                fb.recommendation === "Strong" ? "text-green-400" :
+                                fb.recommendation === "Good" ? "text-blue-400" :
+                                "text-yellow-400"
+                              }`}>{fb.recommendation}</span>
+                              {fb.encouragement && <span className="text-[10px] text-muted">{fb.encouragement}</span>}
+                            </div>
                           </div>
                         )}
                       </div>
