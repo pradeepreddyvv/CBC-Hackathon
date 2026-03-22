@@ -1,0 +1,153 @@
+[
+  {
+    "role": "Software Engineer Intern",
+    "source": "reddit",
+    "company": "google",
+    "top_posts": [
+      {
+        "url": "https://www.reddit.com/r/csMajors/comments/1om27dx/megathread_google_software_engineer_early/",
+        "title": "\ud83e\udde0 [Megathread] Google Software Engineer, Early Career(US) Timeline 2026 \u2013 Share Your Experience",
+        "snippet": "Technical #4: Medium, 1D DP with multiple parts; final part was not remotely solvable in an interview setting unless you had seen the problem before"
+      },
+      {
+        "url": "https://www.reddit.com/r/leetcode/comments/1rl0eb5/2026_new_grad_software_engineer_google/",
+        "title": "2026 new grad software engineer Google",
+        "snippet": "For the technical, I covered Neetcode 150 and did about 50 google tagged questions. That should suffice for the technical."
+      },
+      {
+        "url": "https://www.reddit.com/r/csMajors/comments/1qu773e/google_interview_experience/",
+        "title": "Google Interview Experience",
+        "snippet": "For anyone preparing for interviews: beyond just getting the correct solution, make sure to clearly discuss possible inputs, outputs, and edge cases before and during coding."
+      },
+      {
+        "url": "https://www.reddit.com/r/InterviewCoderHQ/comments/1rl0uf8/google_new_grad_2026_software_engineer_round_1/",
+        "title": "Google new grad 2026 software engineer round 1",
+        "snippet": "Not available"
+      },
+      {
+        "url": "https://www.reddit.com/r/leetcode/comments/1pbf6p9/i_got_a_swe_job_at_google_with_outstanding/",
+        "title": "I got a SWE job at Google with outstanding interview performance and wanna help people do the same - AMA",
+        "snippet": "Googleyness I think I have also done pretty good and interview told at the end \u201cGood answers\u201d"
+      }
+    ],
+    "ai_summary": "Not available",
+    "round_type": "technical"
+  },
+  {
+    "role": "Software Engineer Intern",
+    "source": "leetcode_discuss",
+    "company": "google",
+    "top_posts": [
+      {
+        "url": "https://leetcode.com/discuss/post/6828725/google-india-6-month-software-developer-e40ox/",
+        "title": "Google India | 6-month Software Developer Intern | Round 1",
+        "snippet": "Hi everyone! I recently had my Round 1 Google interview for a Software Engineer role, and I wanted to share my experience\u2014especially for those preparing and unsure what to expect. The Problem I was asked one core question related to trees. Although it..."
+      },
+      {
+        "url": "https://leetcode.com/discuss/post/5933748/google-application-engineer-intern-sept-ggmbl/",
+        "title": "Google | Application Engineer Intern | Sept 2024 [Reject]",
+        "snippet": "Resume shortlisting Interview - Started with my introduction followed by 2 dsa questions, 1. Flatten n-ary tree, 2. Preorder traversal of a tree with point..."
+      },
+      {
+        "url": "https://leetcode.com/discuss/post/6709758/google-summer-intern-interview-experienc-qunp/",
+        "title": "Google Summer Intern Interview Experience \u2014 2025",
+        "snippet": "\ud83d\udcdd The Application Proc..."
+      },
+      {
+        "url": "https://leetcode.com/discuss/post/5699807/google-interview-experience-by-ampercent-hd2u/",
+        "title": "google interview experience",
+        "snippet": "hello everyone, i got email from Google recruiter..."
+      },
+      {
+        "url": "https://leetcode.com/discuss/post/6469509/google-latest-interview-experiences-coll-r4zm/",
+        "title": "\ud83d\udccc\ud83d\udccc Google latest Interview Experiences : Collection - Curated and organised",
+        "snippet": "Google Interview Experiences: A Curated Collection This collection organizes Google interview experiences shared by candidates on LeetCode into distinct categori..."
+      }
+    ],
+    "round_type": "technical"
+  },
+  {
+    "role": "Software Engineer Intern",
+    "tips": [
+      "Ask clarifying questions before diving into the code to ensure you understand the problem constraints.",
+      "Communicate your thought process out loud while solving problems to show how you handle ambiguity.",
+      "Start with a brute-force solution to ensure you have something working, then iterate to optimize for time and space complexity.",
+      "Practice coding in Google Docs or on a whiteboard, as you may not have access to an IDE with syntax highlighting during the interview.",
+      "Tailor your behavioral answers to align with Google's mission and 'Googleyness' values (e.g., leadership, comfort with ambiguity).",
+      "Be honest about what you don't know and demonstrate a strong motivation and ability to learn quickly."
+    ],
+    "source": "igotanoffer",
+    "company": "google",
+    "questions": [
+      "Coding: Implement Trie for prefix matching",
+      "Coding: Write a function to merge two sorted arrays without using extra space",
+      "Coding: Given an array of integers, return all unique triplets [a, b, c] where a + b + c = 0",
+      "Coding: Implement a Snapshot Array that supports pre-defined interfaces",
+      "Coding: Implement a cleaning algorithm for a robot vacuum cleaner",
+      "Coding: Find the lowest common ancestor of two nodes in a binary tree",
+      "Coding: Given two strings, return the length of their longest common subsequence",
+      "Coding: Find the minimum number of coins needed for change",
+      "Coding: Solve the 'Generate All Possible Balanced Parentheses' problem recursively",
+      "Coding: Evaluate reverse polish notation and return the result",
+      "Behavioral: Tell me about yourself",
+      "Behavioral: Why Google?",
+      "Behavioral: Tell me about a recent / interesting project you worked on",
+      "Behavioral: Tell me about a time you had to resolve a conflict in a team",
+      "Behavioral: What is your favorite Google product?"
+    ],
+    "round_type": "technical",
+    "interview_overview": "The Google Software Engineer interview process typically takes more than eight weeks and consists of several stages: 1. Resume Screening (tailoring the resume is critical as ~90% of candidates are filtered here). 2. Online Assessments (including a workstyle hiring assessment and a coding assessment). 3. Technical Phone Screen (1 to 2 interviews, 45-60 minutes each, solving data structure and algorithm questions on a shared Google Doc). 4. Interview Loop (traditionally 4 to 6 interviews covering coding and 'Googleyness' / leadership; system design is generally reserved for more senior roles). Note: For interns, the onsite loop typically focuses heavily on coding and behavioral questions rather than system design."
+  },
+  {
+    "role": "Software Engineer Intern",
+    "source": "geeksforgeeks",
+    "company": "google",
+    "top_posts": [
+      {
+        "url": "https://www.geeksforgeeks.org/google-swe-intern-2025-selected/",
+        "title": "Google SWE Intern 2025 (Selected) - GeeksforGeeks",
+        "snippet": "Last Updated : Nov 23, 2024 ... software tools, competitive exams, and more ... Hi everyone, I'm Dhruvi shah, In this Interview experience I will share the whole process and..."
+      },
+      {
+        "url": "https://www.geeksforgeeks.org/interview-experiences/google-interview-experience-set-7-software-engineering-intern/",
+        "title": "Google Interview Experience | Set 7 (For Software Engineering Intern)",
+        "snippet": "Last Updated : Dec 3, 2017 I had a very positive experience. My interviewers and recruiters were all pleasant to work with. I will definitely try again next year and hopefully, I will..."
+      },
+      {
+        "url": "https://www.geeksforgeeks.org/interview-experiences/google-interview-experience-for-swe-intern-off-campus-2023/",
+        "title": "Google Interview Experience For SWE Intern (Off-Campus) 2023",
+        "snippet": "Last Updated : Jul 23, 2025 I applied for the position of Google SWE summer intern-2023 via the Google Careers site and the application was without a referral...."
+      },
+      {
+        "url": "https://www.geeksforgeeks.org/interview-experiences/google-interview-experience-software-engineer-winter-intern/",
+        "title": "Google Interview Experience | Software Engineer Winter Intern",
+        "snippet": "Last Updated : Nov 25, 2024 Your All-in-One Learning Portal: GeeksforGeeks is a comprehensive educational platform that empowers learners across domains-spanning..."
+      },
+      {
+        "url": "https://www.geeksforgeeks.org/interview-experiences/google-interview-experience-for-software-engineering-internship-2022/",
+        "title": "Google Interview Experience for Software Engineering Internship 2022",
+        "snippet": "Google Interview Experience For Software Engineering Internship 2022. Last Updated : 24 Aug, 2021. A Short Overview: Google came to our campus(IIT Roorkee)..."
+      }
+    ],
+    "round_type": "technical"
+  },
+  {
+    "role": "Software Engineer Intern",
+    "source": "glassdoor",
+    "company": "google",
+    "questions": [
+      "You are climbing a stair case. Each time you can either make 1 step or 2 steps. The staircase has n steps. In how many distinct ways can you climb the staircase ?",
+      "Find the integer pairs in an integer array, so that they sum up to a specific number n.",
+      "Given a TV remote, write a script that would give directions to input some letters. Starting from the upper left-hand corner. If the buttons were in 3 columns, and you wanted to type 'feed', you would want the output of the program to say 'right, right, down, PRESS, left, PRESS, PRESS, left, PRESS'",
+      "How would you implement a stack with the additional operation of getMin?",
+      "A task in which I was required to print all numbers between 1 and a million - with no repeating digits - Easy enough! Just can throw you off guard a bit"
+    ],
+    "round_type": "technical",
+    "experiences": [
+      {
+        "rating": "4.4",
+        "snippet": "Easy enough! Just can throw you off guard a bit"
+      }
+    ]
+  }
+]

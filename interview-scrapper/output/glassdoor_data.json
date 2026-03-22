@@ -1,0 +1,19 @@
+{
+  "role": "Software Engineer Intern",
+  "source": "glassdoor",
+  "company": "google",
+  "questions": [
+    "You are climbing a stair case. Each time you can either make 1 step or 2 steps. The staircase has n steps. In how many distinct ways can you climb the staircase ?",
+    "Find the integer pairs in an integer array, so that they sum up to a specific number n.",
+    "Given a TV remote, write a script that would give directions to input some letters. Starting from the upper left-hand corner. If the buttons were in 3 columns, and you wanted to type 'feed', you would want the output of the program to say 'right, right, down, PRESS, left, PRESS, PRESS, left, PRESS'",
+    "How would you implement a stack with the additional operation of getMin?",
+    "A task in which I was required to print all numbers between 1 and a million - with no repeating digits - Easy enough! Just can throw you off guard a bit"
+  ],
+  "round_type": "technical",
+  "experiences": [
+    {
+      "rating": "4.4",
+      "snippet": "Easy enough! Just can throw you off guard a bit"
+    }
+  ]
+}
