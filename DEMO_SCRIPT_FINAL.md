@@ -34,13 +34,13 @@
 
 **[Click feedback. Show the speech bubble lighting up word-by-word as interviewer speaks.]**
 
-> "Two AI models work together — Gemini analyzes the STAR structure, then Claude Haiku turns that analysis into natural spoken feedback. Watch the word-by-word highlighting."
+> "Two AI models collaborate here — Gemini is the analyst, scoring my STAR structure and flagging weak sentences. Claude Haiku is the interviewer — it generates the spoken feedback, the follow-up questions, and even a personalized coaching plan. Watch the word-by-word highlighting."
 
 **[Let feedback play for 5-7 seconds, then show the sidebar with scores]**
 
 > "I got a 52. The AI caught my filler words, flagged that I didn't quantify my results, and shows me exactly which sentences were weak."
 
-**[Scroll to show STAR scores, sentence analysis, delivery analysis]**
+**[Scroll to show STAR scores, sentence analysis, delivery analysis. Point at "Powered by Claude" badge on coaching plan.]**
 
 > "And I can ask follow-up questions — like a real conversation."
 
@@ -66,7 +66,7 @@
 
 **[Show architecture diagram or just speak over the app]**
 
-> "Built with Next.js and Three.js. We use InsForge for our PostgreSQL database and AI gateway, TinyFish for web scraping real interview data, Speechmatics for real-time speech-to-text, Gemini for deep analysis, and Claude Haiku for humanized feedback. All sponsor APIs — InsForge and TinyFish — are core to the product, not bolted on."
+> "We have a dual-model architecture — Gemini is the analyst, handling scoring, research, and resume parsing. Claude Haiku is the interviewer's brain — it generates follow-up questions, spoken feedback, coaching plans, and handles the feedback conversation. InsForge routes both models and runs our PostgreSQL database. TinyFish scrapes real interview data from 5 websites. Every sponsor API is core to the product, not bolted on."
 
 ---
 

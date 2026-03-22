@@ -39,23 +39,27 @@ Right: "With InterviewCoach" — 3D scene, STAR scores, sentence analysis, spoke
 ## Slide 4: ARCHITECTURE (10 seconds — simple diagram)
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│  TinyFish   │────>│   Gemini     │────>│ Claude Haiku │
-│  Web Scrape │     │  STAR        │     │  Human       │
-│  5 sources  │     │  Analysis    │     │  Feedback    │
-└─────────────┘     └──────────────┘     └─────────────┘
-       │                   │                    │
-       └───────────────────┴────────────────────┘
-                           │
-                    ┌──────┴──────┐
-                    │  InsForge   │
-                    │  PostgreSQL │
-                    │  + pgvector │
-                    └─────────────┘
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────────┐
+│  TinyFish   │────>│  Gemini Flash    │     │  Claude Haiku        │
+│  Web Scrape │     │  THE ANALYST     │     │  THE INTERVIEWER     │
+│  5 sources  │     │                  │     │                      │
+│             │     │  • STAR scoring  │────>│  • Spoken feedback   │
+│             │     │  • Sentence      │     │  • Follow-up Qs      │
+│             │     │    analysis      │     │  • Feedback Q&A      │
+│             │     │  • Research      │     │  • Coaching plans    │
+│             │     │  • Resume parse  │     │  • Adaptive Qs       │
+└─────────────┘     └────────┬─────────┘     └──────────┬───────────┘
+                             │                          │
+                      ┌──────┴──────────────────────────┘
+                      │
+               ┌──────┴──────┐
+               │  InsForge   │  Routes BOTH models
+               │  PostgreSQL │  + pgvector embeddings
+               └─────────────┘
 ```
 
-**Sponsors used: InsForge (DB + AI Gateway), TinyFish (Web Scraping)**
-**Also: Speechmatics (STT), Three.js (3D), Claude Haiku (Anthropic)**
+**Sponsors: InsForge (DB + AI Gateway for Gemini & Claude), TinyFish (Web Scraping)**
+**Also: Speechmatics (STT), Three.js (3D), Anthropic Claude Haiku**
 
 ---
 

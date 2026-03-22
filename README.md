@@ -58,21 +58,24 @@ InterviewCoach helps job seekers practice interviews with AI in an immersive 3D 
 │  /api/auth/google/*     Google OAuth (auto-detect host)  │
 │  /api/parse-resume      PDF→text via Gemini multimodal   │
 │  /api/generate-questions Gemini: role+resume→questions   │
-│  /api/analyze-answer    Gemini: STAR analysis + scoring  │
+│  /api/mock-feedback     Dual-model feedback pipeline     │
 │  /api/cloud-*           DB CRUD (sessions, answers,      │
 │                         weak areas, embeddings)          │
 │  /api/match-question    Semantic similarity search       │
 └──────────────┬──────────────────────────┬───────────────┘
                │                          │
                ▼                          ▼
-┌──────────────────────┐   ┌──────────────────────────────┐
-│   InsForge Gateway   │   │   InsForge PostgreSQL DB     │
-│   (Gemini API proxy) │   │                              │
-│                      │   │  users, sessions, answers    │
-│  Models:             │   │  weak_areas,                 │
-│  gemini-2.5-flash    │   │  question/answer/ideal       │
-│                      │   │  _embeddings                 │
-└──────────────────────┘   └──────────────────────────────┘
+┌──────────────────────────────────┐   ┌──────────────────────────────┐
+│     InsForge AI Model Gateway    │   │   InsForge PostgreSQL DB     │
+│                                  │   │                              │
+│  Gemini 2.5 Flash (Analyst)      │   │  users, sessions, answers    │
+│  → STAR scoring, research,       │   │  weak_areas,                 │
+│    resume parsing, questions     │   │  question/answer/ideal       │
+│                                  │   │  _embeddings                 │
+│  Claude Haiku (Interviewer)      │   │                              │
+│  → Follow-ups, feedback, Q&A,   │   │                              │
+│    coaching, adaptive questions  │   │                              │
+└──────────────────────────────────┘   └──────────────────────────────┘
 ```
 
 ### Data Flow
@@ -89,13 +92,16 @@ Onboarding Wizard (5 steps)
   5. Question Generation (5 personalized questions)
         |
         v
-Interview Session
+Interview Session (Dual-Model AI Pipeline)
   - Display question (text + TTS voice)
   - Record answer (Speechmatics real-time STT)
-  - AI generates structured STAR feedback
-  - 3D scene shows interviewer/candidate with speech bubbles
+  - Gemini analyzes STAR structure → scores, sentence ratings, delivery metrics
+  - Claude Haiku humanizes feedback → natural interviewer speech
+  - Claude generates targeted follow-up questions based on your answer
+  - Claude handles ask-about-feedback conversation
+  - 3D scene shows interviewer/candidate with word-by-word highlighted speech bubbles
   - Full analysis saved to DB per question
-  - Session summary with readiness score
+  - Session summary with Claude coaching plan (priority skill + example rewrite)
         |
         v
 Progress Dashboard
@@ -133,9 +139,18 @@ History Tab
 | **PDF Parsing** | Gemini Multimodal API | Resume PDF text extraction (serverless-compatible) |
 | **DOCX Parsing** | jszip | Resume DOCX extraction |
 
+### Dual-Model AI Architecture
+
+| Role | Model | Tasks |
+|------|-------|-------|
+| **The Analyst** | Gemini 2.5 Flash | STAR scoring, sentence-level analysis, delivery metrics, research synthesis, resume parsing, question generation |
+| **The Interviewer** | Claude Haiku (Anthropic) | Humanized spoken feedback, follow-up question generation, ask-about-feedback Q&A, adaptive question targeting, post-session coaching plans |
+
+All Claude calls include an `interviewerPersona` system prompt — a senior interviewer with 15+ years of experience who stays in character throughout the session. If Claude is unavailable, all actions fall back to Gemini automatically.
+
 ### Hackathon Sponsor Integrations
 
-- **InsForge** — PostgreSQL database, AI Model Gateway (Gemini + Claude Haiku), vector database (pgvector)
+- **InsForge** — PostgreSQL database, AI Model Gateway (routes both Gemini and Claude Haiku), vector database (pgvector)
 - **TinyFish** — AI browser automation for scraping real interview data from 5 sources (Reddit, LeetCode, Glassdoor, GeeksForGeeks, IGotAnOffer)
 
 ---
@@ -152,7 +167,7 @@ src/
 │   │   ├── feedback/       # Per-question STAR feedback + session summary
 │   │   ├── parse-profile/  # AI profile extraction from resume/context
 │   │   ├── parse-resume/   # PDF (Gemini multimodal) / DOCX / TXT parsing
-│   │   ├── mock-feedback/   # 3D interview: analyze_question, analyze_session, generate_followup, adaptive_questions, ask_about_feedback
+│   │   ├── mock-feedback/   # Dual-model: Gemini STAR analysis + Claude interviewer (follow-ups, coaching, Q&A, adaptive)
 │   │   ├── research/       # Company interview research via TinyFish + Gemini
 │   │   ├── cloud-save-answer/ # Save individual answer with full analysis to DB
 │   │   ├── cloud-save-session/ # Save session summary to DB
@@ -410,7 +425,7 @@ npm start
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/feedback` | Get STAR feedback for an answer |
-| POST | `/api/mock-feedback` | 3D interview: per-question analysis, session analysis, follow-ups, ask-about-feedback (Claude Haiku + Gemini) |
+| POST | `/api/mock-feedback` | Dual-model pipeline: Gemini STAR analysis + Claude Haiku interviewer (follow-ups, feedback, coaching, Q&A, adaptive questions) |
 | POST | `/api/adaptive` | Generate adaptive session or analyze progress |
 | POST | `/api/research` | Scrape real interview data via TinyFish (Reddit, LeetCode, Glassdoor, GFG, IGotAnOffer) + Gemini synthesis |
 | POST | `/api/parse-resume` | Extract text from PDF (Gemini multimodal) / DOCX / TXT |
