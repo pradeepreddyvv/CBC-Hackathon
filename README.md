@@ -12,10 +12,12 @@ InterviewCoach helps job seekers practice interviews with AI in an immersive 3D 
 
 ### Key Features
 
-- **3D Mock Interview Scene** — Three.js office with interviewer & candidate characters, speech bubbles via 3D→2D projection, speaker glow lighting
+- **3D Mock Interview Scene** — Three.js office with human-like interviewer & candidate characters (facial features: nose, ears, eyebrows, chin, lips, eye sclera/pupils), glasses on interviewer, speech bubbles via 3D→2D projection, speaker glow lighting
+- **Dynamic Feedback Highlighting** — Word-by-word text highlighting synced to TTS playback (blue glow on active word, yellow for spoken, dim for upcoming) with auto-scroll
+- **Ask About Feedback** — After receiving feedback, candidates can ask follow-up questions about the feedback — AI responds conversationally like a real interviewer debrief
 - **Voice Pipeline** — Speechmatics real-time STT for transcription, Web Speech API for TTS feedback delivery
 - **Resume Upload & Auto-Fill** — Upload PDF/DOCX/TXT, Gemini multimodal API extracts text and fills your profile
-- **Internet Research** — Searches Reddit, LeetCode, Glassdoor, GFG for real interview experiences at your target company
+- **Internet Research** — TinyFish AI browser automation scrapes Reddit, LeetCode, Glassdoor, GFG, IGotAnOffer for real interview experiences
 - **Personalized Question Generation** — AI generates questions based on your profile, company, and research data
 - **STAR Framework Scoring** — Situation, Task, Action, Result scored individually (0-100)
 - **Sentence-Level Analysis** — Every sentence rated as strong/okay/weak with rewrites
@@ -25,7 +27,7 @@ InterviewCoach helps job seekers practice interviews with AI in an immersive 3D 
 - **Company-Specific Intelligence** — Built-in profiles for Amazon (LPs), Google, Meta, Microsoft, Apple, Netflix
 - **Full Analysis in History** — Complete per-question analysis (STAR scores, sentence analysis, delivery, coaching tips, ideal answer) stored in DB and retrievable from History tab
 - **Progress Tracking** — Score trends, weak area tracking with improving/stable/declining trends
-- **Light/Dark Theme** — Toggle between light and dark themes with CSS custom properties & localStorage persistence
+- **Bento Design System** — Clean card-based UI with focus animations, pill selectors, gradient accents
 - **Cloud Persistence** — All data synced to InsForge PostgreSQL
 - **Google OAuth** — Auto-detecting redirect URIs for localhost + Vercel production
 
@@ -122,7 +124,7 @@ History Tab
 | **Language** | TypeScript | Type safety |
 | **AI Gateway** | InsForge Model Gateway | Unified AI model routing |
 | **AI Model** | Gemini 2.5 Flash Lite | Question generation, STAR analysis, research |
-| **AI Model** | Claude Haiku (Anthropic) | Humanized conversational interview feedback |
+| **AI Model** | Claude Haiku (Anthropic) | Humanized conversational feedback + ask-about-feedback dialogue |
 | **Database** | InsForge PostgreSQL 15 | Users, sessions, answers, weak areas |
 | **Vector DB** | pgvector on PostgreSQL | Semantic question search (3072d embeddings) |
 | **Auth** | JWT (jose) + bcryptjs | Email/password + Google OAuth |
@@ -133,7 +135,8 @@ History Tab
 
 ### Hackathon Sponsor Integrations
 
-- **InsForge** — PostgreSQL database, AI Model Gateway, vector database (pgvector)
+- **InsForge** — PostgreSQL database, AI Model Gateway (Gemini + Claude Haiku), vector database (pgvector)
+- **TinyFish** — AI browser automation for scraping real interview data from 5 sources (Reddit, LeetCode, Glassdoor, GeeksForGeeks, IGotAnOffer)
 
 ---
 
@@ -149,11 +152,13 @@ src/
 │   │   ├── feedback/       # Per-question STAR feedback + session summary
 │   │   ├── parse-profile/  # AI profile extraction from resume/context
 │   │   ├── parse-resume/   # PDF (Gemini multimodal) / DOCX / TXT parsing
-│   │   ├── research/       # Company interview research via AI
+│   │   ├── mock-feedback/   # 3D interview: analyze_question, analyze_session, generate_followup, adaptive_questions, ask_about_feedback
+│   │   ├── research/       # Company interview research via TinyFish + Gemini
 │   │   ├── cloud-save-answer/ # Save individual answer with full analysis to DB
 │   │   ├── cloud-save-session/ # Save session summary to DB
 │   │   └── vector/         # Vector similarity search (pgvector)
 │   ├── login/              # Login/register page
+│   ├── profile/            # Profile editing (bento design, auto-fill from JD)
 │   ├── onboarding/         # 5-step setup wizard
 │   ├── page.tsx            # Main interview dashboard (Interview, 3D Mock, Progress, History tabs)
 │   ├── layout.tsx          # Root layout with AuthProvider + theme script
@@ -290,12 +295,15 @@ Each answer receives a deeply structured `FeedbackResult`:
 The 3D mock interview uses Three.js to render an immersive office environment:
 
 - **Office** — Dark-themed room with bookshelf, plant, window with emissive glass, ceiling light panel, rug
-- **Characters** — Box-based interviewer and candidate with MeshLambertMaterial, suits, collars, sitting pose
-- **Furniture** — Table with laptop, notepad, pen, water glass; ergonomic chairs
+- **Characters** — Human-like figures with MeshStandardMaterial: detailed faces (eye sclera + pupils, cone nose with bridge + nostrils, upper/lower lips, chin, ears, eyebrows), full hair (top, sides, back), proportionally scaled (0.62x)
+- **Interviewer** — Darker skin tone, gray hair, glasses (torus frames + temple arms), purple tie
+- **Candidate** — Lighter skin tone, brown hair, blue shirt
+- **Furniture** — Table with laptop, notepad, pen, water glass; scaled ergonomic chairs
 - **Lighting** — Ambient + directional key/fill/rim lights, PCFSoftShadowMap, FogExp2
-- **Speech Bubbles** — HTML overlays positioned via 3D-to-2D head projection (getWorldPosition → project → screen coords)
-- **Speaker Glow** — PointLight that follows the active speaker
-- **Camera** — Positioned at (0, 2.55, 4.8) with subtle breathing animation
+- **Speech Bubbles** — HTML overlays via 3D→2D projection, feedback mode with word-by-word TTS highlighting (blue active, yellow spoken, dim upcoming)
+- **Speaker Glow** — PointLight that follows the active speaker with color per speaker
+- **Camera** — Positioned at (0, 2.0, 4.2) with subtle breathing animation
+- **Ask About Feedback** — Input field appears after feedback, AI responds conversationally via TTS
 
 ---
 
@@ -356,6 +364,9 @@ JWT_SECRET=your_jwt_secret
 
 # Speechmatics (for real-time STT)
 SPEECHMATICS_API_KEY=your_speechmatics_api_key
+
+# TinyFish (for interview data scraping)
+TINYFISH_API_KEY=your_tinyfish_api_key
 ```
 
 ### Run Locally
@@ -399,8 +410,9 @@ npm start
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/feedback` | Get STAR feedback for an answer |
+| POST | `/api/mock-feedback` | 3D interview: per-question analysis, session analysis, follow-ups, ask-about-feedback (Claude Haiku + Gemini) |
 | POST | `/api/adaptive` | Generate adaptive session or analyze progress |
-| POST | `/api/research` | Search interview experiences online |
+| POST | `/api/research` | Scrape real interview data via TinyFish (Reddit, LeetCode, Glassdoor, GFG, IGotAnOffer) + Gemini synthesis |
 | POST | `/api/parse-resume` | Extract text from PDF (Gemini multimodal) / DOCX / TXT |
 | POST | `/api/parse-profile` | AI-extract profile from resume text |
 

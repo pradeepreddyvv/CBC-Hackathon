@@ -201,7 +201,9 @@ export default function Home() {
     // Save full session data to cloud (generated questions, config, etc.)
     if (user?.id) {
       const config = localStorage.getItem("interview_session_config");
-      const parsedConfig = config ? JSON.parse(config) : {};
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let parsedConfig: any = {};
+      try { if (config) parsedConfig = JSON.parse(config); } catch { /* ignore */ }
       cloudSaveSession(user.id, {
         ...session,
         generatedQuestions: sessionQuestions,

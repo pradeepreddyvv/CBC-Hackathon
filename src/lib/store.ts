@@ -127,7 +127,7 @@ export function getProfile(): LearningProfile {
 
 export function saveProfile(profile: LearningProfile) {
   if (typeof window === "undefined") return;
-  localStorage.setItem(STORE_KEY, JSON.stringify(profile));
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(profile)); } catch { /* quota exceeded or private browsing */ }
 }
 
 export function emptyProfile(): LearningProfile {
