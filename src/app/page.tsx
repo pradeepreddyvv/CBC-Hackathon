@@ -1146,7 +1146,7 @@ function HistoryView() {
   const [expandedAnswer, setExpandedAnswer] = useState<string | null>(null);
   useEffect(() => { setProfile(getProfile()); }, []);
 
-  if (profile.answers.length === 0) {
+  if (!profile || !profile.answers || profile.answers.length === 0) {
     return (
       <div className="text-center py-20">
         <div className="text-4xl mb-4">📋</div>
@@ -1156,11 +1156,12 @@ function HistoryView() {
     );
   }
 
-  // Group by session
+  // Group by session — safely handle missing sessionId
   const sessionMap = new Map<string, AnswerRecord[]>();
   for (const a of profile.answers) {
-    if (!sessionMap.has(a.sessionId)) sessionMap.set(a.sessionId, []);
-    sessionMap.get(a.sessionId)!.push(a);
+    const sid = a.sessionId || "unknown";
+    if (!sessionMap.has(sid)) sessionMap.set(sid, []);
+    sessionMap.get(sid)!.push(a);
   }
 
   const scoreColor = (s: number) =>
@@ -1173,10 +1174,10 @@ function HistoryView() {
     <div className="space-y-4">
       <h2 className="text-xl font-bold text-slate-200">Interview History</h2>
       {Array.from(sessionMap.entries()).map(([sessId, answers]) => {
-        const session = profile.sessions.find(s => s.id === sessId);
-        const scoredAnswers = answers.filter(a => a.feedback.overall_score > 0);
+        const session = (profile.sessions || []).find(s => s.id === sessId);
+        const scoredAnswers = answers.filter(a => a.feedback?.overall_score > 0);
         const avgScore = scoredAnswers.length > 0
-          ? Math.round(scoredAnswers.reduce((s, a) => s + a.feedback.overall_score, 0) / scoredAnswers.length)
+          ? Math.round(scoredAnswers.reduce((s, a) => s + (a.feedback?.overall_score || 0), 0) / scoredAnswers.length)
           : 0;
 
         return (
@@ -1187,7 +1188,7 @@ function HistoryView() {
                   {session?.company || "Practice"} — {session?.role || ""}
                 </span>
                 <span className="text-xs text-muted ml-2">
-                  {new Date(answers[0].timestamp).toLocaleDateString()} · {answers.length} Qs
+                  {answers[0]?.timestamp ? new Date(answers[0].timestamp).toLocaleDateString() : "—"} · {answers.length} Qs
                 </span>
               </div>
               {avgScore > 0 && (
@@ -1198,6 +1199,14 @@ function HistoryView() {
               {answers.map(a => {
                 const isExpanded = expandedAnswer === a.id;
                 const fb = a.feedback;
+                if (!fb) {
+                  return (
+                    <div key={a.id} className="border-b border-border last:border-0 p-3">
+                      <p className="text-xs text-slate-300 truncate">{a.questionText || "Unknown question"}</p>
+                      <p className="text-[10px] text-muted mt-1">No feedback data available</p>
+                    </div>
+                  );
+                }
                 return (
                   <div key={a.id} className="border-b border-border last:border-0">
                     {/* Collapsed row */}
@@ -1206,16 +1215,16 @@ function HistoryView() {
                       className="w-full p-3 text-left hover:bg-surface/50 transition-colors"
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        {fb.overall_score > 0 && (
+                        {(fb.overall_score || 0) > 0 && (
                           <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${scoreBg(fb.overall_score)}`}>
                             {fb.overall_score}
                           </span>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs text-slate-300 truncate">{a.questionText}</p>
+                          <p className="text-xs text-slate-300 truncate">{a.questionText || "Question"}</p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-[10px] text-muted">{a.type}</span>
-                            <span className="text-[10px] text-muted">{a.durationSec}s</span>
+                            {a.type && <span className="text-[10px] text-muted">{a.type}</span>}
+                            {a.durationSec > 0 && <span className="text-[10px] text-muted">{a.durationSec}s</span>}
                             {fb.coaching_tip && <span className="text-[10px] text-muted truncate">Tip: {fb.coaching_tip}</span>}
                           </div>
                         </div>
@@ -1232,17 +1241,19 @@ function HistoryView() {
                         {/* Question */}
                         <div className="bg-surface rounded-lg p-3">
                           <div className="text-[10px] text-accent font-bold uppercase mb-1">Question</div>
-                          <p className="text-sm text-slate-200">{a.questionText}</p>
+                          <p className="text-sm text-slate-200">{a.questionText || "—"}</p>
                         </div>
 
                         {/* Your Answer / Transcript */}
-                        <div className="bg-surface rounded-lg p-3">
-                          <div className="text-[10px] text-accent2 font-bold uppercase mb-1">Your Answer ({a.durationSec}s)</div>
-                          <p className="text-xs text-slate-300 whitespace-pre-wrap">{a.answer}</p>
-                        </div>
+                        {a.answer && (
+                          <div className="bg-surface rounded-lg p-3">
+                            <div className="text-[10px] text-accent2 font-bold uppercase mb-1">Your Answer ({a.durationSec || 0}s)</div>
+                            <p className="text-xs text-slate-300 whitespace-pre-wrap">{a.answer}</p>
+                          </div>
+                        )}
 
                         {/* STAR Scores */}
-                        {fb.star_scores && (
+                        {fb.star_scores && typeof fb.star_scores === "object" && Object.keys(fb.star_scores).length > 0 && (
                           <div className="bg-surface rounded-lg p-3">
                             <div className="text-[10px] text-muted font-bold uppercase mb-2">STAR Scores</div>
                             <div className="grid grid-cols-4 gap-2">
@@ -1257,7 +1268,7 @@ function HistoryView() {
                         )}
 
                         {/* Dimension Scores */}
-                        {fb.dimension_scores && (
+                        {fb.dimension_scores && typeof fb.dimension_scores === "object" && Object.keys(fb.dimension_scores).length > 0 && (
                           <div className="bg-surface rounded-lg p-3">
                             <div className="text-[10px] text-muted font-bold uppercase mb-2">Dimension Scores</div>
                             <div className="space-y-1.5">
@@ -1265,7 +1276,7 @@ function HistoryView() {
                                 <div key={k} className="flex items-center gap-2">
                                   <span className="text-[10px] text-muted w-28 capitalize">{k.replace(/_/g, " ")}</span>
                                   <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full ${(v as number) >= 70 ? "bg-green-500" : (v as number) >= 50 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${v}%` }} />
+                                    <div className={`h-full rounded-full ${(v as number) >= 70 ? "bg-green-500" : (v as number) >= 50 ? "bg-yellow-500" : "bg-red-500"}`} style={{ width: `${Math.min(100, v as number)}%` }} />
                                   </div>
                                   <span className={`text-[10px] font-bold w-6 text-right ${scoreColor(v as number)}`}>{v as number}</span>
                                 </div>
@@ -1275,7 +1286,7 @@ function HistoryView() {
                         )}
 
                         {/* Sentence Analysis */}
-                        {fb.sentence_analysis && fb.sentence_analysis.length > 0 && (
+                        {Array.isArray(fb.sentence_analysis) && fb.sentence_analysis.length > 0 && (
                           <div className="bg-surface rounded-lg p-3">
                             <div className="text-[10px] text-muted font-bold uppercase mb-2">Sentence Analysis</div>
                             <div className="space-y-2">
@@ -1296,32 +1307,34 @@ function HistoryView() {
                         )}
 
                         {/* Delivery Analysis */}
-                        {fb.delivery_analysis && (
+                        {fb.delivery_analysis && typeof fb.delivery_analysis === "object" && Object.keys(fb.delivery_analysis).length > 0 && (
                           <div className="bg-surface rounded-lg p-3">
                             <div className="text-[10px] text-muted font-bold uppercase mb-2">Delivery Analysis</div>
                             <div className="grid grid-cols-2 gap-2 text-xs">
-                              {fb.delivery_analysis.filler_words?.length > 0 && (
+                              {Array.isArray(fb.delivery_analysis.filler_words) && fb.delivery_analysis.filler_words.length > 0 && (
                                 <div className="bg-red-900/10 rounded p-2">
                                   <span className="text-[10px] text-red-400 font-bold">Filler Words</span>
                                   <p className="text-slate-300">{fb.delivery_analysis.filler_words.join(", ")}</p>
                                 </div>
                               )}
-                              {fb.delivery_analysis.hedging_phrases?.length > 0 && (
+                              {Array.isArray(fb.delivery_analysis.hedging_phrases) && fb.delivery_analysis.hedging_phrases.length > 0 && (
                                 <div className="bg-yellow-900/10 rounded p-2">
                                   <span className="text-[10px] text-yellow-400 font-bold">Hedging</span>
                                   <p className="text-slate-300">{fb.delivery_analysis.hedging_phrases.join(", ")}</p>
                                 </div>
                               )}
-                              {fb.delivery_analysis.power_words?.length > 0 && (
+                              {Array.isArray(fb.delivery_analysis.power_words) && fb.delivery_analysis.power_words.length > 0 && (
                                 <div className="bg-green-900/10 rounded p-2">
                                   <span className="text-[10px] text-green-400 font-bold">Power Words</span>
                                   <p className="text-slate-300">{fb.delivery_analysis.power_words.join(", ")}</p>
                                 </div>
                               )}
-                              <div className="bg-blue-900/10 rounded p-2">
-                                <span className="text-[10px] text-blue-400 font-bold">Active Voice</span>
-                                <p className="text-slate-300">{fb.delivery_analysis.active_voice_pct}%</p>
-                              </div>
+                              {fb.delivery_analysis.active_voice_pct != null && (
+                                <div className="bg-blue-900/10 rounded p-2">
+                                  <span className="text-[10px] text-blue-400 font-bold">Active Voice</span>
+                                  <p className="text-slate-300">{fb.delivery_analysis.active_voice_pct}%</p>
+                                </div>
+                              )}
                             </div>
                             {fb.delivery_analysis.pacing_note && (
                               <p className="text-[10px] text-muted mt-2">Pacing: {fb.delivery_analysis.pacing_note}</p>
@@ -1330,28 +1343,30 @@ function HistoryView() {
                         )}
 
                         {/* Strengths & Improvements */}
-                        <div className="grid grid-cols-2 gap-3">
-                          {fb.strengths?.length > 0 && (
-                            <div className="bg-green-900/10 rounded-lg p-3">
-                              <div className="text-[10px] text-green-400 font-bold uppercase mb-1">Strengths</div>
-                              <ul className="space-y-1">
-                                {fb.strengths.map((s: string, i: number) => (
-                                  <li key={i} className="text-[10px] text-slate-300">+ {s}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {fb.improvements?.length > 0 && (
-                            <div className="bg-red-900/10 rounded-lg p-3">
-                              <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Improvements</div>
-                              <ul className="space-y-1">
-                                {fb.improvements.map((s: string, i: number) => (
-                                  <li key={i} className="text-[10px] text-slate-300">- {s}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
+                        {(Array.isArray(fb.strengths) && fb.strengths.length > 0 || Array.isArray(fb.improvements) && fb.improvements.length > 0) && (
+                          <div className="grid grid-cols-2 gap-3">
+                            {Array.isArray(fb.strengths) && fb.strengths.length > 0 && (
+                              <div className="bg-green-900/10 rounded-lg p-3">
+                                <div className="text-[10px] text-green-400 font-bold uppercase mb-1">Strengths</div>
+                                <ul className="space-y-1">
+                                  {fb.strengths.map((s: string, i: number) => (
+                                    <li key={i} className="text-[10px] text-slate-300">+ {s}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                            {Array.isArray(fb.improvements) && fb.improvements.length > 0 && (
+                              <div className="bg-red-900/10 rounded-lg p-3">
+                                <div className="text-[10px] text-red-400 font-bold uppercase mb-1">Improvements</div>
+                                <ul className="space-y-1">
+                                  {fb.improvements.map((s: string, i: number) => (
+                                    <li key={i} className="text-[10px] text-slate-300">- {s}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Coaching Tip */}
                         {fb.coaching_tip && (
@@ -1362,7 +1377,7 @@ function HistoryView() {
                         )}
 
                         {/* Weak Areas */}
-                        {fb.weak_areas?.length > 0 && (
+                        {Array.isArray(fb.weak_areas) && fb.weak_areas.length > 0 && (
                           <div className="flex flex-wrap gap-1">
                             {fb.weak_areas.map((w: string, i: number) => (
                               <span key={i} className="text-[10px] bg-red-900/30 text-red-400 px-2 py-0.5 rounded">
@@ -1373,7 +1388,7 @@ function HistoryView() {
                         )}
 
                         {/* Weakest Sentence Rewrite */}
-                        {fb.weakest_sentence_rewrite && fb.weakest_sentence_rewrite.original && (
+                        {fb.weakest_sentence_rewrite && typeof fb.weakest_sentence_rewrite === "object" && fb.weakest_sentence_rewrite.original && (
                           <div className="bg-surface rounded-lg p-3">
                             <div className="text-[10px] text-muted font-bold uppercase mb-2">Best Single Improvement</div>
                             <p className="text-xs text-red-400 line-through mb-1">{fb.weakest_sentence_rewrite.original}</p>
