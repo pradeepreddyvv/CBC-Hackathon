@@ -60,6 +60,13 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number) {
   // Head
   const head = add(new THREE.SphereGeometry(0.185, 24, 24), skin, 0, 1.08, 0);
 
+  // Mouth
+  const mouthMat = new THREE.MeshLambertMaterial({ color: 0x331111 });
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.015, 0.03), mouthMat);
+  mouth.position.set(0, 1.01, 0.17);
+  mouth.name = "mouth";
+  group.add(mouth);
+
   // Hair cap
   const hairCap = new THREE.Mesh(new THREE.SphereGeometry(0.19, 20, 12), hairMat);
   hairCap.scale.y = 0.52;
@@ -104,7 +111,7 @@ function buildPerson(skinColor: number, suitColor: number, hairColor: number) {
   // Shoes
   [-0.11, 0.11].forEach(x => add(new THREE.BoxGeometry(0.13, 0.07, 0.24), shoeMat, x, 0.12, 0.52));
 
-  return { group, head };
+  return { group, head, mouth };
 }
 
 function buildChair() {
@@ -267,7 +274,7 @@ function SpeechBubble({ text, side, visible, isQuestion }: { text: string; side:
   const isLeft = side === "left";
   return (
     <div style={{
-      maxWidth: 260, minWidth: 120,
+      maxWidth: 300, minWidth: 120,
       background: isQuestion ? "linear-gradient(135deg,#1e3a5f,#163050)" : "linear-gradient(135deg,#2d1b4e,#1f1038)",
       border: `1px solid ${isQuestion ? "rgba(96,165,250,0.35)" : "rgba(192,132,252,0.35)"}`,
       borderRadius: isLeft ? "14px 14px 14px 4px" : "14px 14px 4px 14px",
@@ -330,6 +337,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const ivHeadRef = useRef<THREE.Mesh | null>(null);
   const cdHeadRef = useRef<THREE.Mesh | null>(null);
+  const ivMouthRef = useRef<THREE.Mesh | null>(null);
+  const cdMouthRef = useRef<THREE.Mesh | null>(null);
   const glowRef = useRef<THREE.PointLight | null>(null);
   const activeSpeakerRef = useRef(0); // 0=none 1=interviewer 2=candidate
   const clockRef = useRef<THREE.Clock | null>(null);
@@ -361,6 +370,7 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
   const [bubbleText, setBubbleText] = useState("");
   const [activeSpeaker, setActiveSpeaker] = useState<"interviewer" | "candidate">("interviewer");
   const [showQuestionText, setShowQuestionText] = useState(false);
+  const [spokenWordIdx, setSpokenWordIdx] = useState(-1);
 
   // Feedback state
   const [allAnswers, setAllAnswers] = useState<AnswerRecord3D[]>([]);
@@ -451,11 +461,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     ivChair.rotation.y = Math.PI / 2;
     scene.add(ivChair);
 
-    const { group: ivGroup, head: ivHead } = buildPerson(0xf0c27f, 0x1e3a5f, 0x180e04);
+    const { group: ivGroup, head: ivHead, mouth: ivMouth } = buildPerson(0xf0c27f, 0x1e3a5f, 0x180e04);
     ivGroup.position.set(-1.28, 0, 0.1);
     ivGroup.rotation.y = Math.PI / 2;
     scene.add(ivGroup);
     ivHeadRef.current = ivHead;
+    ivMouthRef.current = ivMouth;
 
     // ── Candidate (right) ───────────────────────────────────────
     const cdChair = buildChair();
@@ -463,11 +474,12 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     cdChair.rotation.y = -Math.PI / 2;
     scene.add(cdChair);
 
-    const { group: cdGroup, head: cdHead } = buildPerson(0xdba87a, 0x2d1b4e, 0x8B4513);
+    const { group: cdGroup, head: cdHead, mouth: cdMouth } = buildPerson(0xdba87a, 0x2d1b4e, 0x8B4513);
     cdGroup.position.set(1.28, 0, 0.1);
     cdGroup.rotation.y = -Math.PI / 2;
     scene.add(cdGroup);
     cdHeadRef.current = cdHead;
+    cdMouthRef.current = cdMouth;
 
     clockRef.current = new THREE.Clock();
 
@@ -513,6 +525,22 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       // Head bobs
       if (ivHeadRef.current) ivHeadRef.current.position.y = 1.08 + (spk === 1 ? Math.sin(t * 4.2) * 0.013 : Math.sin(t * 0.9) * 0.004);
       if (cdHeadRef.current) cdHeadRef.current.position.y = 1.08 + (spk === 2 ? Math.sin(t * 4.0 + 0.6) * 0.013 : Math.sin(t * 0.85 + 1.2) * 0.004);
+
+      // Mouth animation — open/close when speaking
+      if (ivMouthRef.current) {
+        const openAmt = spk === 1
+          ? 0.015 + Math.abs(Math.sin(t * 12.5)) * 0.035 + Math.abs(Math.sin(t * 7.3)) * 0.015
+          : 0.015;
+        ivMouthRef.current.scale.y = openAmt / 0.015;
+        ivMouthRef.current.position.y = 1.01 - (openAmt - 0.015) * 0.5;
+      }
+      if (cdMouthRef.current) {
+        const openAmt = spk === 2
+          ? 0.015 + Math.abs(Math.sin(t * 11.8 + 0.4)) * 0.035 + Math.abs(Math.sin(t * 6.9 + 0.7)) * 0.015
+          : 0.015;
+        cdMouthRef.current.scale.y = openAmt / 0.015;
+        cdMouthRef.current.position.y = 1.01 - (openAmt - 0.015) * 0.5;
+      }
 
       // Speaker glow
       if (glowRef.current) {
@@ -579,7 +607,8 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
     setInterviewerTalking(true);
     setCandidateTalking(false);
     setActiveSpeaker("interviewer");
-    setShowQuestionText(false);
+    setShowQuestionText(true);
+    setSpokenWordIdx(-1);
 
     window.speechSynthesis.cancel();
 
@@ -601,11 +630,13 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       if (e.name !== "word") return;
       const spokenSoFar = questionText.substring(0, e.charIndex + e.charLength).trim();
       wordIdx = spokenSoFar.split(/\s+/).length - 1;
+      setSpokenWordIdx(wordIdx);
       setBubbleText(words.slice(Math.max(0, wordIdx - 6), wordIdx + 1).join(" "));
     };
 
     utter.onend = () => {
       setInterviewerTalking(false);
+      setSpokenWordIdx(words.length);
       setBubbleText(words.slice(-7).join(" "));
       setMode("recording");
     };
@@ -1048,24 +1079,6 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
             </div>
           )}
 
-          {/* "i" button */}
-          {(mode === "asking" || mode === "recording") && (
-            <button
-              onClick={() => setShowQuestionText((v) => !v)}
-              title={showQuestionText ? "Hide question text" : "Show question text"}
-              style={{
-                width: 34, height: 34, borderRadius: "50%", cursor: "pointer",
-                background: showQuestionText ? "rgba(96,165,250,0.85)" : "rgba(6,12,22,0.85)",
-                color: showQuestionText ? "#fff" : "#94a3b8",
-                fontSize: 18, fontWeight: 800, fontFamily: "serif", fontStyle: "italic",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                border: `1px solid ${showQuestionText ? "#60a5fa" : "rgba(255,255,255,0.1)"}`,
-                transition: "all 0.2s",
-              }}
-            >
-              i
-            </button>
-          )}
           <div style={{
             background: "rgba(6,12,22,0.85)", borderRadius: 999, padding: "6px 16px",
             color: followUpFlags[currentQIdx] ? "#facc15" : "#94a3b8",
@@ -1080,43 +1093,54 @@ export default function InterviewArtifactScene({ questions, onAnswerRecorded, on
       {/* Transcript / question / feedback display */}
       {mode !== "intro" && (
         <div style={{
-          position: "absolute", bottom: 100, left: "50%", transform: "translateX(-50%)",
+          position: "absolute", bottom: 110, left: "50%", transform: "translateX(-50%)",
           width: "88%", maxWidth: 750,
-          background: "rgba(6,12,22,0.88)", borderRadius: 12, padding: "12px 18px",
-          minHeight: 50, maxHeight: mode === "feedback" ? 380 : 160,
-          overflowY: "auto", border: "1px solid rgba(255,255,255,0.08)", backdropFilter: "blur(8px)",
+          background: "rgba(6,12,22,0.92)", borderRadius: 14, padding: "14px 20px",
+          minHeight: 50, maxHeight: mode === "feedback" ? 380 : 280,
+          overflowY: "auto", border: "1px solid rgba(255,255,255,0.1)", backdropFilter: "blur(12px)",
           zIndex: 20,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
         }}>
           {mode === "asking" && (
-            <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.5 }}>
-              <span style={{ color: followUpFlags[currentQIdx] ? "#facc15" : "#60a5fa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1 }}>
+            <div style={{ color: "#e2e8f0", fontSize: 15, lineHeight: 1.7 }}>
+              <span style={{ color: followUpFlags[currentQIdx] ? "#facc15" : "#60a5fa", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5, display: "block", marginBottom: 8 }}>
                 {followUpFlags[currentQIdx] ? "Follow-up Question" : `Question ${currentQIdx + 1}`}
               </span>
-              {showQuestionText ? (
-                <><br />{allQuestions[currentQIdx]}</>
-              ) : (
-                <span style={{ color: "#64748b", fontSize: 13, marginLeft: 10 }}>Listening to interviewer... tap i to read</span>
-              )}
+              <div style={{ fontSize: 16, lineHeight: 1.7, letterSpacing: 0.2 }}>
+                {allQuestions[currentQIdx].split(" ").map((word, i) => (
+                  <span key={i} style={{
+                    color: spokenWordIdx >= i ? "#ffffff" : "rgba(148,163,184,0.5)",
+                    fontWeight: spokenWordIdx === i ? 800 : spokenWordIdx >= i ? 600 : 400,
+                    background: spokenWordIdx === i ? "rgba(96,165,250,0.25)" : "transparent",
+                    borderRadius: spokenWordIdx === i ? 4 : 0,
+                    padding: spokenWordIdx === i ? "1px 4px" : "0 1px",
+                    transition: "all 0.15s ease",
+                  }}>
+                    {word}{" "}
+                  </span>
+                ))}
+              </div>
             </div>
           )}
           {mode === "recording" && (
             <div>
-              {showQuestionText && (
-                <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 6, padding: "4px 8px", background: "rgba(96,165,250,0.08)", borderRadius: 6, borderLeft: "2px solid #60a5fa" }}>
-                  <span style={{ color: "#60a5fa", fontWeight: 700 }}>Q:</span> {allQuestions[currentQIdx]}
-                </div>
-              )}
-              <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.5 }}>
+              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 8, padding: "6px 10px", background: "rgba(96,165,250,0.08)", borderRadius: 8, borderLeft: "3px solid #60a5fa" }}>
+                <span style={{ color: "#60a5fa", fontWeight: 700 }}>Q:</span> {allQuestions[currentQIdx]}
+              </div>
+              <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.6 }}>
                 {transcript || <span style={{ color: "#475569", fontStyle: "italic" }}>Listening... speak your answer</span>}
               </div>
             </div>
           )}
           {mode === "reviewing" && (
             <div>
-              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 6 }}>
-                <span style={{ color: "#c084fc", fontWeight: 700 }}>Your Answer:</span>
+              <div style={{ color: "#94a3b8", fontSize: 11, marginBottom: 4, padding: "5px 10px", background: "rgba(96,165,250,0.06)", borderRadius: 6, borderLeft: "3px solid #60a5fa" }}>
+                <span style={{ color: "#60a5fa", fontWeight: 700 }}>Q:</span> {allQuestions[currentQIdx]}
               </div>
-              <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.5, maxHeight: 100, overflowY: "auto" }}>
+              <div style={{ marginTop: 10, marginBottom: 8 }}>
+                <span style={{ color: "#c084fc", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: 1.5 }}>Your Answer:</span>
+              </div>
+              <div style={{ color: "#e2e8f0", fontSize: 14, lineHeight: 1.7, maxHeight: 180, overflowY: "auto", paddingRight: 6 }}>
                 {transcript || "No transcript captured"}
               </div>
             </div>
